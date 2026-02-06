@@ -9,8 +9,8 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 
 ## 2. Core Application Shell
 - [x] Implement the menu-bar status item with a SwiftUI popover host view.
-- [ ] Set up a shared `EqualizerStore` (ObservableObject) for global state.
-- [ ] Persist minimal preferences (selected devices, bypass state) via UserDefaults.
+- [x] Set up a shared `EqualizerStore` (ObservableObject) for global state.
+- [x] Persist minimal preferences (selected devices, bypass state) via UserDefaults.
 
 ## 3. Audio Engine Foundation
 - [ ] Build `AudioEngineManager` around `AVAudioEngine` with input/output nodes.
