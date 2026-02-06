@@ -5,7 +5,6 @@ import AVFoundation
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
-    let audioEngine = AudioEngineManager()
     weak var store: EqualizerStore? {
         didSet { updatePopoverRootView() }
     }
@@ -20,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.statusItem = statusItem
 
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 320, height: 480)
+        popover.contentSize = NSSize(width: 320, height: 360)
 
         requestMicrophoneAccess()
         updatePopoverRootView()

@@ -104,4 +104,33 @@ final class DeviceManager: ObservableObject {
         }
         return propertySize > 0
     }
+
+    // MARK: - UID Resolution
+
+    /// Returns the AudioDeviceID for a given UID, or nil if not found.
+    /// - Parameter uid: The unique identifier string of the device.
+    /// - Returns: The corresponding AudioDeviceID, or nil if no matching device exists.
+    func deviceID(forUID uid: String) -> AudioDeviceID? {
+        // Check input devices first, then output devices
+        if let device = inputDevices.first(where: { $0.uid == uid }) {
+            return device.id
+        }
+        if let device = outputDevices.first(where: { $0.uid == uid }) {
+            return device.id
+        }
+        return nil
+    }
+
+    /// Returns the AudioDevice for a given UID, or nil if not found.
+    /// - Parameter uid: The unique identifier string of the device.
+    /// - Returns: The corresponding AudioDevice, or nil if no matching device exists.
+    func device(forUID uid: String) -> AudioDevice? {
+        if let device = inputDevices.first(where: { $0.uid == uid }) {
+            return device
+        }
+        if let device = outputDevices.first(where: { $0.uid == uid }) {
+            return device
+        }
+        return nil
+    }
 }

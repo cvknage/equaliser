@@ -22,44 +22,53 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Allow users to pick input/output from the menu UI and reconfigure the engine safely.
 - [x] Remember the last-used devices and auto-reconnect on launch.
 
-## 5. HAL-Based Routing (Current Focus)
+## 5. HAL-Based Routing (Completed)
 ### HALIOManager foundation
-- [ ] Create `HALIOManager` owning a `kAudioUnitSubType_HALOutput` Audio Unit.
-- [ ] Enable input/output scopes and expose `setInputDevice(id:)` / `setOutputDevice(id:)` helpers.
-- [ ] Read device stream formats (ASBD) and apply them to the HAL unit for each scope.
-- [ ] Add lifecycle controls (`initialize`, `start`, `stop`, `uninitialize`) with structured logging + error propagation.
+- [x] Create `HALIOManager` owning a `kAudioUnitSubType_HALOutput` Audio Unit.
+- [x] Enable input/output scopes and expose `setInputDevice(id:)` / `setOutputDevice(id:)` helpers.
+- [x] Read device stream formats (ASBD) and apply them to the HAL unit for each scope.
+- [x] Add lifecycle controls (`initialize`, `start`, `stop`, `uninitialize`) with structured logging + error propagation.
+
+### Dual HAL Architecture
+- [x] Refactor to use two separate HAL units (one input-only, one output-only) since a single HAL unit can only connect to one physical device.
+- [x] Add `HALIOMode` enum (`.inputOnly`, `.outputOnly`) to configure each unit appropriately.
+- [x] Implement ring buffer (`AudioRingBuffer.swift`) for lock-free audio transfer between input and output callbacks.
+- [x] Register input callback on input HAL unit to capture audio and write to ring buffer.
+- [x] Register output callback on output HAL unit to read from ring buffer and process through EQ.
 
 ### Manual render pipeline
-- [ ] Register HAL input/output callbacks that pass audio buffers to/from the EQ pipeline.
-- [ ] Run the dual `AUNBandEQ` chain via `AVAudioEngine` manual rendering (or equivalent AUGraph) and handle buffer/latency alignment.
-- [ ] Guard against rate mismatches (resample or reject) and zero-fill if the EQ render returns insufficient data.
+- [x] Register HAL input/output callbacks that pass audio buffers to/from the EQ pipeline.
+- [x] Run the dual `AUNBandEQ` chain via `AVAudioEngine` manual rendering and handle buffer/latency alignment.
+- [x] Guard against rate mismatches (resample or reject) and zero-fill if the EQ render returns insufficient data.
 
 ### Store & UI integration
-- [ ] Update `EqualizerStore` to own `HALIOManager`, persist selected device UIDs, and trigger rebuilds on change/hot-swap.
-- [ ] Surface routing status/errors to the menu UI (e.g., "Routing BlackHole ▶︎ Built-in Output" or warning on failure).
+- [x] Update `EqualizerStore` to own `RenderPipeline`, persist selected device UIDs, and trigger rebuilds on change.
+- [x] Surface routing status/errors to the menu UI (e.g., "BlackHole 2ch → Built-in Output" or warning on failure).
+- [x] Add Start/Stop routing buttons with proper state management.
 - [ ] Add optional level meter or debug log toggle so we can verify signal presence without leaving the app.
+- [ ] Add device hot-swap handling (listener for device changes).
 
 ### Testing & validation
-- [ ] Scenario: macOS output → BlackHole, app input=BlackHole, output=Built-in Output; verify audio through speakers.
+- [x] Scenario: macOS output → BlackHole, app input=BlackHole, output=Built-in Output; verified audio through speakers.
 - [ ] Scenario: hot-swap output (e.g., to headphones) mid-stream and confirm seamless switch.
 - [ ] Scenario: device removed or mic permission denied; ensure graceful fallback messaging.
 
-## 5. Equalizer Controls UI
+## 6. Equalizer Controls UI (Next Focus)
 - [ ] Design compact 32-band controls (group sliders or paged sections) with gain/Q/frequency readouts.
 - [ ] Add fine-adjust increment buttons and keyboard nudging for focused bands.
 - [ ] Display real-time level meters or band activity indicators (optional stretch goal).
 
-## 6. Presets & Profiles
+## 7. Presets & Profiles
 - [ ] Create preset model (name + 32 band settings + metadata).
 - [ ] Support save, rename, delete, and quick-apply presets from the popover.
 - [ ] Provide a default "Flat" preset and optionally ship a few sample curves.
 
-## 7. Onboarding & Settings
+## 8. Onboarding & Settings
 - [ ] Offer a lightweight settings window for startup behavior and BlackHole instructions.
 - [ ] Include a global bypass toggle and emergency reset-to-flat control.
 - [ ] Add analytics/diagnostics hooks if needed (log gain changes, device switches).
 
-## 8. Testing & Release Prep
+## 9. Testing & Release Prep
 - [ ] Add unit tests for band-mapping logic and preset serialization.
 - [ ] Build an integration harness that feeds sample audio through both EQ units for verification.
 - [ ] Prepare signed/notarized builds and optionally integrate Sparkle or TestFlight for updates.

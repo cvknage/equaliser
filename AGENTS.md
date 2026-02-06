@@ -65,14 +65,30 @@ equalizer/
 └── EqualizerApp/
     ├── Package.swift         # SPM manifest
     ├── EqualizerApp.entitlements
+    ├── README.md
     ├── Sources/EqualizerApp/
-    │   ├── EqualizerAppApp.swift      # @main entry point
+    │   ├── EqualizerAppApp.swift      # @main entry point + ContentView
     │   ├── AppDelegate.swift          # NSApplicationDelegate, menu bar
     │   ├── EqualizerStore.swift       # Global state (ObservableObject)
-    │   ├── AudioEngineManager.swift   # AVAudioEngine + EQ units
+    │   │
+    │   │   # Audio Pipeline (HAL + AVAudioEngine)
+    │   ├── HALIOManager.swift         # HAL audio unit management (input/output modes)
+    │   ├── HALIOError.swift           # Error types for HAL operations
+    │   ├── RenderPipeline.swift       # Orchestrates dual HAL + EQ processing
+    │   ├── RenderCallbackContext.swift # Pre-allocated buffers for audio callbacks
+    │   ├── AudioRingBuffer.swift      # Lock-free SPSC ring buffer
+    │   ├── ManualRenderingEngine.swift # AVAudioEngine in manual rendering mode
+    │   ├── AudioRenderContext.swift   # Wraps AVAudioEngine's manualRenderingBlock
+    │   ├── EQConfiguration.swift      # EQ band settings storage
+    │   ├── ParameterSmoother.swift    # Smooth parameter ramping (actor)
+    │   │
+    │   │   # Device Management
     │   ├── DeviceManager.swift        # Core Audio device enumeration
-    │   ├── DevicePickerView.swift     # Device selection UI
-    │   └── ParameterSmoother.swift    # Smooth parameter ramping (actor)
+    │   │
+    │   │   # UI Components
+    │   ├── DevicePickerView.swift     # Device selection pickers
+    │   └── RoutingStatusView.swift    # Routing status display
+    │
     └── Tests/EqualizerAppTests/
         └── EqualizerAppTests.swift
 ```
@@ -183,18 +199,94 @@ do {
 
 - `EqualizerStore`: Central `ObservableObject` for app state
 - Persists preferences via `UserDefaults`
-- Owns reference to `AudioEngineManager`
+- Owns reference to `RenderPipeline`
 
-### Audio Pipeline
+### Audio Pipeline Architecture
 
-- Dual `AUNBandEQ` units (16 bands each = 32 total)
-- Connected via `AVAudioEngine` graph
-- Parameter smoothing via `ParameterSmoother` actor
+The app routes audio from an input device (e.g., BlackHole) through an EQ chain to an output device (e.g., speakers). This requires **two separate HAL audio units** because a single HAL unit can only connect to one physical device.
+
+```
+[Input Device] → [Input HAL Unit] → [Input Callback] → [Ring Buffer]
+                                                             ↓
+[Output Callback] ← reads ← [Ring Buffer]
+        ↓
+[AVAudioEngine Manual Rendering]
+        ↓
+[Dual AUNBandEQ (16 bands × 2 = 32 total)]
+        ↓
+[Output HAL Unit] → [Output Device]
+```
+
+**Key Components:**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `HALIOManager` | `HALIOManager.swift` | Manages a single HAL audio unit in `.inputOnly` or `.outputOnly` mode |
+| `RenderPipeline` | `RenderPipeline.swift` | Orchestrates two HAL managers + AVAudioEngine |
+| `AudioRingBuffer` | `AudioRingBuffer.swift` | Lock-free SPSC buffer for inter-callback audio transfer |
+| `ManualRenderingEngine` | `ManualRenderingEngine.swift` | AVAudioEngine configured for offline/manual rendering |
+| `RenderCallbackContext` | `RenderCallbackContext.swift` | Pre-allocated buffers passed to audio callbacks |
 
 ### Menu Bar App
 
 - `AppDelegate` manages `NSStatusItem` and `NSPopover`
 - SwiftUI views hosted via `NSHostingController`
+
+## Core Audio Learnings
+
+Critical knowledge for working with HAL audio units in this codebase.
+
+### What Works
+
+| Pattern | Description |
+|---------|-------------|
+| Dual HAL units | Use separate `HALIOManager` instances for input and output devices |
+| Ring buffer | `AudioRingBuffer` decouples input/output device clocks safely |
+| Input callback | Register via `kAudioOutputUnitProperty_SetInputCallback` on input-only HAL |
+| Non-interleaved format | Use `kAudioFormatFlagIsNonInterleaved` Float32 for AVAudioEngine compatibility |
+| Manual rendering | `AVAudioEngine.enableManualRenderingMode()` for offline processing in callbacks |
+
+### What Does NOT Work
+
+| Approach | Problem | Error |
+|----------|---------|-------|
+| Single HAL for input+output | `kAudioOutputUnitProperty_CurrentDevice` is global; setting input device overwrites output | -10851 |
+| AudioUnitRender on input-only HAL from output callback | Input HAL captures asynchronously via its own IOProc; cannot be pulled on-demand | -10863 |
+| Synchronous cross-device pull | Different device clocks cause drift and glitches | Audio artifacts |
+
+### Error Codes Reference
+
+| Code | Constant | Meaning |
+|------|----------|---------|
+| 0 | `noErr` | Success |
+| -50 | `paramErr` | Buffer format mismatch or invalid parameter |
+| -10851 | `kAudioUnitErr_InvalidPropertyValue` | Device/property not valid for this scope |
+| -10863 | `kAudioUnitErr_NoConnection` | No input connected to pull from (wrong architecture) |
+
+### HAL Audio Unit Scopes and Elements
+
+Understanding scopes and elements is critical for HAL configuration:
+
+```
+                    ┌─────────────────────────────────────┐
+                    │         HAL Audio Unit              │
+                    │                                     │
+[Hardware Input] ──▶│ Element 1 (Input)                   │
+                    │   - Input Scope: hardware format    │
+                    │   - Output Scope: client format ────┼──▶ [Your Callback]
+                    │                                     │
+[Your Callback] ───▶│ Element 0 (Output)                  │
+                    │   - Input Scope: client format      │
+                    │   - Output Scope: hardware format ──┼──▶ [Hardware Output]
+                    └─────────────────────────────────────┘
+```
+
+**Key Points:**
+- **Element 1** = Input path (microphone/capture)
+- **Element 0** = Output path (speakers/playback)
+- For input-only: enable Element 1, disable Element 0
+- For output-only: enable Element 0 (default), Element 1 stays disabled
+- Set client format on the "opposite" scope (Output scope of Element 1 for input, Input scope of Element 0 for output)
 
 ## Entitlements
 
