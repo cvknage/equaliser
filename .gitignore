@@ -1,0 +1,5 @@
+EqualizerApp/.build/
+EqualizerApp/.swiftpm/
+EqualizerApp/.DS_Store
+EqualizerApp/EqualizerApp.xcodeproj/
+.DS_Store
