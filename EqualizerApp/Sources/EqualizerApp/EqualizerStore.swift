@@ -3,7 +3,10 @@ import Foundation
 @MainActor
 final class EqualizerStore: ObservableObject {
     @Published var isBypassed: Bool = false {
-        didSet { persist() }
+        didSet {
+            persist()
+            audioEngine?.setBypassed(isBypassed)
+        }
     }
 
     @Published var selectedInputDeviceID: String? {
@@ -12,6 +15,14 @@ final class EqualizerStore: ObservableObject {
 
     @Published var selectedOutputDeviceID: String? {
         didSet { persist() }
+    }
+
+    private let smoother = ParameterSmoother()
+
+    var audioEngine: AudioEngineManager? {
+        didSet {
+            audioEngine?.setBypassed(isBypassed)
+        }
     }
 
     private let storage = UserDefaults.standard

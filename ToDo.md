@@ -13,9 +13,9 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Persist minimal preferences (selected devices, bypass state) via UserDefaults.
 
 ## 3. Audio Engine Foundation
-- [ ] Build `AudioEngineManager` around `AVAudioEngine` with input/output nodes.
-- [ ] Insert two `AUNBandEQ` units (bands 1–16 and 17–32) plus optional limiter node.
-- [ ] Add smooth parameter ramping utilities to avoid zipper noise.
+- [x] Build `AudioEngineManager` around `AVAudioEngine` with input/output nodes.
+- [x] Insert two `AUNBandEQ` units (bands 1–16 and 17–32) plus optional limiter node.
+- [x] Add smooth parameter ramping utilities to avoid zipper noise.
 
 ## 4. Device Selection Flow
 - [ ] Implement `DeviceManager` to list Core Audio input/output devices (including BlackHole).

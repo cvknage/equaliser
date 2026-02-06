@@ -4,6 +4,10 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
+    let audioEngine = AudioEngineManager()
+    weak var store: EqualizerStore? {
+        didSet { updatePopoverRootView() }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -16,7 +20,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 320, height: 480)
-        popover.contentViewController = NSHostingController(rootView: ContentView())
+        updatePopoverRootView()
+    }
+
+    private func updatePopoverRootView() {
+        if let store {
+            popover.contentViewController = NSHostingController(rootView: ContentView().environmentObject(store))
+        } else {
+            popover.contentViewController = NSHostingController(rootView: ContentView())
+        }
     }
 
     @objc
