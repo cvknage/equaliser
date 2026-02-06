@@ -1,0 +1,107 @@
+import Foundation
+import CoreAudio
+
+struct AudioDevice: Identifiable, Equatable {
+    let id: AudioDeviceID
+    let uid: String
+    let name: String
+    let isInput: Bool
+    let isOutput: Bool
+
+    var displayName: String { name }
+}
+
+@MainActor
+final class DeviceManager: ObservableObject {
+    @Published private(set) var inputDevices: [AudioDevice] = []
+    @Published private(set) var outputDevices: [AudioDevice] = []
+
+    init() {
+        refreshDevices()
+    }
+
+    func refreshDevices() {
+        var propertySize: UInt32 = 0
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &propertySize) == noErr else {
+            return
+        }
+
+        let deviceCount = Int(propertySize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
+
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &propertySize, &deviceIDs) == noErr else {
+            return
+        }
+
+        var inputs: [AudioDevice] = []
+        var outputs: [AudioDevice] = []
+
+        for deviceID in deviceIDs {
+            if let device = makeDevice(from: deviceID) {
+                if device.isInput { inputs.append(device) }
+                if device.isOutput { outputs.append(device) }
+            }
+        }
+
+        inputDevices = inputs.sorted { $0.name < $1.name }
+        outputDevices = outputs.sorted { $0.name < $1.name }
+    }
+
+    private func makeDevice(from id: AudioDeviceID) -> AudioDevice? {
+        guard let uid = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceUID),
+              let name = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceNameCFString)
+        else { return nil }
+
+        let hasInput = hasStreams(id: id, scope: kAudioDevicePropertyScopeInput)
+        let hasOutput = hasStreams(id: id, scope: kAudioDevicePropertyScopeOutput)
+
+        return AudioDevice(
+            id: id,
+            uid: uid,
+            name: name,
+            isInput: hasInput,
+            isOutput: hasOutput
+        )
+    }
+
+    private func fetchStringProperty(id: AudioDeviceID, selector: AudioObjectPropertySelector) -> String? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var dataSize: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(id, &address, 0, nil, &dataSize) == noErr else {
+            return nil
+        }
+
+        let buffer = UnsafeMutableRawPointer.allocate(byteCount: Int(dataSize), alignment: MemoryLayout<UInt8>.alignment)
+        defer { buffer.deallocate() }
+
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &dataSize, buffer) == noErr else {
+            return nil
+        }
+
+        let unmanaged = buffer.bindMemory(to: Unmanaged<CFString>.self, capacity: 1)
+        return unmanaged.pointee.takeRetainedValue() as String
+    }
+
+    private func hasStreams(id: AudioDeviceID, scope: AudioObjectPropertyScope) -> Bool {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyStreams,
+            mScope: scope,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var propertySize: UInt32 = 0
+        if AudioObjectGetPropertyDataSize(id, &address, 0, nil, &propertySize) != noErr {
+            return false
+        }
+        return propertySize > 0
+    }
+}

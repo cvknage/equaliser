@@ -18,9 +18,31 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Add smooth parameter ramping utilities to avoid zipper noise.
 
 ## 4. Device Selection Flow
-- [ ] Implement `DeviceManager` to list Core Audio input/output devices (including BlackHole).
-- [ ] Allow users to pick input/output from the menu UI and reconfigure the engine safely.
-- [ ] Remember the last-used devices and auto-reconnect on launch.
+- [x] Implement `DeviceManager` to list Core Audio input/output devices (including BlackHole).
+- [x] Allow users to pick input/output from the menu UI and reconfigure the engine safely.
+- [x] Remember the last-used devices and auto-reconnect on launch.
+
+## 5. HAL-Based Routing (Current Focus)
+### HALIOManager foundation
+- [ ] Create `HALIOManager` owning a `kAudioUnitSubType_HALOutput` Audio Unit.
+- [ ] Enable input/output scopes and expose `setInputDevice(id:)` / `setOutputDevice(id:)` helpers.
+- [ ] Read device stream formats (ASBD) and apply them to the HAL unit for each scope.
+- [ ] Add lifecycle controls (`initialize`, `start`, `stop`, `uninitialize`) with structured logging + error propagation.
+
+### Manual render pipeline
+- [ ] Register HAL input/output callbacks that pass audio buffers to/from the EQ pipeline.
+- [ ] Run the dual `AUNBandEQ` chain via `AVAudioEngine` manual rendering (or equivalent AUGraph) and handle buffer/latency alignment.
+- [ ] Guard against rate mismatches (resample or reject) and zero-fill if the EQ render returns insufficient data.
+
+### Store & UI integration
+- [ ] Update `EqualizerStore` to own `HALIOManager`, persist selected device UIDs, and trigger rebuilds on change/hot-swap.
+- [ ] Surface routing status/errors to the menu UI (e.g., "Routing BlackHole ▶︎ Built-in Output" or warning on failure).
+- [ ] Add optional level meter or debug log toggle so we can verify signal presence without leaving the app.
+
+### Testing & validation
+- [ ] Scenario: macOS output → BlackHole, app input=BlackHole, output=Built-in Output; verify audio through speakers.
+- [ ] Scenario: hot-swap output (e.g., to headphones) mid-stream and confirm seamless switch.
+- [ ] Scenario: device removed or mic permission denied; ensure graceful fallback messaging.
 
 ## 5. Equalizer Controls UI
 - [ ] Design compact 32-band controls (group sliders or paged sections) with gain/Q/frequency readouts.

@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -20,7 +21,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 320, height: 480)
+
+        requestMicrophoneAccess()
         updatePopoverRootView()
+    }
+
+    private func requestMicrophoneAccess() {
+        AVAudioApplication.requestRecordPermission { granted in
+            if !granted {
+                print("Microphone access denied. Audio routing will be unavailable.")
+            }
+        }
     }
 
     private func updatePopoverRootView() {
