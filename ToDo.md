@@ -53,14 +53,34 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Scenario: hot-swap output (e.g., to headphones) mid-stream and confirm seamless switch.
 - [ ] Scenario: device removed or mic permission denied; ensure graceful fallback messaging.
 
-## 6. Equalizer Controls UI (Next Focus)
-- [ ] Design compact 32-band controls (group sliders or paged sections) with gain/Q/frequency readouts.
-- [ ] Add fine-adjust increment buttons and keyboard nudging for focused bands.
+## 6. Window Architecture (Completed)
+- [x] Refactor app to use `MenuBarExtra` + `Window` instead of `WindowGroup` + `AppDelegate` popover.
+- [x] Hide dock icon permanently (`NSApp.setActivationPolicy(.accessory)`).
+- [x] Add "Open EQ Settings" button in menu bar popover to show main window.
+- [x] Create placeholder `EQWindowView` for the main EQ window.
+- [x] Move mic permission request from `AppDelegate` to app initialization.
+- [x] Remove `AppDelegate` (no longer needed with `MenuBarExtra`).
+- [ ] Main window should hide (not close) when user clicks close button.
+
+### Window Roles
+
+| Window | Purpose |
+|--------|---------|
+| Menu Bar Popover | Quick access: device selection, routing, bypass, preset picker, open EQ settings |
+| Main EQ Window | Detailed 32-band EQ controls, preset management, advanced settings |
+
+## 7. Equalizer Controls UI (Completed)
+- [x] Design compact 32-band controls in the main EQ window (horizontal scrolling sliders).
+- [x] Add gain/frequency readouts for each band.
+- [x] Add "Flatten" button to reset all bands to 0 dB.
+- [x] Double-tap on any band slider to reset it to 0 dB.
+- [ ] Add fine-adjust increment buttons and keyboard nudging for focused bands (optional).
 - [ ] Display real-time level meters or band activity indicators (optional stretch goal).
 
-## 7. Presets & Profiles
+## 8. Presets & Profiles
 - [ ] Create preset model (name + 32 band settings + metadata).
-- [ ] Support save, rename, delete, and quick-apply presets from the popover.
+- [ ] Add preset dropdown/list to menu bar popover for quick switching.
+- [ ] Support save, rename, delete presets in main EQ window.
 - [ ] Provide a default "Flat" preset and optionally ship a few sample curves.
 
 ## 8. Onboarding & Settings
