@@ -67,8 +67,7 @@ equalizer/
     ├── EqualizerApp.entitlements
     ├── README.md
     ├── Sources/EqualizerApp/
-    │   ├── EqualizerAppApp.swift      # @main entry point + ContentView
-    │   ├── AppDelegate.swift          # NSApplicationDelegate, menu bar
+    │   ├── EqualizerAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
     │   ├── EqualizerStore.swift       # Global state (ObservableObject)
     │   │
     │   │   # Audio Pipeline (HAL + AVAudioEngine)
@@ -79,7 +78,7 @@ equalizer/
     │   ├── AudioRingBuffer.swift      # Lock-free SPSC ring buffer
     │   ├── ManualRenderingEngine.swift # AVAudioEngine in manual rendering mode
     │   ├── AudioRenderContext.swift   # Wraps AVAudioEngine's manualRenderingBlock
-    │   ├── EQConfiguration.swift      # EQ band settings storage
+    │   ├── EQConfiguration.swift      # EQ band settings storage (32 bands)
     │   ├── ParameterSmoother.swift    # Smooth parameter ramping (actor)
     │   │
     │   │   # Device Management
@@ -146,7 +145,7 @@ func bandMapping(for index: Int) -> (AVAudioUnitEQ, Int)
 
 This project uses Swift 6 strict concurrency:
 
-- **Main Actor**: Use `@MainActor` on UI-bound classes (`AppDelegate`, `EqualizerStore`, `AudioEngineManager`, `DeviceManager`)
+- **Main Actor**: Use `@MainActor` on UI-bound classes (`EqualizerStore`, `DeviceManager`, `EQConfiguration`)
 - **Actors**: Use `actor` for thread-safe isolated state (`ParameterSmoother`)
 - **Sendable**: Ensure types crossing actor boundaries are `Sendable`
 - **Task**: Use structured concurrency with `Task` and `async/await`
@@ -229,8 +228,69 @@ The app routes audio from an input device (e.g., BlackHole) through an EQ chain 
 
 ### Menu Bar App
 
-- `AppDelegate` manages `NSStatusItem` and `NSPopover`
-- SwiftUI views hosted via `NSHostingController`
+The app uses SwiftUI's native `MenuBarExtra` for the menu bar interface:
+
+- **`MenuBarExtra`**: Provides the menu bar icon and popover window
+- **`Window(id:)`**: Separate window for detailed EQ controls, opened on demand
+- **No `AppDelegate`**: Pure SwiftUI app lifecycle with `@main` struct
+
+```swift
+@main
+struct EqualizerAppMain: App {
+    var body: some Scene {
+        Window("Equalizer Settings", id: "eq-settings") { ... }
+        MenuBarExtra("Equalizer", systemImage: "slider.horizontal.3") { ... }
+            .menuBarExtraStyle(.window)
+    }
+}
+```
+
+## SwiftUI App Lifecycle Learnings
+
+Critical knowledge for menu bar apps using SwiftUI's `@main` lifecycle.
+
+### NSApp Availability
+
+`NSApp` (aka `NSApplication.shared`) is **nil** during the `@main` struct's `init()`. Any code that accesses `NSApp` must be deferred:
+
+```swift
+// WRONG - crashes with nil unwrap
+init() {
+    NSApp.setActivationPolicy(.accessory)  // NSApp is nil here!
+}
+
+// CORRECT - defer to next run loop
+init() {
+    DispatchQueue.main.async {
+        NSApp.setActivationPolicy(.accessory)  // NSApp exists now
+    }
+}
+```
+
+### Hiding the Dock Icon
+
+For a menu-bar-only app, use `.accessory` activation policy:
+
+```swift
+DispatchQueue.main.async {
+    NSApp.setActivationPolicy(.accessory)
+}
+```
+
+This hides the dock icon while keeping the menu bar extra visible.
+
+### Opening Windows Programmatically
+
+Use `@Environment(\.openWindow)` with a window ID:
+
+```swift
+@Environment(\.openWindow) private var openWindow
+
+Button("Open Settings") {
+    openWindow(id: "eq-settings")
+    NSApp.activate(ignoringOtherApps: true)  // Bring to front
+}
+```
 
 ## Core Audio Learnings
 
