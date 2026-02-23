@@ -239,20 +239,23 @@ struct EQBandGridView: View {
     @EnvironmentObject var store: EqualizerStore
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                ForEach(0..<store.bandCount, id: \.self) { index in
-                    EQBandSliderView(
-                        index: index,
-                        frequency: store.eqConfiguration.bands[index].frequency,
-                        gain: Binding(
-                            get: { store.eqConfiguration.bands[index].gain },
-                            set: { store.updateBandGain(index: index, gain: $0) }
+        GeometryReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(0..<store.bandCount, id: \.self) { index in
+                        EQBandSliderView(
+                            index: index,
+                            frequency: store.eqConfiguration.bands[index].frequency,
+                            gain: Binding(
+                                get: { store.eqConfiguration.bands[index].gain },
+                                set: { store.updateBandGain(index: index, gain: $0) }
+                            )
                         )
-                    )
+                    }
                 }
+                .frame(minWidth: max(0, proxy.size.width - 24), maxWidth: .infinity, alignment: .center)
+                .padding(.horizontal, 12)
             }
-            .padding(.horizontal, 12)
         }
     }
 }
