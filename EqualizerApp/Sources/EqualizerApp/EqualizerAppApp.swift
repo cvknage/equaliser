@@ -227,34 +227,42 @@ struct EQBandSliderView: View {
 
             // Vertical slider (custom)
             GeometryReader { geo in
-                ZStack(alignment: .bottom) {
+                let height = geo.size.height
+                let halfHeight = height / 2
+                let positiveRatio = min(max(gain / maxGain, 0), 1)
+                let negativeRatio = min(max(abs(gain) / abs(minGain), 0), 1)
+                let positiveHeight = CGFloat(positiveRatio) * halfHeight
+                let negativeHeight = gain < 0 ? CGFloat(negativeRatio) * halfHeight : 0
+                let normalizedGain = CGFloat((gain - minGain) / (maxGain - minGain))
+                let thumbOffset = (0.5 - normalizedGain) * height
+
+                ZStack {
                     // Track background
                     RoundedRectangle(cornerRadius: 2)
                         .fill(Color.gray.opacity(0.2))
-                        .frame(width: 6)
+                        .frame(width: 6, height: height)
 
                     // Zero line indicator
                     Rectangle()
-                        .fill(Color.gray.opacity(0.5))
+                        .fill(Color.gray.opacity(0.6))
                         .frame(width: 12, height: 1)
-                        .offset(y: -geo.size.height / 2)
 
-                    // Filled portion (from center)
-                    let normalizedGain = CGFloat((gain - minGain) / (maxGain - minGain))
-                    let centerY = geo.size.height / 2
-
-                    if gain >= 0 {
-                        // Positive gain: fill from center upward
+                    // Positive fill (extends upward from zero)
+                    if gain > 0 {
                         RoundedRectangle(cornerRadius: 2)
                             .fill(fillColor)
-                            .frame(width: 6, height: centerY * CGFloat(gain / maxGain))
-                            .offset(y: -centerY + centerY * CGFloat(gain / maxGain) / 2)
-                    } else {
-                        // Negative gain: fill from center downward
+                            .frame(width: 6, height: positiveHeight)
+                            .offset(y: -positiveHeight / 2)
+                            .animation(.easeOut(duration: 0.08), value: gain)
+                    }
+
+                    // Negative fill (extends downward from zero)
+                    if gain < 0 {
                         RoundedRectangle(cornerRadius: 2)
                             .fill(fillColor)
-                            .frame(width: 6, height: centerY * CGFloat(-gain / minGain))
-                            .offset(y: -centerY / 2 + centerY * CGFloat(-gain / minGain) / 2)
+                            .frame(width: 6, height: negativeHeight)
+                            .offset(y: negativeHeight / 2)
+                            .animation(.easeOut(duration: 0.08), value: gain)
                     }
 
                     // Thumb
@@ -262,9 +270,9 @@ struct EQBandSliderView: View {
                         .fill(Color.white)
                         .shadow(radius: 1)
                         .frame(width: 14, height: 14)
-                        .offset(y: -(normalizedGain * geo.size.height - 7))
+                        .offset(y: thumbOffset)
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)

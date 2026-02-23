@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import os.log
 
@@ -62,6 +63,7 @@ final class EqualizerStore: ObservableObject {
 
     private let storage = UserDefaults.standard
     private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "EqualizerStore")
+    private var cancellables = Set<AnyCancellable>()
 
     private enum Keys {
         static let bypass = "equalizer.bypass"
@@ -104,6 +106,13 @@ final class EqualizerStore: ObservableObject {
                 self.reconfigureRouting()
             }
         }
+
+        eqConfiguration.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Persistence
