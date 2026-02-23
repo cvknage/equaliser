@@ -25,6 +25,12 @@ struct EQBandConfiguration: Sendable {
 /// audio hardware initialization.
 @MainActor
 final class EQConfiguration: ObservableObject {
+    // MARK: - Constants
+
+    static let maxBandCount: Int = 64
+    static let defaultBandCount: Int = 32
+    static let defaultBandwidth: Float = 0.67
+
     // MARK: - Published Properties
 
     /// Global bypass for all EQ bands.
@@ -33,89 +39,100 @@ final class EQConfiguration: ObservableObject {
     /// Global gain applied to the EQ output.
     @Published var globalGain: Float = 0
 
-    /// Configuration for all 32 EQ bands.
+    /// Current number of active bands exposed to the UI and audio engine.
+    @Published private(set) var activeBandCount: Int
+
+    /// Configuration for all bands (always sized to `maxBandCount`).
     @Published private(set) var bands: [EQBandConfiguration]
-
-    // MARK: - Constants
-
-    /// Default center frequencies for the 32-band EQ.
-    static let defaultFrequencies: [Float] = [
-        31.5, 40, 50, 63, 80, 100, 125, 160,
-        200, 250, 315, 400, 500, 630, 800, 1000,
-        1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300,
-        8000, 10000, 12500, 16000, 20000, 22050, 24000, 26000
-    ]
-
-    /// Default bandwidth in octaves.
-    static let defaultBandwidth: Float = 0.67
-
-    /// Total number of EQ bands.
-    static let bandCount: Int = 32
 
     // MARK: - Initialization
 
-    init() {
-        // Initialize all 32 bands with default frequencies
-        bands = Self.defaultFrequencies.map { frequency in
-            EQBandConfiguration.parametric(frequency: frequency, bandwidth: Self.defaultBandwidth)
+    init(initialBandCount: Int = EQConfiguration.defaultBandCount) {
+        let frequencies = EQConfiguration.defaultFrequencies()
+        bands = frequencies.map { frequency in
+            EQBandConfiguration.parametric(
+                frequency: frequency,
+                bandwidth: EQConfiguration.defaultBandwidth
+            )
+        }
+        activeBandCount = EQConfiguration.clampBandCount(initialBandCount)
+    }
+
+    // MARK: - Band Count Management
+
+    /// Sets the number of active bands, clamping to the supported range.
+    /// - Returns: The clamped value actually set.
+    @discardableResult
+    func setActiveBandCount(_ newValue: Int) -> Int {
+        let clamped = EQConfiguration.clampBandCount(newValue)
+        if clamped != activeBandCount {
+            activeBandCount = clamped
+        }
+        return clamped
+    }
+
+    static func clampBandCount(_ value: Int) -> Int {
+        min(max(1, value), maxBandCount)
+    }
+
+    // MARK: - Default Frequencies
+
+    /// Generates logarithmically spaced default frequencies for all 64 bands.
+    private static func defaultFrequencies() -> [Float] {
+        let minFrequency: Float = 20
+        let maxFrequency: Float = 26000
+        let steps = maxBandCount - 1
+        let ratio = pow(maxFrequency / minFrequency, 1 / Float(steps))
+
+        return (0..<maxBandCount).map { index in
+            minFrequency * pow(ratio, Float(index))
         }
     }
 
     // MARK: - Band Updates
 
+    private func isValidIndex(_ index: Int) -> Bool {
+        index >= 0 && index < bands.count
+    }
+
     /// Updates the gain for a specific band.
-    /// - Parameters:
-    ///   - index: The band index (0-31).
-    ///   - gain: The gain value in dB.
     func updateBandGain(index: Int, gain: Float) {
-        guard index >= 0 && index < bands.count else { return }
+        guard isValidIndex(index) else { return }
         bands[index].gain = gain
     }
 
     /// Updates the bandwidth for a specific band.
-    /// - Parameters:
-    ///   - index: The band index (0-31).
-    ///   - bandwidth: The bandwidth in octaves.
     func updateBandBandwidth(index: Int, bandwidth: Float) {
-        guard index >= 0 && index < bands.count else { return }
+        guard isValidIndex(index) else { return }
         bands[index].bandwidth = bandwidth
     }
 
     /// Updates the frequency for a specific band.
-    /// - Parameters:
-    ///   - index: The band index (0-31).
-    ///   - frequency: The center frequency in Hz.
     func updateBandFrequency(index: Int, frequency: Float) {
-        guard index >= 0 && index < bands.count else { return }
+        guard isValidIndex(index) else { return }
         bands[index].frequency = frequency
     }
 
     /// Updates the bypass state for a specific band.
-    /// - Parameters:
-    ///   - index: The band index (0-31).
-    ///   - bypass: Whether the band should be bypassed.
     func updateBandBypass(index: Int, bypass: Bool) {
-        guard index >= 0 && index < bands.count else { return }
+        guard isValidIndex(index) else { return }
         bands[index].bypass = bypass
     }
 
-    // MARK: - Apply to EQ Units
+    // MARK: - EQ Application Helpers
 
-    /// Applies this configuration to a pair of AVAudioUnitEQ instances.
-    /// - Parameters:
-    ///   - eqUnitA: The first EQ unit (bands 0-15).
-    ///   - eqUnitB: The second EQ unit (bands 16-31).
-    func apply(to eqUnitA: AVAudioUnitEQ, _ eqUnitB: AVAudioUnitEQ) {
-        eqUnitA.bypass = globalBypass
-        eqUnitB.bypass = globalBypass
-        eqUnitA.globalGain = globalGain
-        eqUnitB.globalGain = globalGain
+    func apply(to eqUnits: [AVAudioUnitEQ]) {
+        guard !eqUnits.isEmpty else { return }
 
-        for (index, config) in bands.enumerated() {
-            let (unit, bandIndex) = index < 16
-                ? (eqUnitA, index)
-                : (eqUnitB, index - 16)
+        for unit in eqUnits {
+            unit.bypass = globalBypass
+            unit.globalGain = globalGain
+        }
 
+        let targetCount = min(activeBandCount, totalCapacity(of: eqUnits))
+        for index in 0..<targetCount {
+            guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { continue }
+            let config = bands[index]
             let band = unit.bands[bandIndex]
             band.filterType = config.filterType
             band.frequency = config.frequency
@@ -125,43 +142,43 @@ final class EQConfiguration: ObservableObject {
         }
     }
 
-    /// Updates the bypass state on live EQ units.
-    /// - Parameters:
-    ///   - eqUnitA: The first EQ unit.
-    ///   - eqUnitB: The second EQ unit.
-    func applyBypass(to eqUnitA: AVAudioUnitEQ, _ eqUnitB: AVAudioUnitEQ) {
-        eqUnitA.bypass = globalBypass
-        eqUnitB.bypass = globalBypass
+    func applyBypass(to eqUnits: [AVAudioUnitEQ]) {
+        for unit in eqUnits {
+            unit.bypass = globalBypass
+        }
     }
 
-    /// Updates a single band's gain on live EQ units.
-    /// - Parameters:
-    ///   - index: The band index (0-31).
-    ///   - eqUnitA: The first EQ unit (bands 0-15).
-    ///   - eqUnitB: The second EQ unit (bands 16-31).
-    func applyBandGain(index: Int, to eqUnitA: AVAudioUnitEQ, _ eqUnitB: AVAudioUnitEQ) {
-        guard index >= 0 && index < bands.count else { return }
-        let (unit, bandIndex) = index < 16
-            ? (eqUnitA, index)
-            : (eqUnitB, index - 16)
+    func applyBandGain(index: Int, to eqUnits: [AVAudioUnitEQ]) {
+        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
         unit.bands[bandIndex].gain = bands[index].gain
     }
 
-    /// Updates a single band's bandwidth on live EQ units.
-    func applyBandBandwidth(index: Int, to eqUnitA: AVAudioUnitEQ, _ eqUnitB: AVAudioUnitEQ) {
-        guard index >= 0 && index < bands.count else { return }
-        let (unit, bandIndex) = index < 16
-            ? (eqUnitA, index)
-            : (eqUnitB, index - 16)
+    func applyBandBandwidth(index: Int, to eqUnits: [AVAudioUnitEQ]) {
+        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
         unit.bands[bandIndex].bandwidth = bands[index].bandwidth
     }
 
-    /// Updates a single band's frequency on live EQ units.
-    func applyBandFrequency(index: Int, to eqUnitA: AVAudioUnitEQ, _ eqUnitB: AVAudioUnitEQ) {
-        guard index >= 0 && index < bands.count else { return }
-        let (unit, bandIndex) = index < 16
-            ? (eqUnitA, index)
-            : (eqUnitB, index - 16)
+    func applyBandFrequency(index: Int, to eqUnits: [AVAudioUnitEQ]) {
+        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
         unit.bands[bandIndex].frequency = bands[index].frequency
+    }
+
+    // MARK: - Helpers
+
+    private func totalCapacity(of eqUnits: [AVAudioUnitEQ]) -> Int {
+        eqUnits.reduce(0) { $0 + $1.bands.count }
+    }
+
+    private func bandLocation(for index: Int, in eqUnits: [AVAudioUnitEQ]) -> (AVAudioUnitEQ, Int)? {
+        guard index >= 0 else { return nil }
+        var remaining = index
+        for unit in eqUnits {
+            let capacity = unit.bands.count
+            if remaining < capacity {
+                return (unit, remaining)
+            }
+            remaining -= capacity
+        }
+        return nil
     }
 }

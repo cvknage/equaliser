@@ -58,6 +58,9 @@ struct MenuBarContentView: View {
             // Device Pickers
             DevicePickerView()
 
+            // Band count control
+            BandCountControl()
+
             // Routing Status
             RoutingStatusView(status: store.routingStatus)
 
@@ -131,15 +134,17 @@ struct EQWindowView: View {
                     Text("Equalizer")
                         .font(.title2)
                         .fontWeight(.semibold)
-                    Text("32-band parametric equalizer")
+                    Text("\(store.bandCount)-band parametric equalizer")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
 
+                BandCountControl()
+
                 // Reset button
                 Button("Flatten") {
-                    for i in 0..<32 {
+                    for i in 0..<store.bandCount {
                         store.updateBandGain(index: i, gain: 0)
                     }
                 }
@@ -160,7 +165,7 @@ struct EQWindowView: View {
             .padding(.horizontal)
             .padding(.top, 8)
 
-            // 32-band EQ sliders
+            // EQ sliders
             EQBandGridView()
 
             Divider()
@@ -184,14 +189,14 @@ struct EQWindowView: View {
     }
 }
 
-/// Grid of 32 EQ band sliders.
+/// Grid of EQ band sliders.
 struct EQBandGridView: View {
     @EnvironmentObject var store: EqualizerStore
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
-                ForEach(0..<32, id: \.self) { index in
+                ForEach(0..<store.bandCount, id: \.self) { index in
                     EQBandSliderView(
                         index: index,
                         frequency: store.eqConfiguration.bands[index].frequency,
@@ -204,6 +209,79 @@ struct EQBandGridView: View {
             }
             .padding(.horizontal, 12)
         }
+    }
+}
+
+struct BandCountControl: View {
+    @EnvironmentObject var store: EqualizerStore
+    @FocusState private var isFocused: Bool
+    @State private var editedValue: String = ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            StepperButton(symbol: "-", action: { adjustBands(by: -1) })
+            TextField("Bands", text: Binding(
+                get: { editedValue.isEmpty ? "\(store.bandCount)" : editedValue },
+                set: { editedValue = $0 }
+            ))
+            .frame(width: 60)
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.center)
+            .focused($isFocused)
+            .onSubmit(applyEditedValue)
+            StepperButton(symbol: "+", action: { adjustBands(by: 1) })
+        }
+        .onAppear {
+            editedValue = "\(store.bandCount)"
+        }
+        .onChange(of: store.bandCount) { _, newValue in
+            if !isFocused {
+                editedValue = "\(newValue)"
+            }
+        }
+        .onChange(of: editedValue) { _, newValue in
+            if !newValue.isEmpty {
+                let digitsOnly = newValue.filter { $0.isNumber }
+                if digitsOnly != newValue {
+                    editedValue = digitsOnly
+                }
+            }
+        }
+    }
+
+    private func adjustBands(by delta: Int) {
+        let newCount = store.bandCount + delta
+        applyBandCount(newCount)
+    }
+
+    private func applyEditedValue() {
+        guard let value = Int(editedValue) else {
+            editedValue = "\(store.bandCount)"
+            return
+        }
+        applyBandCount(value)
+        isFocused = false
+    }
+
+    private func applyBandCount(_ count: Int) {
+        let clamped = EQConfiguration.clampBandCount(count)
+        store.bandCount = clamped
+        editedValue = "\(clamped)"
+    }
+}
+
+private struct StepperButton: View {
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol == "+" ? "plus" : "minus")
+                .font(.system(size: 12, weight: .bold))
+                .frame(width: 24, height: 24)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 }
 

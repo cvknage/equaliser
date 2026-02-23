@@ -36,11 +36,8 @@ final class ManualRenderingEngine {
     /// Marked nonisolated(unsafe) to allow cleanup in deinit.
     private nonisolated(unsafe) var engine: AVAudioEngine?
 
-    /// First EQ unit (bands 0-15).
-    private let eqUnitA: AVAudioUnitEQ
-
-    /// Second EQ unit (bands 16-31).
-    private let eqUnitB: AVAudioUnitEQ
+    /// EQ units in the chain (enough to cover the active band count).
+    private let eqUnits: [AVAudioUnitEQ]
 
     /// Source node that injects audio into the engine.
     private let sourceNode: AVAudioSourceNode
@@ -117,11 +114,16 @@ final class ManualRenderingEngine {
         }
         print("[ManualRenderingEngine] Manual rendering mode enabled successfully")
 
-        // 3. Create EQ units with 16 bands each (32 total)
-        let eqA = AVAudioUnitEQ(numberOfBands: 16)
-        let eqB = AVAudioUnitEQ(numberOfBands: 16)
-        self.eqUnitA = eqA
-        self.eqUnitB = eqB
+        // 3. Create EQ units to cover the active band count (max 32 bands per unit)
+        let activeBandCount = eqConfiguration.activeBandCount
+        let bandsPerUnit = 32
+        let unitCount = Int(ceil(Float(activeBandCount) / Float(bandsPerUnit)))
+        let units: [AVAudioUnitEQ] = (0..<unitCount).map { unitIndex in
+            let remaining = activeBandCount - unitIndex * bandsPerUnit
+            let bandsForUnit = max(1, min(bandsPerUnit, remaining))
+            return AVAudioUnitEQ(numberOfBands: bandsForUnit)
+        }
+        self.eqUnits = units
 
         // 4. Create the render context (will be accessed from audio thread)
         let context = AudioRenderContext(
@@ -139,19 +141,20 @@ final class ManualRenderingEngine {
         // 6. Attach nodes to the engine
         print("[ManualRenderingEngine] Attaching nodes...")
         engine.attach(source)
-        engine.attach(eqA)
-        engine.attach(eqB)
+        eqUnits.forEach { engine.attach($0) }
 
-        // 7. Connect the graph: source -> EQ A -> EQ B -> outputNode
-        //    Connect directly to outputNode (not mainMixerNode) to avoid internal converters
+        // 7. Connect the graph: source -> EQ units chain -> outputNode
         print("[ManualRenderingEngine] Connecting nodes to outputNode...")
-        engine.connect(source, to: eqA, format: format)
-        engine.connect(eqA, to: eqB, format: format)
-        engine.connect(eqB, to: engine.outputNode, format: format)
+        var previousNode: AVAudioNode = source
+        for unit in eqUnits {
+            engine.connect(previousNode, to: unit, format: format)
+            previousNode = unit
+        }
+        engine.connect(previousNode, to: engine.outputNode, format: format)
         print("[ManualRenderingEngine] Nodes connected successfully")
 
         // 8. Apply EQ configuration
-        eqConfiguration.apply(to: eqA, eqB)
+        eqConfiguration.apply(to: eqUnits)
 
         // 9. Start the engine
         print("[ManualRenderingEngine] Starting engine...")
@@ -241,27 +244,27 @@ final class ManualRenderingEngine {
 
     /// Updates the bypass state from the current EQ configuration.
     func updateBypass() {
-        eqConfiguration.applyBypass(to: eqUnitA, eqUnitB)
+        eqConfiguration.applyBypass(to: eqUnits)
     }
 
     /// Updates a band's gain from the current EQ configuration.
     func updateBandGain(index: Int) {
-        eqConfiguration.applyBandGain(index: index, to: eqUnitA, eqUnitB)
+        eqConfiguration.applyBandGain(index: index, to: eqUnits)
     }
 
     /// Updates a band's bandwidth from the current EQ configuration.
     func updateBandBandwidth(index: Int) {
-        eqConfiguration.applyBandBandwidth(index: index, to: eqUnitA, eqUnitB)
+        eqConfiguration.applyBandBandwidth(index: index, to: eqUnits)
     }
 
     /// Updates a band's frequency from the current EQ configuration.
     func updateBandFrequency(index: Int) {
-        eqConfiguration.applyBandFrequency(index: index, to: eqUnitA, eqUnitB)
+        eqConfiguration.applyBandFrequency(index: index, to: eqUnits)
     }
 
     /// Reapplies the full EQ configuration.
     func reapplyConfiguration() {
-        eqConfiguration.apply(to: eqUnitA, eqUnitB)
+        eqConfiguration.apply(to: eqUnits)
     }
 
     // MARK: - Shutdown

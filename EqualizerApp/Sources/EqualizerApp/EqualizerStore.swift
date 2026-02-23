@@ -27,6 +27,18 @@ final class EqualizerStore: ObservableObject {
         }
     }
 
+    @Published var bandCount: Int = EQConfiguration.defaultBandCount {
+        didSet {
+            let clamped = eqConfiguration.setActiveBandCount(bandCount)
+            if clamped != bandCount {
+                bandCount = clamped
+                return
+            }
+            persist()
+            reconfigureRouting()
+        }
+    }
+
     @Published var selectedInputDeviceID: String? {
         didSet {
             persist()
@@ -69,6 +81,7 @@ final class EqualizerStore: ObservableObject {
         static let bypass = "equalizer.bypass"
         static let inputDevice = "equalizer.input"
         static let outputDevice = "equalizer.output"
+        static let bandCount = "equalizer.bandCount"
     }
 
     // MARK: - Convenience Accessors
@@ -90,12 +103,16 @@ final class EqualizerStore: ObservableObject {
         let storedBypass = storage.bool(forKey: Keys.bypass)
         let storedInput = storage.string(forKey: Keys.inputDevice)
         let storedOutput = storage.string(forKey: Keys.outputDevice)
+        let storedBands = storage.object(forKey: Keys.bandCount) as? Int ?? EQConfiguration.defaultBandCount
 
         // Apply to EQ configuration first
         eqConfiguration.globalBypass = storedBypass
+        eqConfiguration.setActiveBandCount(storedBands)
+        storage.set(eqConfiguration.activeBandCount, forKey: Keys.bandCount)
 
         // Then set published properties (without triggering didSet side effects)
         _isBypassed = Published(initialValue: storedBypass)
+        _bandCount = Published(initialValue: eqConfiguration.activeBandCount)
         _selectedInputDeviceID = Published(initialValue: storedInput)
         _selectedOutputDeviceID = Published(initialValue: storedOutput)
 
@@ -113,6 +130,8 @@ final class EqualizerStore: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+
+        bandCount = eqConfiguration.activeBandCount
     }
 
     // MARK: - Persistence
@@ -121,6 +140,7 @@ final class EqualizerStore: ObservableObject {
         storage.set(isBypassed, forKey: Keys.bypass)
         storage.set(selectedInputDeviceID, forKey: Keys.inputDevice)
         storage.set(selectedOutputDeviceID, forKey: Keys.outputDevice)
+        storage.set(bandCount, forKey: Keys.bandCount)
     }
 
     // MARK: - Routing Control
@@ -190,6 +210,7 @@ final class EqualizerStore: ObservableObject {
     }
 
     /// Stops the current audio routing.
+
     func stopRouting() {
         if let pipeline = renderPipeline {
             _ = pipeline.stop()

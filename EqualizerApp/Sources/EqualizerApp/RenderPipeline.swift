@@ -402,6 +402,11 @@ final class RenderPipeline {
         renderingEngine?.updateBandFrequency(index: index)
     }
 
+    /// Reapplies the entire configuration (e.g., after band count changes).
+    func reapplyConfiguration() {
+        renderingEngine?.reapplyConfiguration()
+    }
+
     // MARK: - Input Callback
 
     /// The input render callback. Called by the INPUT HAL unit when it has captured audio.
