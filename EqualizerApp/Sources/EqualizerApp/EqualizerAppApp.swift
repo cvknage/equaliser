@@ -27,7 +27,7 @@ struct EqualizerAppMain: App {
                 .environmentObject(store)
         }
         .defaultPosition(.center)
-        .defaultSize(width: 800, height: 500)
+        .defaultSize(width: 700, height: 520)
 
         // Menu bar popover (always available)
         MenuBarExtra("Equalizer", systemImage: "slider.horizontal.3") {
@@ -44,33 +44,127 @@ struct MenuBarContentView: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 8) {
             // Header
             HStack {
                 Image(systemName: "slider.horizontal.3")
-                    .font(.title2)
+                    .font(.title3)
                 Text("Equalizer")
                     .font(.headline)
                 Spacer()
             }
-            .padding(.bottom, 4)
 
-            // Device Pickers
-            DevicePickerView()
-
-            // Band count control
-            BandCountControl()
-
-            // Routing Status
-            RoutingStatusView(status: store.routingStatus)
+            // Status indicator
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
+                .padding(.vertical, 4)
+
+            // Device Pickers
+            DevicePickerView(layout: .vertical)
+
+            Divider()
+                .padding(.vertical, 4)
 
             // Controls
-            VStack(alignment: .leading, spacing: 12) {
-                Toggle("Bypass EQ", isOn: $store.isBypassed)
-                    .toggleStyle(.checkbox)
+            Toggle("Bypass EQ", isOn: $store.isBypassed)
+                .toggleStyle(.checkbox)
+                .frame(maxWidth: .infinity, alignment: .leading)
 
+            Divider()
+                .padding(.vertical, 4)
+
+            // EQ Settings Button
+            Button("Open EQ Settings...") {
+                openWindow(id: "eq-settings")
+                NSApp.activate(ignoringOtherApps: true)
+            }
+            .buttonStyle(.bordered)
+            .frame(maxWidth: .infinity)
+
+            // Footer
+            HStack {
+                Spacer()
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(width: 240, height: 300)
+    }
+
+    private var statusColor: Color {
+        switch store.routingStatus {
+        case .idle:
+            return .gray
+        case .starting:
+            return .orange
+        case .active:
+            return .green
+        case .error:
+            return .red
+        }
+    }
+
+    private var statusText: String {
+        switch store.routingStatus {
+        case .idle:
+            return "Idle"
+        case .starting:
+            return "Starting..."
+        case .active:
+            return "Active"
+        case .error(let message):
+            return "Error: \(message)"
+        }
+    }
+}
+
+/// The main EQ settings window - detailed controls.
+struct EQWindowView: View {
+    @EnvironmentObject var store: EqualizerStore
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        VStack(spacing: 12) {
+            // Header: App title + devices + routing controls
+            HStack {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.title)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Equalizer")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                    Text("Parametric EQ")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+
+                // Device pickers
+                DevicePickerView(layout: .horizontal)
+            }
+            .padding(.horizontal)
+            .padding(.top, 8)
+
+            // Routing status + controls
+            HStack {
+                RoutingStatusView(status: store.routingStatus)
+
+                Spacer()
+
+                // Routing action buttons
                 if store.routingStatus.isActive {
                     Button("Stop Routing") {
                         store.stopRouting()
@@ -87,62 +181,24 @@ struct MenuBarContentView: View {
                     Button("Start Routing") {
                         store.reconfigureRouting()
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.borderedProminent)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
 
             Divider()
 
-            // EQ Settings Button
-            Button("Open EQ Settings...") {
-                openWindow(id: "eq-settings")
-                NSApp.activate(ignoringOtherApps: true)
-            }
-            .buttonStyle(.bordered)
-            .frame(maxWidth: .infinity)
-
-            Spacer()
-
-            // Footer
+            // Band controls toolbar
             HStack {
-                Spacer()
-                Button("Quit") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .frame(width: 280, height: 380)
-    }
-}
-
-/// The main EQ settings window - detailed controls.
-struct EQWindowView: View {
-    @EnvironmentObject var store: EqualizerStore
-    @Environment(\.dismissWindow) private var dismissWindow
-
-    var body: some View {
-        VStack(spacing: 12) {
-            // Header
-            HStack {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.title)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Equalizer")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    Text("\(store.bandCount)-band parametric equalizer")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+                Text("Bands")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
 
                 BandCountControl()
 
-                // Reset button
+                Spacer()
+
                 Button("Flatten") {
                     for i in 0..<store.bandCount {
                         store.updateBandGain(index: i, gain: 0)
@@ -150,20 +206,9 @@ struct EQWindowView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-
-                // Routing status indicator
-                if store.routingStatus.isActive {
-                    Label("Active", systemImage: "waveform.circle.fill")
-                        .foregroundStyle(.green)
-                        .font(.caption)
-                } else {
-                    Label("Inactive", systemImage: "pause.circle")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
             }
             .padding(.horizontal)
-            .padding(.top, 8)
+            .padding(.vertical, 4)
 
             // EQ sliders
             EQBandGridView()
@@ -185,7 +230,7 @@ struct EQWindowView: View {
             .padding(.horizontal)
             .padding(.bottom, 8)
         }
-        .frame(minWidth: 900, minHeight: 400)
+        .frame(minWidth: 600, minHeight: 500)
     }
 }
 
