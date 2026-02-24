@@ -3,6 +3,13 @@ import AVFoundation
 import CoreAudio
 import os.log
 
+struct LevelMeterSnapshot {
+    let inputDB: [Float]
+    let outputDB: [Float]
+
+    static let silent = LevelMeterSnapshot(inputDB: Array(repeating: -90, count: 2), outputDB: Array(repeating: -90, count: 2))
+}
+
 /// Coordinates audio flow from HAL input through AVAudioEngine EQ to HAL output.
 /// Uses two separate HAL audio units: one for input (capture) and one for output (playback).
 /// Audio flows through a ring buffer to decouple the two device clocks.
@@ -40,6 +47,9 @@ final class RenderPipeline {
     /// The callback context, retained while running.
     /// Marked nonisolated(unsafe) for access from the audio thread.
     private nonisolated(unsafe) var callbackContext: RenderCallbackContext?
+
+    /// Most recent meter snapshot from the audio thread.
+    private nonisolated(unsafe) var latestMeters: LevelMeterSnapshot = .silent
 
     /// Maximum frames per render callback.
     private let maxFrameCount: UInt32 = 4096
@@ -234,6 +244,7 @@ final class RenderPipeline {
             ringBufferCapacity: ringBufferCapacity
         )
         callbackContext = context
+        latestMeters = .silent
 
         let contextPtr = UnsafeMutableRawPointer(
             Unmanaged.passUnretained(context).toOpaque()
@@ -370,6 +381,9 @@ final class RenderPipeline {
         renderingEngine?.shutdown()
         renderingEngine = nil
 
+        latestMeters = .silent
+        callbackContext = nil
+
         isRunning = false
         print("[RenderPipeline] Render pipeline stopped. Input callbacks: \(Self.inputCallCount), Output callbacks: \(Self.outputCallCount)")
         logger.info("Render pipeline stopped")
@@ -405,6 +419,15 @@ final class RenderPipeline {
     /// Reapplies the entire configuration (e.g., after band count changes).
     func reapplyConfiguration() {
         renderingEngine?.reapplyConfiguration()
+    }
+
+    /// Returns the most recent meter snapshot from the audio thread.
+    func currentMeters() -> LevelMeterSnapshot {
+        guard let context = callbackContext else { return latestMeters }
+        let snapshot = context.meterSnapshot()
+        let meters = LevelMeterSnapshot(inputDB: snapshot.input, outputDB: snapshot.output)
+        latestMeters = meters
+        return meters
     }
 
     // MARK: - Input Callback
@@ -528,6 +551,7 @@ final class RenderPipeline {
                 staticLogger.warning("Output #\(outputCallCount): Ring buffer underrun")
             }
             RenderCallbackContext.zeroFill(ioData, frameCount: frameCount)
+            context.updateOutputMeters(from: ioData, frameCount: frameCount)
             return noErr
         }
 
@@ -543,6 +567,9 @@ final class RenderPipeline {
 
         // 4. Clear the input buffer reference
         renderCtx.clearInputBuffer()
+
+        // 5. Update output meters with rendered audio
+        context.updateOutputMeters(from: ioData, frameCount: frameCount)
 
         return renderStatus
     }

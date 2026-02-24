@@ -45,7 +45,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Update `EqualizerStore` to own `RenderPipeline`, persist selected device UIDs, and trigger rebuilds on change.
 - [x] Surface routing status/errors to the menu UI (e.g., "BlackHole 2ch → Built-in Output" or warning on failure).
 - [x] Add Start/Stop routing buttons with proper state management.
-- [ ] Add optional level meter or debug log toggle so we can verify signal presence without leaving the app.
+- [x] Add optional level meter or debug log toggle so we can verify signal presence without leaving the app.
 - [ ] Add device hot-swap handling (listener for device changes).
 
 ### Testing & validation

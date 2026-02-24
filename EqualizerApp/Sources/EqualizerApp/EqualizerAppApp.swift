@@ -159,8 +159,16 @@ struct EQWindowView: View {
             .padding(.top, 8)
 
             // Routing status + controls
-            HStack {
+            HStack(alignment: .center, spacing: 16) {
                 RoutingStatusView(status: store.routingStatus)
+                    .frame(maxWidth: 280, alignment: .leading)
+
+                LevelMetersView(
+                    inputState: store.inputMeterLevel,
+                    outputState: store.outputMeterLevel,
+                    isActive: store.routingStatus.isActive
+                )
+                .frame(width: 200)
 
                 Spacer()
 
@@ -231,6 +239,121 @@ struct EQWindowView: View {
             .padding(.bottom, 8)
         }
         .frame(minWidth: 600, minHeight: 500)
+    }
+}
+
+struct LevelMetersView: View {
+    let inputState: StereoMeterState
+    let outputState: StereoMeterState
+    let isActive: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 24) {
+            StereoMeterGroup(title: "Input", state: inputState, isActive: isActive)
+            StereoMeterGroup(title: "Output", state: outputState, isActive: isActive)
+        }
+    }
+}
+
+struct StereoMeterGroup: View {
+    let title: String
+    let state: StereoMeterState
+    let isActive: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(alignment: .top, spacing: 12) {
+                DualPeakMeterView(channelLabel: "L", state: state.left, isActive: isActive)
+                DualPeakMeterView(channelLabel: "R", state: state.right, isActive: isActive)
+            }
+        }
+    }
+}
+
+struct DualPeakMeterView: View {
+    let channelLabel: String
+    let state: ChannelMeterState
+    let isActive: Bool
+
+    private let gradientStops: [Gradient.Stop] = [
+        .init(color: Color(red: 0.0, green: 0.45, blue: 0.95), location: 0.0),
+        .init(color: .green, location: 0.4),
+        .init(color: .yellow, location: 0.7),
+        .init(color: .orange, location: 0.9),
+        .init(color: .red, location: 1.0)
+    ]
+
+    var body: some View {
+        VStack(spacing: 4) {
+            GeometryReader { proxy in
+                ZStack(alignment: .bottom) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.gray.opacity(0.18))
+                        )
+
+                    if state.peak > 0 {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(fillColor(for: state))
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .mask(
+                                Rectangle()
+                                    .frame(width: proxy.size.width, height: proxy.size.height * CGFloat(state.peak))
+                                    .frame(maxHeight: .infinity, alignment: .bottom)
+                            )
+                            .animation(.easeOut(duration: 0.08), value: state.peak)
+                    }
+
+                    Rectangle()
+                        .fill(Color.white.opacity(0.9))
+                        .frame(height: 2)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                        .offset(y: -proxy.size.height * CGFloat(state.peakHold))
+
+                    if state.isClipping {
+                        ClipIndicator()
+                            .frame(height: 10)
+                            .frame(maxWidth: .infinity)
+                            .frame(maxHeight: .infinity, alignment: .top)
+                            .padding(.top, 2)
+                    }
+                }
+                .opacity(isActive ? 1 : 0.35)
+            }
+            .frame(width: 24, height: 84)
+
+            Text(channelLabel)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func fillColor(for state: ChannelMeterState) -> LinearGradient {
+        if state.isClipping {
+            return LinearGradient(colors: [.red, .red], startPoint: .bottom, endPoint: .top)
+        }
+        return LinearGradient(
+            gradient: Gradient(stops: gradientStops),
+            startPoint: .bottom,
+            endPoint: .top
+        )
+    }
+}
+
+struct ClipIndicator: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2)
+            .fill(Color.red)
+            .overlay(
+                Text("CLIP")
+                    .font(.system(size: 6, weight: .bold))
+                    .foregroundStyle(.white)
+            )
     }
 }
 

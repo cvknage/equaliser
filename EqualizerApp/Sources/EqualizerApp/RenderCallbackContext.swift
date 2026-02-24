@@ -16,6 +16,9 @@ import os.log
 final class RenderCallbackContext: @unchecked Sendable {
     // MARK: - Properties
 
+    private static let maxMeterChannels = 2
+    private static let silenceDB: Float = -90
+
     /// Ring buffers for audio samples (one per channel).
     /// Written by input callback, read by output callback.
     let ringBuffers: [AudioRingBuffer]
@@ -51,6 +54,15 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// One per channel.
     private let outputReadBuffers: [UnsafeMutablePointer<Float>]
 
+    /// Number of channels exposed to the level meters (up to two for stereo visualization).
+    private let meterChannelCount: Int
+
+    /// Storage for latest input peak levels per channel (in dBFS).
+    private let inputMeterStorage: UnsafeMutablePointer<Float>
+
+    /// Storage for latest output peak levels per channel (in dBFS).
+    private let outputMeterStorage: UnsafeMutablePointer<Float>
+
     // MARK: - Initialization
 
     /// Creates a new callback context with ring buffers and pre-allocated audio buffers.
@@ -72,6 +84,7 @@ final class RenderCallbackContext: @unchecked Sendable {
         self.channelCount = channelCount
         self.maxFrameCount = maxFrameCount
         self.framesPerBuffer = Int(maxFrameCount)
+        self.meterChannelCount = min(Int(channelCount), Self.maxMeterChannels)
 
         // Create ring buffers (one per channel)
         var rings: [AudioRingBuffer] = []
@@ -97,6 +110,11 @@ final class RenderCallbackContext: @unchecked Sendable {
             outputBufs.append(buffer)
         }
         self.outputReadBuffers = outputBufs
+
+        self.inputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
+        self.outputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
+        inputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
+        outputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
 
         // Calculate size for AudioBufferList with `channelCount` buffers
         // AudioBufferList has 1 AudioBuffer inline, so we need space for (channelCount - 1) additional
@@ -137,6 +155,11 @@ final class RenderCallbackContext: @unchecked Sendable {
             buffer.deallocate()
         }
 
+        inputMeterStorage.deinitialize(count: meterChannelCount)
+        inputMeterStorage.deallocate()
+        outputMeterStorage.deinitialize(count: meterChannelCount)
+        outputMeterStorage.deallocate()
+
         // Deallocate the AudioBufferList
         inputBufferListPtr.deallocate()
     }
@@ -168,6 +191,8 @@ final class RenderCallbackContext: @unchecked Sendable {
         for (index, ringBuffer) in ringBuffers.enumerated() {
             _ = ringBuffer.write(inputBuffers[index], count: count)
         }
+        let channels = inputBuffers.map { UnsafePointer($0) }
+        updateMeterStorage(storage: inputMeterStorage, with: channels, frameCount: count)
     }
 
     /// Direct access to the input sample buffers (for diagnostics/debugging).
@@ -205,7 +230,60 @@ final class RenderCallbackContext: @unchecked Sendable {
         outputReadBuffers
     }
 
+    /// Returns the latest per-channel meter snapshots in dBFS.
+    func meterSnapshot() -> (input: [Float], output: [Float]) {
+        let input = Array(UnsafeBufferPointer(start: inputMeterStorage, count: meterChannelCount))
+        let output = Array(UnsafeBufferPointer(start: outputMeterStorage, count: meterChannelCount))
+        return (input, output)
+    }
+
+    func updateOutputMeters(from bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
+        let channels = UnsafeMutableAudioBufferListPointer(bufferList)
+        var channelPointers: [UnsafePointer<Float>] = []
+        for buffer in channels {
+            if let data = buffer.mData?.assumingMemoryBound(to: Float.self) {
+                channelPointers.append(UnsafePointer(data))
+            }
+        }
+        if channelPointers.isEmpty {
+            return
+        }
+        updateMeterStorage(storage: outputMeterStorage, with: channelPointers, frameCount: Int(frameCount))
+    }
+
+    private func updateMeterStorage(
+        storage: UnsafeMutablePointer<Float>,
+        with channels: [UnsafePointer<Float>],
+        frameCount: Int
+    ) {
+        guard frameCount > 0 else {
+            for index in 0..<meterChannelCount {
+                storage[index] = Self.silenceDB
+            }
+            return
+        }
+
+        for channel in 0..<meterChannelCount {
+            guard !channels.isEmpty else {
+                storage[channel] = Self.silenceDB
+                continue
+            }
+
+            let sourceIndex = min(channel, channels.count - 1)
+            let buffer = channels[sourceIndex]
+            var peak: Float = 0
+            var frame = 0
+            while frame < frameCount {
+                peak = max(peak, abs(buffer[frame]))
+                frame += 1
+            }
+            let db = max(Self.silenceDB, 20 * log10(max(peak, 1e-7)))
+            storage[channel] = db
+        }
+    }
+
     // MARK: - Utility
+
 
     /// Zeros out the given AudioBufferList.
     /// - Parameters:
@@ -226,6 +304,8 @@ final class RenderCallbackContext: @unchecked Sendable {
         for ringBuffer in ringBuffers {
             ringBuffer.reset()
         }
+        inputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
+        outputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
     }
 
     /// Returns diagnostic information about ring buffer state.

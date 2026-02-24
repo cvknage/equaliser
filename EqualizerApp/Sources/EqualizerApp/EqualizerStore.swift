@@ -15,6 +15,23 @@ enum RoutingStatus: Equatable {
     }
 }
 
+struct ChannelMeterState: Equatable {
+    var peak: Float
+    var peakHold: Float
+    var clipHold: TimeInterval
+
+    var isClipping: Bool { clipHold > 0 }
+
+    static let silent = ChannelMeterState(peak: 0, peakHold: 0, clipHold: 0)
+}
+
+struct StereoMeterState: Equatable {
+    var left: ChannelMeterState
+    var right: ChannelMeterState
+
+    static let silent = StereoMeterState(left: .silent, right: .silent)
+}
+
 @MainActor
 final class EqualizerStore: ObservableObject {
     // MARK: - Published Properties
@@ -58,6 +75,8 @@ final class EqualizerStore: ObservableObject {
     }
 
     @Published private(set) var routingStatus: RoutingStatus = .idle
+    @Published var inputMeterLevel: StereoMeterState = .silent
+    @Published var outputMeterLevel: StereoMeterState = .silent
 
     // MARK: - Audio Components
 
@@ -71,11 +90,19 @@ final class EqualizerStore: ObservableObject {
     /// Owns the HALIOManager and ManualRenderingEngine internally.
     private var renderPipeline: RenderPipeline?
 
+    private static let meterInterval: TimeInterval = 1.0 / 30.0
+    private static let peakHoldDecayPerTick: Float = 0.02
+    private static let peakAttackSmoothing: Float = 0.5
+    private static let peakReleaseSmoothing: Float = 0.15
+    private static let clipHoldDuration: TimeInterval = 0.5
+    private static let meterRange: ClosedRange<Float> = -60...0
+
     // MARK: - Private Properties
 
     private let storage = UserDefaults.standard
     private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "EqualizerStore")
     private var cancellables = Set<AnyCancellable>()
+    private var meterTimer: AnyCancellable?
 
     private enum Keys {
         static let bypass = "equalizer.bypass"
@@ -151,8 +178,12 @@ final class EqualizerStore: ObservableObject {
         // Stop existing pipeline if running
         if let pipeline = renderPipeline {
             logger.info("Stopping existing render pipeline")
+            meterTimer?.cancel()
+            meterTimer = nil
             _ = pipeline.stop()
             renderPipeline = nil
+            inputMeterLevel = .silent
+            outputMeterLevel = .silent
         }
 
         // Check if both devices are selected
@@ -203,6 +234,7 @@ final class EqualizerStore: ObservableObject {
             renderPipeline = pipeline
             routingStatus = .active(inputName: inputName, outputName: outputName)
             logger.info("Routing active: \(inputName) → \(outputName)")
+            startMeterUpdates()
         case .failure(let error):
             routingStatus = .error("Start failed: \(error.localizedDescription)")
             logger.error("Pipeline start failed: \(error.localizedDescription)")
@@ -213,9 +245,13 @@ final class EqualizerStore: ObservableObject {
 
     func stopRouting() {
         if let pipeline = renderPipeline {
+            meterTimer?.cancel()
+            meterTimer = nil
             _ = pipeline.stop()
             renderPipeline = nil
         }
+        inputMeterLevel = .silent
+        outputMeterLevel = .silent
         routingStatus = .idle
         logger.info("Routing stopped")
     }
@@ -247,5 +283,47 @@ final class EqualizerStore: ObservableObject {
     func updateBandFrequency(index: Int, frequency: Float) {
         eqConfiguration.updateBandFrequency(index: index, frequency: frequency)
         renderPipeline?.updateBandFrequency(index: index)
+    }
+
+    private func startMeterUpdates() {
+        meterTimer?.cancel()
+        guard renderPipeline != nil else { return }
+
+        meterTimer = Timer.publish(every: Self.meterInterval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.refreshMeterSnapshot()
+            }
+    }
+
+    private func refreshMeterSnapshot() {
+        guard let pipeline = renderPipeline else { return }
+        let snapshot = pipeline.currentMeters()
+        inputMeterLevel = meterState(from: snapshot.inputDB, previous: inputMeterLevel)
+        outputMeterLevel = meterState(from: snapshot.outputDB, previous: outputMeterLevel)
+    }
+
+    private func meterState(from dbValues: [Float], previous: StereoMeterState) -> StereoMeterState {
+        let left = channelState(from: dbValues, channelIndex: 0, previous: previous.left)
+        let right = channelState(from: dbValues, channelIndex: 1, previous: previous.right)
+        return StereoMeterState(left: left, right: right)
+    }
+
+    private func channelState(from dbValues: [Float], channelIndex: Int, previous: ChannelMeterState) -> ChannelMeterState {
+        let db = dbValues.indices.contains(channelIndex) ? dbValues[channelIndex] : Self.meterRange.lowerBound
+        let normalized = EqualizerStore.normalize(db: db)
+        let delta = normalized - previous.peak
+        let smoothing = delta >= 0 ? Self.peakAttackSmoothing : Self.peakReleaseSmoothing
+        let rawPeak = previous.peak + delta * smoothing
+        let peak = max(0, min(1, rawPeak))
+        let rawPeakHold = max(previous.peakHold - Self.peakHoldDecayPerTick, peak)
+        let peakHold = max(0, min(1, rawPeakHold))
+        let clipHold = db >= 0 ? Self.clipHoldDuration : max(0, previous.clipHold - Self.meterInterval)
+        return ChannelMeterState(peak: peak, peakHold: peakHold, clipHold: clipHold)
+    }
+
+    private static func normalize(db: Float) -> Float {
+        let clamped = min(max(db, meterRange.lowerBound), meterRange.upperBound)
+        return (clamped - meterRange.lowerBound) / (meterRange.upperBound - meterRange.lowerBound)
     }
 }
