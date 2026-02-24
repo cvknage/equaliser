@@ -394,6 +394,18 @@ final class RenderPipeline {
         return .success(())
     }
 
+    // MARK: - Gain Control
+
+    /// Updates the input gain applied before EQ processing.
+    func updateInputGain(linear: Float) {
+        callbackContext?.targetInputGainLinear = max(0, linear)
+    }
+
+    /// Updates the output gain applied after EQ processing.
+    func updateOutputGain(linear: Float) {
+        callbackContext?.targetOutputGainLinear = max(0, linear)
+    }
+
     // MARK: - EQ Control
 
     /// Updates the bypass state on the live engine.
@@ -484,6 +496,14 @@ final class RenderPipeline {
             return noErr
         }
 
+        // Apply input gain before writing to ring buffers
+        context.applyGain(
+            to: context.inputSampleBuffers,
+            frameCount: frameCount,
+            currentGain: &context.inputGainLinear,
+            targetGain: context.targetInputGainLinear
+        )
+
         // Write captured audio to ring buffers
         context.writeToRingBuffers(frameCount: frameCount)
 
@@ -568,7 +588,15 @@ final class RenderPipeline {
         // 4. Clear the input buffer reference
         renderCtx.clearInputBuffer()
 
-        // 5. Update output meters with rendered audio
+        // 5. Apply output gain after EQ rendering
+        context.applyGain(
+            to: ioData,
+            frameCount: frameCount,
+            currentGain: &context.outputGainLinear,
+            targetGain: context.targetOutputGainLinear
+        )
+
+        // 6. Update output meters with rendered audio
         context.updateOutputMeters(from: ioData, frameCount: frameCount)
 
         return renderStatus

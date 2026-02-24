@@ -54,6 +54,18 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// One per channel.
     private let outputReadBuffers: [UnsafeMutablePointer<Float>]
 
+    /// Current linear gain applied to input samples before they enter the ring buffer.
+    nonisolated(unsafe) var inputGainLinear: Float = 1.0
+
+    /// Target linear gain applied to input samples before they enter the ring buffer.
+    nonisolated(unsafe) var targetInputGainLinear: Float = 1.0
+
+    /// Current linear gain applied to output samples after EQ rendering.
+    nonisolated(unsafe) var outputGainLinear: Float = 1.0
+
+    /// Target linear gain applied to output samples after EQ rendering.
+    nonisolated(unsafe) var targetOutputGainLinear: Float = 1.0
+
     /// Number of channels exposed to the level meters (up to two for stereo visualization).
     private let meterChannelCount: Int
 
@@ -200,6 +212,36 @@ final class RenderCallbackContext: @unchecked Sendable {
         inputBuffers
     }
 
+    /// Applies gain to a set of channel buffers, with per-callback ramping.
+    @inline(__always)
+    func applyGain(
+        to buffers: [UnsafeMutablePointer<Float>],
+        frameCount: UInt32,
+        currentGain: inout Float,
+        targetGain: Float
+    ) {
+        let count = Int(frameCount)
+        guard count > 0 else {
+            currentGain = targetGain
+            return
+        }
+
+        let gainDelta = targetGain - currentGain
+        let gainStep = gainDelta / Float(count)
+        var gain = currentGain
+        var index = 0
+
+        while index < count {
+            for buffer in buffers {
+                buffer[index] *= gain
+            }
+            gain += gainStep
+            index += 1
+        }
+
+        currentGain = targetGain
+    }
+
     // MARK: - Output Callback Support
 
     /// Reads audio samples from ring buffers into the output read buffers.
@@ -249,6 +291,28 @@ final class RenderCallbackContext: @unchecked Sendable {
             return
         }
         updateMeterStorage(storage: outputMeterStorage, with: channelPointers, frameCount: Int(frameCount))
+    }
+
+    @inline(__always)
+    func applyGain(
+        to bufferList: UnsafeMutablePointer<AudioBufferList>,
+        frameCount: UInt32,
+        currentGain: inout Float,
+        targetGain: Float
+    ) {
+        let channels = UnsafeMutableAudioBufferListPointer(bufferList)
+        var buffers: [UnsafeMutablePointer<Float>] = []
+        buffers.reserveCapacity(channels.count)
+        for buffer in channels {
+            if let data = buffer.mData?.assumingMemoryBound(to: Float.self) {
+                buffers.append(data)
+            }
+        }
+        guard !buffers.isEmpty else {
+            currentGain = targetGain
+            return
+        }
+        applyGain(to: buffers, frameCount: frameCount, currentGain: &currentGain, targetGain: targetGain)
     }
 
     private func updateMeterStorage(

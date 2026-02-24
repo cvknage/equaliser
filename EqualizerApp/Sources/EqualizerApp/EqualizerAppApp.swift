@@ -166,9 +166,11 @@ struct EQWindowView: View {
                 LevelMetersView(
                     inputState: store.inputMeterLevel,
                     outputState: store.outputMeterLevel,
+                    inputGain: $store.inputGain,
+                    outputGain: $store.outputGain,
                     isActive: store.routingStatus.isActive
                 )
-                .frame(width: 200)
+                .frame(width: 300)
 
                 Spacer()
 
@@ -245,12 +247,14 @@ struct EQWindowView: View {
 struct LevelMetersView: View {
     let inputState: StereoMeterState
     let outputState: StereoMeterState
+    @Binding var inputGain: Float
+    @Binding var outputGain: Float
     let isActive: Bool
 
     var body: some View {
-        HStack(alignment: .center, spacing: 24) {
-            StereoMeterGroup(title: "Input", state: inputState, isActive: isActive)
-            StereoMeterGroup(title: "Output", state: outputState, isActive: isActive)
+        HStack(alignment: .center, spacing: 20) {
+            StereoMeterGroup(title: "Input", state: inputState, gain: $inputGain, isActive: isActive)
+            StereoMeterGroup(title: "Output", state: outputState, gain: $outputGain, isActive: isActive)
         }
     }
 }
@@ -258,6 +262,7 @@ struct LevelMetersView: View {
 struct StereoMeterGroup: View {
     let title: String
     let state: StereoMeterState
+    @Binding var gain: Float
     let isActive: Bool
 
     var body: some View {
@@ -265,10 +270,12 @@ struct StereoMeterGroup: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 DualPeakMeterView(channelLabel: "L", state: state.left, isActive: isActive)
                 DualPeakMeterView(channelLabel: "R", state: state.right, isActive: isActive)
+                GainStepperControl(gain: $gain, isActive: isActive)
             }
+
         }
     }
 }
@@ -354,6 +361,82 @@ struct ClipIndicator: View {
                     .font(.system(size: 6, weight: .bold))
                     .foregroundStyle(.white)
             )
+    }
+}
+
+struct GainStepperControl: View {
+    @Binding var gain: Float
+    let isActive: Bool
+
+    @FocusState private var isFocused: Bool
+    @State private var editedValue: String = ""
+
+    var body: some View {
+        VStack(spacing: 6) {
+            StepperButton(symbol: "+", action: { adjustGain(by: 0.5) })
+                .disabled(!isActive)
+
+            TextField("0.0", text: Binding(
+                get: { editedValue.isEmpty ? Self.format(gain) : editedValue },
+                set: { editedValue = $0 }
+            ))
+            .frame(width: 60)
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.center)
+            .font(.system(size: 11, weight: .medium, design: .monospaced))
+            .focused($isFocused)
+            .disabled(!isActive)
+            .onSubmit(applyEditedValue)
+            .onTapGesture(count: 2) {
+                gain = 0
+            }
+
+            StepperButton(symbol: "-", action: { adjustGain(by: -0.5) })
+                .disabled(!isActive)
+        }
+        .opacity(isActive ? 1 : 0.35)
+        .onAppear {
+            editedValue = Self.format(gain)
+        }
+        .onChange(of: gain) { _, newValue in
+            if !isFocused {
+                editedValue = Self.format(newValue)
+            }
+        }
+        .onChange(of: editedValue) { _, newValue in
+            guard isFocused else { return }
+            let allowed = CharacterSet(charactersIn: "-0123456789.")
+            let filteredScalars = newValue.unicodeScalars.filter { allowed.contains($0) }
+            let filtered = String(filteredScalars)
+            if filtered != newValue {
+                editedValue = filtered
+            }
+        }
+    }
+
+    private func adjustGain(by delta: Float) {
+        let newValue = EqualizerStore.clampGain(gain + delta)
+        gain = Self.roundToStep(newValue)
+        editedValue = Self.format(gain)
+    }
+
+    private func applyEditedValue() {
+        guard let value = Float(editedValue) else {
+            editedValue = Self.format(gain)
+            isFocused = false
+            return
+        }
+        gain = Self.roundToStep(EqualizerStore.clampGain(value))
+        editedValue = Self.format(gain)
+        isFocused = false
+    }
+
+    private static func roundToStep(_ value: Float) -> Float {
+        (value * 2).rounded() / 2
+    }
+
+    private static func format(_ value: Float) -> String {
+        String(format: "%+.1f", value)
     }
 }
 

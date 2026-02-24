@@ -56,6 +56,32 @@ final class EqualizerStore: ObservableObject {
         }
     }
 
+    @Published var inputGain: Float = 0 {
+        didSet {
+            let clamped = EqualizerStore.clampGain(inputGain)
+            if clamped != inputGain {
+                inputGain = clamped
+                return
+            }
+            persist()
+            eqConfiguration.inputGain = inputGain
+            renderPipeline?.updateInputGain(linear: EqualizerStore.dbToLinear(inputGain))
+        }
+    }
+
+    @Published var outputGain: Float = 0 {
+        didSet {
+            let clamped = EqualizerStore.clampGain(outputGain)
+            if clamped != outputGain {
+                outputGain = clamped
+                return
+            }
+            persist()
+            eqConfiguration.outputGain = outputGain
+            renderPipeline?.updateOutputGain(linear: EqualizerStore.dbToLinear(outputGain))
+        }
+    }
+
     @Published var selectedInputDeviceID: String? {
         didSet {
             persist()
@@ -95,7 +121,8 @@ final class EqualizerStore: ObservableObject {
     private static let peakAttackSmoothing: Float = 0.5
     private static let peakReleaseSmoothing: Float = 0.15
     private static let clipHoldDuration: TimeInterval = 0.5
-    private static let meterRange: ClosedRange<Float> = -60...0
+    private static let meterRange: ClosedRange<Float> = -80...0
+    private static let gainRange: ClosedRange<Float> = -24...24
 
     // MARK: - Private Properties
 
@@ -109,6 +136,8 @@ final class EqualizerStore: ObservableObject {
         static let inputDevice = "equalizer.input"
         static let outputDevice = "equalizer.output"
         static let bandCount = "equalizer.bandCount"
+        static let inputGain = "equalizer.inputGain"
+        static let outputGain = "equalizer.outputGain"
     }
 
     // MARK: - Convenience Accessors
@@ -131,15 +160,21 @@ final class EqualizerStore: ObservableObject {
         let storedInput = storage.string(forKey: Keys.inputDevice)
         let storedOutput = storage.string(forKey: Keys.outputDevice)
         let storedBands = storage.object(forKey: Keys.bandCount) as? Int ?? EQConfiguration.defaultBandCount
+        let storedInputGain = EqualizerStore.clampGain(storage.float(forKey: Keys.inputGain))
+        let storedOutputGain = EqualizerStore.clampGain(storage.float(forKey: Keys.outputGain))
 
         // Apply to EQ configuration first
         eqConfiguration.globalBypass = storedBypass
         eqConfiguration.setActiveBandCount(storedBands)
+        eqConfiguration.inputGain = storedInputGain
+        eqConfiguration.outputGain = storedOutputGain
         storage.set(eqConfiguration.activeBandCount, forKey: Keys.bandCount)
 
         // Then set published properties (without triggering didSet side effects)
         _isBypassed = Published(initialValue: storedBypass)
         _bandCount = Published(initialValue: eqConfiguration.activeBandCount)
+        _inputGain = Published(initialValue: storedInputGain)
+        _outputGain = Published(initialValue: storedOutputGain)
         _selectedInputDeviceID = Published(initialValue: storedInput)
         _selectedOutputDeviceID = Published(initialValue: storedOutput)
 
@@ -168,6 +203,8 @@ final class EqualizerStore: ObservableObject {
         storage.set(selectedInputDeviceID, forKey: Keys.inputDevice)
         storage.set(selectedOutputDeviceID, forKey: Keys.outputDevice)
         storage.set(bandCount, forKey: Keys.bandCount)
+        storage.set(inputGain, forKey: Keys.inputGain)
+        storage.set(outputGain, forKey: Keys.outputGain)
     }
 
     // MARK: - Routing Control
@@ -232,6 +269,8 @@ final class EqualizerStore: ObservableObject {
         switch pipeline.start() {
         case .success:
             renderPipeline = pipeline
+            renderPipeline?.updateInputGain(linear: EqualizerStore.dbToLinear(inputGain))
+            renderPipeline?.updateOutputGain(linear: EqualizerStore.dbToLinear(outputGain))
             routingStatus = .active(inputName: inputName, outputName: outputName)
             logger.info("Routing active: \(inputName) → \(outputName)")
             startMeterUpdates()
@@ -309,6 +348,14 @@ final class EqualizerStore: ObservableObject {
         return StereoMeterState(left: left, right: right)
     }
 
+    static func clampGain(_ gain: Float) -> Float {
+        min(max(gain, gainRange.lowerBound), gainRange.upperBound)
+    }
+
+    private static func dbToLinear(_ db: Float) -> Float {
+        powf(10.0, db / 20.0)
+    }
+
     private func channelState(from dbValues: [Float], channelIndex: Int, previous: ChannelMeterState) -> ChannelMeterState {
         let db = dbValues.indices.contains(channelIndex) ? dbValues[channelIndex] : Self.meterRange.lowerBound
         let normalized = EqualizerStore.normalize(db: db)
@@ -323,7 +370,15 @@ final class EqualizerStore: ObservableObject {
     }
 
     private static func normalize(db: Float) -> Float {
-        let clamped = min(max(db, meterRange.lowerBound), meterRange.upperBound)
-        return (clamped - meterRange.lowerBound) / (meterRange.upperBound - meterRange.lowerBound)
+        if db <= meterRange.lowerBound {
+            return 0
+        }
+        if db >= meterRange.upperBound {
+            return 1
+        }
+        let amp = powf(10.0, 0.05 * db)
+        let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
+        let normalizedAmp = (amp - minAmp) / (1.0 - minAmp)
+        return powf(normalizedAmp, 0.5)
     }
 }

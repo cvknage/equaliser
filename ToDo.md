@@ -60,7 +60,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Create placeholder `EQWindowView` for the main EQ window.
 - [x] Move mic permission request from `AppDelegate` to app initialization.
 - [x] Remove `AppDelegate` (no longer needed with `MenuBarExtra`).
-- [ ] Main window should hide (not close) when user clicks close button.
+- [x] Main window should hide (not close) when user clicks close button.
 
 ### Window Roles
 
@@ -75,7 +75,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Add "Flatten" button to reset all bands to 0 dB.
 - [x] Double-tap on any band slider to reset it to 0 dB.
 - [ ] Add fine-adjust increment buttons and keyboard nudging for focused bands (optional).
-- [ ] Display real-time level meters or band activity indicators (optional stretch goal).
+- [x] Display real-time level meters or band activity indicators (optional stretch goal).
 
 ## 8. Presets & Profiles
 - [ ] Create preset model (name + 32 band settings + metadata).

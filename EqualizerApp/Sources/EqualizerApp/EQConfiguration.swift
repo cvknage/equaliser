@@ -39,6 +39,12 @@ final class EQConfiguration: ObservableObject {
     /// Global gain applied to the EQ output.
     @Published var globalGain: Float = 0
 
+    /// Input gain applied before EQ processing (in dB).
+    @Published var inputGain: Float = 0
+
+    /// Output gain applied after EQ processing (in dB).
+    @Published var outputGain: Float = 0
+
     /// Current number of active bands exposed to the UI and audio engine.
     @Published private(set) var activeBandCount: Int
 
