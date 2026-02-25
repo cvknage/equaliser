@@ -1,7 +1,44 @@
 import AVFoundation
+import Foundation
+import os.log
 
 /// Configuration for a single EQ band.
-struct EQBandConfiguration: Sendable {
+struct EQBandConfiguration: Codable, Sendable {
+    private enum CodingKeys: String, CodingKey {
+        case frequency
+        case bandwidth
+        case gain
+        case filterType
+        case bypass
+    }
+
+    init(frequency: Float, bandwidth: Float, gain: Float, filterType: AVAudioUnitEQFilterType, bypass: Bool) {
+        self.frequency = frequency
+        self.bandwidth = bandwidth
+        self.gain = gain
+        self.filterType = filterType
+        self.bypass = bypass
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        frequency = try container.decode(Float.self, forKey: .frequency)
+        bandwidth = try container.decode(Float.self, forKey: .bandwidth)
+        gain = try container.decode(Float.self, forKey: .gain)
+        let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
+        filterType = AVAudioUnitEQFilterType(rawValue: filterTypeRaw) ?? .parametric
+        bypass = try container.decode(Bool.self, forKey: .bypass)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(frequency, forKey: .frequency)
+        try container.encode(bandwidth, forKey: .bandwidth)
+        try container.encode(gain, forKey: .gain)
+        try container.encode(filterType.rawValue, forKey: .filterType)
+        try container.encode(bypass, forKey: .bypass)
+    }
+
     var frequency: Float
     var bandwidth: Float
     var gain: Float
@@ -20,6 +57,15 @@ struct EQBandConfiguration: Sendable {
     }
 }
 
+private struct EQSnapshot: Codable, Sendable {
+    var globalBypass: Bool
+    var globalGain: Float
+    var inputGain: Float
+    var outputGain: Float
+    var activeBandCount: Int
+    var bands: [EQBandConfiguration]
+}
+
 /// Stores EQ configuration independently of any AVAudioEngine instance.
 /// This allows settings to be stored and modified without triggering
 /// audio hardware initialization.
@@ -33,17 +79,25 @@ final class EQConfiguration: ObservableObject {
 
     // MARK: - Published Properties
 
-    /// Global bypass for all EQ bands.
-    @Published var globalBypass: Bool = false
+        /// Global bypass for all EQ bands.
+    @Published var globalBypass: Bool = false {
+        didSet { persistSnapshot() }
+    }
 
     /// Global gain applied to the EQ output.
-    @Published var globalGain: Float = 0
+    @Published var globalGain: Float = 0 {
+        didSet { persistSnapshot() }
+    }
 
     /// Input gain applied before EQ processing (in dB).
-    @Published var inputGain: Float = 0
+    @Published var inputGain: Float = 0 {
+        didSet { persistSnapshot() }
+    }
 
     /// Output gain applied after EQ processing (in dB).
-    @Published var outputGain: Float = 0
+    @Published var outputGain: Float = 0 {
+        didSet { persistSnapshot() }
+    }
 
     /// Current number of active bands exposed to the UI and audio engine.
     @Published private(set) var activeBandCount: Int
@@ -51,9 +105,62 @@ final class EQConfiguration: ObservableObject {
     /// Configuration for all bands (always sized to `maxBandCount`).
     @Published private(set) var bands: [EQBandConfiguration]
 
+    private let storage: UserDefaults
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    private enum Keys {
+        static let snapshot = "equalizer.eqConfiguration"
+    }
+
+    // MARK: - Persistence
+
+    private func loadSnapshot() {
+        guard let data = storage.data(forKey: Keys.snapshot) else { return }
+        do {
+            let snapshot = try decoder.decode(EQSnapshot.self, from: data)
+            globalBypass = snapshot.globalBypass
+            globalGain = snapshot.globalGain
+            inputGain = snapshot.inputGain
+            outputGain = snapshot.outputGain
+            activeBandCount = EQConfiguration.clampBandCount(snapshot.activeBandCount)
+            if snapshot.bands.count == EQConfiguration.maxBandCount {
+                bands = snapshot.bands
+            } else {
+                let filled = snapshot.bands + Self.defaultFrequencies().dropFirst(snapshot.bands.count).map {
+                    EQBandConfiguration.parametric(frequency: $0)
+                }
+                bands = Array(filled.prefix(EQConfiguration.maxBandCount))
+            }
+        } catch {
+            storage.removeObject(forKey: Keys.snapshot)
+        }
+    }
+
+    private func persistSnapshot() {
+        let snapshot = EQSnapshot(
+            globalBypass: globalBypass,
+            globalGain: globalGain,
+            inputGain: inputGain,
+            outputGain: outputGain,
+            activeBandCount: activeBandCount,
+            bands: bands
+        )
+
+        do {
+            let data = try encoder.encode(snapshot)
+            storage.set(data, forKey: Keys.snapshot)
+        } catch {
+            os_log("Failed to persist EQ snapshot: %{public}@", type: .error, String(describing: error))
+        }
+    }
+
     // MARK: - Initialization
 
-    init(initialBandCount: Int = EQConfiguration.defaultBandCount) {
+    init(initialBandCount: Int = EQConfiguration.defaultBandCount,
+         storage: UserDefaults = .standard) {
+        self.storage = storage
+
         let frequencies = EQConfiguration.defaultFrequencies()
         bands = frequencies.map { frequency in
             EQBandConfiguration.parametric(
@@ -62,6 +169,8 @@ final class EQConfiguration: ObservableObject {
             )
         }
         activeBandCount = EQConfiguration.clampBandCount(initialBandCount)
+
+        loadSnapshot()
     }
 
     // MARK: - Band Count Management
@@ -73,6 +182,7 @@ final class EQConfiguration: ObservableObject {
         let clamped = EQConfiguration.clampBandCount(newValue)
         if clamped != activeBandCount {
             activeBandCount = clamped
+            persistSnapshot()
         }
         return clamped
     }
@@ -105,30 +215,35 @@ final class EQConfiguration: ObservableObject {
     func updateBandGain(index: Int, gain: Float) {
         guard isValidIndex(index) else { return }
         bands[index].gain = gain
+        persistSnapshot()
     }
 
     /// Updates the bandwidth for a specific band.
     func updateBandBandwidth(index: Int, bandwidth: Float) {
         guard isValidIndex(index) else { return }
         bands[index].bandwidth = bandwidth
+        persistSnapshot()
     }
 
     /// Updates the frequency for a specific band.
     func updateBandFrequency(index: Int, frequency: Float) {
         guard isValidIndex(index) else { return }
         bands[index].frequency = frequency
+        persistSnapshot()
     }
 
     /// Updates the bypass state for a specific band.
     func updateBandBypass(index: Int, bypass: Bool) {
         guard isValidIndex(index) else { return }
         bands[index].bypass = bypass
+        persistSnapshot()
     }
 
     /// Updates the filter type for a specific band.
     func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
         guard isValidIndex(index) else { return }
         bands[index].filterType = filterType
+        persistSnapshot()
     }
 
     // MARK: - EQ Application Helpers

@@ -2,6 +2,10 @@
 
 SwiftUI-based menu bar equalizer targeting macOS 15+ on Apple Silicon.
 
+## Settings Persistence
+- EQ band layout, gains, filter types, and per-band bypass states automatically persist across launches.
+- Device selections, bypass toggle, and gain trims continue to restore from the previous session.
+
 ## Requirements
 - macOS 15 Sequoia or newer
 - Apple Silicon Mac

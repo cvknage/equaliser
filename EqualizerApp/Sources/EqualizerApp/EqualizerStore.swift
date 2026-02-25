@@ -111,7 +111,7 @@ final class EqualizerStore: ObservableObject {
     let deviceManager = DeviceManager()
 
     /// EQ configuration storage (no audio engine side effects).
-    let eqConfiguration = EQConfiguration()
+    let eqConfiguration: EQConfiguration
 
     /// The render pipeline connecting HAL to AVAudioEngine.
     /// Owns the HALIOManager and ManualRenderingEngine internally.
@@ -127,7 +127,7 @@ final class EqualizerStore: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let storage = UserDefaults.standard
+    private let storage: UserDefaults
     private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "EqualizerStore")
     private var cancellables = Set<AnyCancellable>()
     private var meterTimer: AnyCancellable?
@@ -155,12 +155,15 @@ final class EqualizerStore: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    init(storage: UserDefaults = .standard) {
+        self.storage = storage
+        self.eqConfiguration = EQConfiguration(storage: storage)
+
         // Restore persisted state (no audio engine is created here)
         let storedBypass = storage.bool(forKey: Keys.bypass)
         let storedInput = storage.string(forKey: Keys.inputDevice)
         let storedOutput = storage.string(forKey: Keys.outputDevice)
-        let storedBands = storage.object(forKey: Keys.bandCount) as? Int ?? EQConfiguration.defaultBandCount
+        let storedBands = storage.object(forKey: Keys.bandCount) as? Int ?? eqConfiguration.activeBandCount
         let storedInputGain = EqualizerStore.clampGain(storage.float(forKey: Keys.inputGain))
         let storedOutputGain = EqualizerStore.clampGain(storage.float(forKey: Keys.outputGain))
 
