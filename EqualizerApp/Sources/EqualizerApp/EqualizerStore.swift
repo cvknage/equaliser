@@ -1,3 +1,4 @@
+import AVFoundation
 import Combine
 import Foundation
 import os.log
@@ -322,6 +323,24 @@ final class EqualizerStore: ObservableObject {
     func updateBandFrequency(index: Int, frequency: Float) {
         eqConfiguration.updateBandFrequency(index: index, frequency: frequency)
         renderPipeline?.updateBandFrequency(index: index)
+    }
+
+    /// Updates the filter type for a specific EQ band.
+    /// - Parameters:
+    ///   - index: The band index (0-31).
+    ///   - filterType: The filter type to apply.
+    func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
+        eqConfiguration.updateBandFilterType(index: index, filterType: filterType)
+        renderPipeline?.updateBandFilterType(index: index)
+    }
+
+    /// Updates the bypass state for a specific EQ band.
+    /// - Parameters:
+    ///   - index: The band index (0-31).
+    ///   - bypass: Whether the band should be bypassed.
+    func updateBandBypass(index: Int, bypass: Bool) {
+        eqConfiguration.updateBandBypass(index: index, bypass: bypass)
+        renderPipeline?.updateBandBypass(index: index)
     }
 
     private func startMeterUpdates() {

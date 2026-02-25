@@ -1,6 +1,72 @@
 import AVFoundation
 import SwiftUI
 
+private extension AVAudioUnitEQFilterType {
+    var displayName: String {
+        switch self {
+        case .parametric:
+            return "Parametric"
+        case .lowPass:
+            return "Low Pass"
+        case .highPass:
+            return "High Pass"
+        case .lowShelf:
+            return "Low Shelf"
+        case .highShelf:
+            return "High Shelf"
+        case .bandPass:
+            return "Band Pass"
+        case .bandStop:
+            return "Notch"
+        case .resonantLowPass:
+            return "Resonant Low Pass"
+        case .resonantHighPass:
+            return "Resonant High Pass"
+        case .resonantLowShelf:
+            return "Resonant Low Shelf"
+        case .resonantHighShelf:
+            return "Resonant High Shelf"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+
+    var abbreviation: String {
+        switch self {
+        case .parametric:
+            return "Bell"
+        case .lowPass:
+            return "LP"
+        case .highPass:
+            return "HP"
+        case .lowShelf:
+            return "LS"
+        case .highShelf:
+            return "HS"
+        case .bandPass:
+            return "BP"
+        case .bandStop:
+            return "Notch"
+        case .resonantLowPass:
+            return "RLP"
+        case .resonantHighPass:
+            return "RHP"
+        case .resonantLowShelf:
+            return "RLS"
+        case .resonantHighShelf:
+            return "RHS"
+        @unknown default:
+            return "?"
+        }
+    }
+
+    static var allCasesInUIOrder: [AVAudioUnitEQFilterType] {
+        [.parametric, .lowPass, .highPass, .lowShelf, .highShelf,
+         .bandPass, .bandStop, .resonantLowPass, .resonantHighPass,
+         .resonantLowShelf, .resonantHighShelf]
+    }
+}
+
 @main
 struct EqualizerAppMain: App {
     @StateObject private var store = EqualizerStore()
@@ -447,16 +513,27 @@ struct EQBandGridView: View {
     var body: some View {
         GeometryReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
+                HStack(spacing: 6) {
                     ForEach(0..<store.bandCount, id: \.self) { index in
                         EQBandSliderView(
                             index: index,
-                            frequency: store.eqConfiguration.bands[index].frequency,
+                            band: store.eqConfiguration.bands[index],
                             gain: Binding(
                                 get: { store.eqConfiguration.bands[index].gain },
                                 set: { store.updateBandGain(index: index, gain: $0) }
-                            )
+                            ),
+                            frequencyUpdate: { value in
+                                let clamped = min(max(value, 20), 20_000)
+                                store.updateBandFrequency(index: index, frequency: clamped)
+                            },
+                            bandwidthUpdate: { value in
+                                let clamped = min(max(value, 0.05), 5)
+                                store.updateBandBandwidth(index: index, bandwidth: clamped)
+                            },
+                            filterTypeUpdate: { store.updateBandFilterType(index: index, filterType: $0) },
+                            bypassUpdate: { store.updateBandBypass(index: index, bypass: $0) }
                         )
+                        .frame(width: 72)
                     }
                 }
                 .frame(minWidth: max(0, proxy.size.width - 24), maxWidth: .infinity, alignment: .center)
@@ -539,110 +616,256 @@ private struct StepperButton: View {
     }
 }
 
-/// A single vertical EQ band slider with frequency label.
+/// Inline, tap-to-edit numeric value used for frequency/bandwidth fields.
+private struct InlineEditableValue: View {
+    let value: Float
+    let displayFormatter: (Float) -> String
+    let inputFormatter: (Float) -> String
+    let width: CGFloat
+    let alignment: Alignment
+    let onCommit: (Float) -> Void
+
+    @State private var isEditing = false
+    @State private var text: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Group {
+            if isEditing {
+                TextField("", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .frame(width: width)
+                    .focused($isFocused)
+                    .onAppear {
+                        text = inputFormatter(value)
+                        DispatchQueue.main.async {
+                            isFocused = true
+                        }
+                    }
+                    .onSubmit(commit)
+                    .onChange(of: isFocused) { _, focused in
+                        if !focused {
+                            commit()
+                        }
+                    }
+            } else {
+                Text(displayFormatter(value))
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .frame(width: width, alignment: alignment)
+                    .onTapGesture {
+                        text = inputFormatter(value)
+                        isEditing = true
+                    }
+            }
+        }
+    }
+
+    private func commit() {
+        guard isEditing else { return }
+        defer { isEditing = false }
+        if let newValue = Float(text) {
+            onCommit(newValue)
+        }
+    }
+}
+
+private struct EQBandDetailPopover: View {
+    let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
+    let bypassUpdate: (Bool) -> Void
+
+    @State private var filterType: AVAudioUnitEQFilterType
+    @State private var bypass: Bool
+
+    init(band: EQBandConfiguration,
+         filterTypeUpdate: @escaping (AVAudioUnitEQFilterType) -> Void,
+         bypassUpdate: @escaping (Bool) -> Void) {
+        _filterType = State(initialValue: band.filterType)
+        _bypass = State(initialValue: band.bypass)
+        self.filterTypeUpdate = filterTypeUpdate
+        self.bypassUpdate = bypassUpdate
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Band Options")
+                .font(.headline)
+
+            Picker("Filter Type", selection: $filterType) {
+                ForEach(AVAudioUnitEQFilterType.allCasesInUIOrder, id: \.self) { type in
+                    Text(type.displayName)
+                        .tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: filterType) { _, newValue in
+                filterTypeUpdate(newValue)
+            }
+
+            Toggle("Bypass Band", isOn: $bypass)
+                .onChange(of: bypass) { _, newValue in
+                    bypassUpdate(newValue)
+                }
+
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+    }
+}
+
+/// A fully parametric EQ band column.
 struct EQBandSliderView: View {
     let index: Int
-    let frequency: Float
+    let band: EQBandConfiguration
     @Binding var gain: Float
+    let frequencyUpdate: (Float) -> Void
+    let bandwidthUpdate: (Float) -> Void
+    let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
+    let bypassUpdate: (Bool) -> Void
 
     /// Gain range in dB.
     private let minGain: Float = -12
     private let maxGain: Float = 12
 
+    @State private var isShowingDetail = false
+
     var body: some View {
-        VStack(spacing: 4) {
-            // Gain value readout
+        VStack(spacing: 8) {
+            header
+            bandwidthEditor
+            slider
+                .frame(height: 175)
             Text(gainString)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(gain == 0 ? .secondary : .primary)
-                .frame(width: 32)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.gray.opacity(0.08))
+        )
+        .opacity(band.bypass ? 0.35 : 1)
+        .frame(width: 68)
+    }
 
-            // Vertical slider (custom)
-            GeometryReader { geo in
-                let height = geo.size.height
-                let halfHeight = height / 2
-                let positiveRatio = min(max(gain / maxGain, 0), 1)
-                let negativeRatio = min(max(abs(gain) / abs(minGain), 0), 1)
-                let positiveHeight = CGFloat(positiveRatio) * halfHeight
-                let negativeHeight = gain < 0 ? CGFloat(negativeRatio) * halfHeight : 0
-                let normalizedGain = CGFloat((gain - minGain) / (maxGain - minGain))
-                let thumbOffset = (0.5 - normalizedGain) * height
-
-                ZStack {
-                    // Track background
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(width: 6, height: height)
-
-                    // Zero line indicator
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.6))
-                        .frame(width: 12, height: 1)
-
-                    // Positive fill (extends upward from zero)
-                    if gain > 0 {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(fillColor)
-                            .frame(width: 6, height: positiveHeight)
-                            .offset(y: -positiveHeight / 2)
-                            .animation(.easeOut(duration: 0.08), value: gain)
-                    }
-
-                    // Negative fill (extends downward from zero)
-                    if gain < 0 {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(fillColor)
-                            .frame(width: 6, height: negativeHeight)
-                            .offset(y: negativeHeight / 2)
-                            .animation(.easeOut(duration: 0.08), value: gain)
-                    }
-
-                    // Thumb
-                    Circle()
-                        .fill(Color.white)
-                        .shadow(radius: 1)
-                        .frame(width: 14, height: 14)
-                        .offset(y: thumbOffset)
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Spacer(minLength: 0)
+                Button {
+                    isShowingDetail = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .padding(4)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            let fraction = 1 - (value.location.y / geo.size.height)
-                            let clamped = min(max(fraction, 0), 1)
-                            gain = Float(clamped) * (maxGain - minGain) + minGain
-                        }
-                )
-                .onTapGesture(count: 2) {
-                    // Double-tap to reset to 0 dB
-                    gain = 0
+                .buttonStyle(.plain)
+                .popover(isPresented: $isShowingDetail, arrowEdge: .top) {
+                    EQBandDetailPopover(
+                        band: band,
+                        filterTypeUpdate: filterTypeUpdate,
+                        bypassUpdate: bypassUpdate
+                    )
+                    .frame(width: 220)
                 }
             }
-            .frame(width: 24, height: 180)
 
-            // Frequency label
-            Text(frequencyString)
-                .font(.system(size: 8, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 32)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(band.filterType.abbreviation)
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                InlineEditableValue(
+                    value: band.frequency,
+                    displayFormatter: { String(format: "%.0f Hz", $0) },
+                    inputFormatter: { String(format: "%.0f", $0) },
+                    width: 56,
+                    alignment: .leading,
+                    onCommit: frequencyUpdate
+                )
+            }
         }
-        .padding(.vertical, 4)
+    }
+
+    private var bandwidthEditor: some View {
+        InlineEditableValue(
+            value: band.bandwidth,
+            displayFormatter: { String(format: "BW: %.2f", $0) },
+            inputFormatter: { String(format: "%.2f", $0) },
+            width: 70,
+            alignment: .leading,
+            onCommit: bandwidthUpdate
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var slider: some View {
+        GeometryReader { geo in
+            let height = geo.size.height
+            let halfHeight = height / 2
+            let positiveRatio = min(max(gain / maxGain, 0), 1)
+            let negativeRatio = min(max(abs(gain) / abs(minGain), 0), 1)
+            let positiveHeight = CGFloat(positiveRatio) * halfHeight
+            let negativeHeight = gain < 0 ? CGFloat(negativeRatio) * halfHeight : 0
+            let normalizedGain = CGFloat((gain - minGain) / (maxGain - minGain))
+            let thumbOffset = (0.5 - normalizedGain) * height
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.gray.opacity(0.25))
+                    .frame(width: 8, height: height)
+
+                Rectangle()
+                    .fill(Color.gray.opacity(0.6))
+                    .frame(width: 14, height: 1)
+
+                if gain > 0 {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(fillColor)
+                        .frame(width: 8, height: positiveHeight)
+                        .offset(y: -positiveHeight / 2)
+                        .animation(.easeOut(duration: 0.08), value: gain)
+                }
+
+                if gain < 0 {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(fillColor)
+                        .frame(width: 8, height: negativeHeight)
+                        .offset(y: negativeHeight / 2)
+                        .animation(.easeOut(duration: 0.08), value: gain)
+                }
+
+                Circle()
+                    .fill(Color.white)
+                    .shadow(radius: 1)
+                    .frame(width: 16, height: 16)
+                    .offset(y: thumbOffset)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        let fraction = 1 - (value.location.y / geo.size.height)
+                        let clamped = min(max(fraction, 0), 1)
+                        gain = Float(clamped) * (maxGain - minGain) + minGain
+                    }
+            )
+            .onTapGesture(count: 2) {
+                gain = 0
+            }
+        }
     }
 
     private var gainString: String {
         if gain >= 0 {
-            return String(format: "+%.0f", gain)
+            return String(format: "+%.1f dB", gain)
         } else {
-            return String(format: "%.0f", gain)
-        }
-    }
-
-    private var frequencyString: String {
-        if frequency >= 1000 {
-            return String(format: "%.0fk", frequency / 1000)
-        } else {
-            return String(format: "%.0f", frequency)
+            return String(format: "%.1f dB", gain)
         }
     }
 

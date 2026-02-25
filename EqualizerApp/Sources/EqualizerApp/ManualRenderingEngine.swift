@@ -262,6 +262,16 @@ final class ManualRenderingEngine {
         eqConfiguration.applyBandFrequency(index: index, to: eqUnits)
     }
 
+    /// Updates a band's filter type from the current EQ configuration.
+    func updateBandFilterType(index: Int) {
+        eqConfiguration.applyBandFilterType(index: index, to: eqUnits)
+    }
+
+    /// Updates a band's bypass state from the current EQ configuration.
+    func updateBandBypass(index: Int) {
+        eqConfiguration.applyBandBypass(index: index, to: eqUnits)
+    }
+
     /// Reapplies the full EQ configuration.
     func reapplyConfiguration() {
         eqConfiguration.apply(to: eqUnits)

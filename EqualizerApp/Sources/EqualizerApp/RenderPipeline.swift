@@ -428,6 +428,16 @@ final class RenderPipeline {
         renderingEngine?.updateBandFrequency(index: index)
     }
 
+    /// Updates a band's filter type on the live engine.
+    func updateBandFilterType(index: Int) {
+        renderingEngine?.updateBandFilterType(index: index)
+    }
+
+    /// Updates a band's bypass state on the live engine.
+    func updateBandBypass(index: Int) {
+        renderingEngine?.updateBandBypass(index: index)
+    }
+
     /// Reapplies the entire configuration (e.g., after band count changes).
     func reapplyConfiguration() {
         renderingEngine?.reapplyConfiguration()

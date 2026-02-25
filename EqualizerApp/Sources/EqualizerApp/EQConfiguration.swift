@@ -125,6 +125,12 @@ final class EQConfiguration: ObservableObject {
         bands[index].bypass = bypass
     }
 
+    /// Updates the filter type for a specific band.
+    func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
+        guard isValidIndex(index) else { return }
+        bands[index].filterType = filterType
+    }
+
     // MARK: - EQ Application Helpers
 
     func apply(to eqUnits: [AVAudioUnitEQ]) {
@@ -167,6 +173,16 @@ final class EQConfiguration: ObservableObject {
     func applyBandFrequency(index: Int, to eqUnits: [AVAudioUnitEQ]) {
         guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
         unit.bands[bandIndex].frequency = bands[index].frequency
+    }
+
+    func applyBandFilterType(index: Int, to eqUnits: [AVAudioUnitEQ]) {
+        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
+        unit.bands[bandIndex].filterType = bands[index].filterType
+    }
+
+    func applyBandBypass(index: Int, to eqUnits: [AVAudioUnitEQ]) {
+        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
+        unit.bands[bandIndex].bypass = bands[index].bypass
     }
 
     // MARK: - Helpers
