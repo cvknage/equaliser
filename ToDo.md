@@ -78,10 +78,10 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Display real-time level meters or band activity indicators (optional stretch goal).
 
 ## 8. Presets & Profiles
-- [ ] Create preset model (name + 32 band settings + metadata).
+- [ ] Create preset model (name + band settings + metadata).
 - [ ] Add preset dropdown/list to menu bar popover for quick switching.
 - [ ] Support save, rename, delete presets in main EQ window.
-- [ ] Provide a default "Flat" preset and optionally ship a few sample curves.
+- [ ] Presets should be stored in .json files.
 
 ## 8. Onboarding & Settings
 - [ ] Offer a lightweight settings window for startup behavior and BlackHole instructions.
