@@ -6,8 +6,15 @@ import os.log
 struct LevelMeterSnapshot {
     let inputDB: [Float]
     let outputDB: [Float]
+    let inputRmsDB: [Float]
+    let outputRmsDB: [Float]
 
-    static let silent = LevelMeterSnapshot(inputDB: Array(repeating: -90, count: 2), outputDB: Array(repeating: -90, count: 2))
+    static let silent = LevelMeterSnapshot(
+        inputDB: Array(repeating: -90, count: 2),
+        outputDB: Array(repeating: -90, count: 2),
+        inputRmsDB: Array(repeating: -90, count: 2),
+        outputRmsDB: Array(repeating: -90, count: 2)
+    )
 }
 
 /// Coordinates audio flow from HAL input through AVAudioEngine EQ to HAL output.
@@ -447,7 +454,13 @@ final class RenderPipeline {
     func currentMeters() -> LevelMeterSnapshot {
         guard let context = callbackContext else { return latestMeters }
         let snapshot = context.meterSnapshot()
-        let meters = LevelMeterSnapshot(inputDB: snapshot.input, outputDB: snapshot.output)
+        let rmsSnapshot = context.rmsSnapshot()
+        let meters = LevelMeterSnapshot(
+            inputDB: snapshot.input,
+            outputDB: snapshot.output,
+            inputRmsDB: rmsSnapshot.input,
+            outputRmsDB: rmsSnapshot.output
+        )
         latestMeters = meters
         return meters
     }

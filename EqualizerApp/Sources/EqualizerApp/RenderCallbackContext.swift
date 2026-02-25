@@ -75,6 +75,12 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Storage for latest output peak levels per channel (in dBFS).
     private let outputMeterStorage: UnsafeMutablePointer<Float>
 
+    /// Storage for latest input RMS levels per channel (in dBFS).
+    private let inputRmsStorage: UnsafeMutablePointer<Float>
+
+    /// Storage for latest output RMS levels per channel (in dBFS).
+    private let outputRmsStorage: UnsafeMutablePointer<Float>
+
     // MARK: - Initialization
 
     /// Creates a new callback context with ring buffers and pre-allocated audio buffers.
@@ -125,8 +131,12 @@ final class RenderCallbackContext: @unchecked Sendable {
 
         self.inputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
         self.outputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
+        self.inputRmsStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
+        self.outputRmsStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
         inputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
         outputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
+        inputRmsStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
+        outputRmsStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
 
         // Calculate size for AudioBufferList with `channelCount` buffers
         // AudioBufferList has 1 AudioBuffer inline, so we need space for (channelCount - 1) additional
@@ -171,6 +181,10 @@ final class RenderCallbackContext: @unchecked Sendable {
         inputMeterStorage.deallocate()
         outputMeterStorage.deinitialize(count: meterChannelCount)
         outputMeterStorage.deallocate()
+        inputRmsStorage.deinitialize(count: meterChannelCount)
+        inputRmsStorage.deallocate()
+        outputRmsStorage.deinitialize(count: meterChannelCount)
+        outputRmsStorage.deallocate()
 
         // Deallocate the AudioBufferList
         inputBufferListPtr.deallocate()
@@ -204,7 +218,7 @@ final class RenderCallbackContext: @unchecked Sendable {
             _ = ringBuffer.write(inputBuffers[index], count: count)
         }
         let channels = inputBuffers.map { UnsafePointer($0) }
-        updateMeterStorage(storage: inputMeterStorage, with: channels, frameCount: count)
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
     }
 
     /// Direct access to the input sample buffers (for diagnostics/debugging).
@@ -279,6 +293,13 @@ final class RenderCallbackContext: @unchecked Sendable {
         return (input, output)
     }
 
+    /// Returns the latest per-channel RMS meter snapshots in dBFS.
+    func rmsSnapshot() -> (input: [Float], output: [Float]) {
+        let input = Array(UnsafeBufferPointer(start: inputRmsStorage, count: meterChannelCount))
+        let output = Array(UnsafeBufferPointer(start: outputRmsStorage, count: meterChannelCount))
+        return (input, output)
+    }
+
     func updateOutputMeters(from bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
         let channels = UnsafeMutableAudioBufferListPointer(bufferList)
         var channelPointers: [UnsafePointer<Float>] = []
@@ -290,7 +311,7 @@ final class RenderCallbackContext: @unchecked Sendable {
         if channelPointers.isEmpty {
             return
         }
-        updateMeterStorage(storage: outputMeterStorage, with: channelPointers, frameCount: Int(frameCount))
+        updateMeterStorage(storage: outputMeterStorage, rmsStorage: outputRmsStorage, with: channelPointers, frameCount: Int(frameCount))
     }
 
     @inline(__always)
@@ -317,12 +338,14 @@ final class RenderCallbackContext: @unchecked Sendable {
 
     private func updateMeterStorage(
         storage: UnsafeMutablePointer<Float>,
+        rmsStorage: UnsafeMutablePointer<Float>,
         with channels: [UnsafePointer<Float>],
         frameCount: Int
     ) {
         guard frameCount > 0 else {
             for index in 0..<meterChannelCount {
                 storage[index] = Self.silenceDB
+                rmsStorage[index] = Self.silenceDB
             }
             return
         }
@@ -330,19 +353,26 @@ final class RenderCallbackContext: @unchecked Sendable {
         for channel in 0..<meterChannelCount {
             guard !channels.isEmpty else {
                 storage[channel] = Self.silenceDB
+                rmsStorage[channel] = Self.silenceDB
                 continue
             }
 
             let sourceIndex = min(channel, channels.count - 1)
             let buffer = channels[sourceIndex]
             var peak: Float = 0
+            var sumSquares: Float = 0
             var frame = 0
             while frame < frameCount {
-                peak = max(peak, abs(buffer[frame]))
+                let sample = abs(buffer[frame])
+                peak = max(peak, sample)
+                sumSquares += sample * sample
                 frame += 1
             }
             let db = max(Self.silenceDB, 20 * log10(max(peak, 1e-7)))
+            let rms = sqrt(sumSquares / Float(frameCount))
+            let rmsDb = max(Self.silenceDB, 20 * log10(max(rms, 1e-7)))
             storage[channel] = db
+            rmsStorage[channel] = rmsDb
         }
     }
 

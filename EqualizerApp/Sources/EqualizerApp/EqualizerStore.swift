@@ -21,10 +21,11 @@ struct ChannelMeterState: Equatable {
     var peakHold: Float
     var peakHoldTimeRemaining: TimeInterval
     var clipHold: TimeInterval
+    var rms: Float
 
     var isClipping: Bool { clipHold > 0 }
 
-    static let silent = ChannelMeterState(peak: 0, peakHold: 0, peakHoldTimeRemaining: 0, clipHold: 0)
+    static let silent = ChannelMeterState(peak: 0, peakHold: 0, peakHoldTimeRemaining: 0, clipHold: 0, rms: 0)
 }
 
 struct StereoMeterState: Equatable {
@@ -105,6 +106,8 @@ final class EqualizerStore: ObservableObject {
     @Published private(set) var routingStatus: RoutingStatus = .idle
     @Published var inputMeterLevel: StereoMeterState = .silent
     @Published var outputMeterLevel: StereoMeterState = .silent
+    @Published var inputMeterRMS: StereoMeterState = .silent
+    @Published var outputMeterRMS: StereoMeterState = .silent
 
     // MARK: - Audio Components
 
@@ -121,8 +124,9 @@ final class EqualizerStore: ObservableObject {
     private static let meterInterval: TimeInterval = 1.0 / 30.0
     private static let peakHoldHoldDuration: TimeInterval = 1.0
     private static let peakHoldDecayPerTick: Float = 0.02
-    private static let peakAttackSmoothing: Float = 0.5
-    private static let peakReleaseSmoothing: Float = 0.15
+    private static let peakAttackSmoothing: Float = 0.17
+    private static let peakReleaseSmoothing: Float = 0.33
+    private static let rmsSmoothing: Float = 0.05
     private static let clipHoldDuration: TimeInterval = 0.5
     private static let meterRange: ClosedRange<Float> = -80...0
     private static let gainRange: ClosedRange<Float> = -24...24
@@ -227,6 +231,8 @@ final class EqualizerStore: ObservableObject {
             renderPipeline = nil
             inputMeterLevel = .silent
             outputMeterLevel = .silent
+            inputMeterRMS = .silent
+            outputMeterRMS = .silent
         }
 
         // Check if both devices are selected
@@ -297,6 +303,8 @@ final class EqualizerStore: ObservableObject {
         }
         inputMeterLevel = .silent
         outputMeterLevel = .silent
+        inputMeterRMS = .silent
+        outputMeterRMS = .silent
         routingStatus = .idle
         logger.info("Routing stopped")
     }
@@ -364,6 +372,30 @@ final class EqualizerStore: ObservableObject {
         let snapshot = pipeline.currentMeters()
         inputMeterLevel = meterState(from: snapshot.inputDB, previous: inputMeterLevel)
         outputMeterLevel = meterState(from: snapshot.outputDB, previous: outputMeterLevel)
+        inputMeterRMS = rmsState(from: snapshot.inputRmsDB, previous: inputMeterRMS)
+        outputMeterRMS = rmsState(from: snapshot.outputRmsDB, previous: outputMeterRMS)
+    }
+
+    private func rmsState(from dbValues: [Float], previous: StereoMeterState) -> StereoMeterState {
+        let left = channelRMSState(from: dbValues, channelIndex: 0, previous: previous.left)
+        let right = channelRMSState(from: dbValues, channelIndex: 1, previous: previous.right)
+        return StereoMeterState(left: left, right: right)
+    }
+
+    private func channelRMSState(from dbValues: [Float], channelIndex: Int, previous: ChannelMeterState) -> ChannelMeterState {
+        let db = dbValues.indices.contains(channelIndex) ? dbValues[channelIndex] : Self.meterRange.lowerBound
+        let normalized = EqualizerStore.normalize(db: db)
+        let delta = normalized - previous.rms
+        let rawRMS = previous.rms + delta * Self.rmsSmoothing
+        let rms = max(0, min(1, rawRMS))
+        
+        return ChannelMeterState(
+            peak: previous.peak,
+            peakHold: previous.peakHold,
+            peakHoldTimeRemaining: previous.peakHoldTimeRemaining,
+            clipHold: previous.clipHold,
+            rms: rms
+        )
     }
 
     private func meterState(from dbValues: [Float], previous: StereoMeterState) -> StereoMeterState {
@@ -404,7 +436,7 @@ final class EqualizerStore: ObservableObject {
         }
 
         let clipHold = db >= 0 ? Self.clipHoldDuration : max(0, previous.clipHold - Self.meterInterval)
-        return ChannelMeterState(peak: peak, peakHold: peakHold, peakHoldTimeRemaining: newHoldTime, clipHold: clipHold)
+        return ChannelMeterState(peak: peak, peakHold: peakHold, peakHoldTimeRemaining: newHoldTime, clipHold: clipHold, rms: previous.rms)
     }
 
     private static func normalize(db: Float) -> Float {
