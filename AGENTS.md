@@ -78,7 +78,7 @@ equalizer/
     │   ├── AudioRingBuffer.swift      # Lock-free SPSC ring buffer
     │   ├── ManualRenderingEngine.swift # AVAudioEngine in manual rendering mode
     │   ├── AudioRenderContext.swift   # Wraps AVAudioEngine's manualRenderingBlock
-    │   ├── EQConfiguration.swift      # EQ band settings storage (32 bands)
+    │   ├── EQConfiguration.swift      # EQ band settings storage (up to 64 bands)
     │   ├── ParameterSmoother.swift    # Smooth parameter ramping (actor)
     │   │
     │   │   # Device Management
@@ -211,7 +211,7 @@ The app routes audio from an input device (e.g., BlackHole) through an EQ chain 
         ↓
 [AVAudioEngine Manual Rendering]
         ↓
-[Dual AUNBandEQ (16 bands × 2 = 32 total)]
+[AUNBandEQ chain (up to 64 bands across multiple units)]
         ↓
 [Output HAL Unit] → [Output Device]
 ```
@@ -375,5 +375,10 @@ The app requires:
 
 ### Modifying EQ Bands
 
-Update `AudioEngineManager.configureBands()` for frequency/bandwidth changes.
-Use `updateBandGain(index:gain:)` for runtime adjustments.
+Update band settings via `EQConfiguration` methods:
+- `updateBandGain(index:gain:)` - runtime gain adjustment
+- `updateBandFrequency(index:frequency:)` - change center frequency
+- `updateBandBandwidth(index:bandwidth:)` - change Q/bandwidth
+- `updateBandFilterType(index:filterType:)` - change filter type
+
+Call `ManualRenderingEngine.reapplyConfiguration()` to reapply all settings at once.

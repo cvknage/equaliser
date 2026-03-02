@@ -14,7 +14,7 @@ SwiftUI-based menu bar equalizer targeting macOS 15+ on Apple Silicon.
 ## Running
 1. Open the Swift Package (`Package.swift`) directly in Xcode 16+ (File ▸ Open Package…) **or** run it from Terminal:
    ```bash
-   cd /Users/chris/Code/equalizer/EqualizerApp
+   cd EqualizerApp
    swift run
    ```
 2. Grant microphone/audio permissions when prompted.
