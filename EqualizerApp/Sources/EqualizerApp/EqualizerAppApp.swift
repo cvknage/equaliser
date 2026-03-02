@@ -577,25 +577,21 @@ struct GainStepperControl: View {
     @Binding var gain: Float
     let isActive: Bool
 
-    @FocusState private var isFocused: Bool
-    @State private var editedValue: String = ""
-
     var body: some View {
         VStack(spacing: 6) {
             StepperButton(symbol: "+", action: { adjustGain(by: 0.5) })
                 .disabled(!isActive)
 
-            TextField("0.0", text: Binding(
-                get: { editedValue.isEmpty ? Self.format(gain) : editedValue },
-                set: { editedValue = $0 }
-            ))
-            .frame(width: 60)
-            .textFieldStyle(.roundedBorder)
-            .multilineTextAlignment(.center)
-            .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .focused($isFocused)
-            .disabled(!isActive)
-            .onSubmit(applyEditedValue)
+            InlineEditableValue(
+                value: gain,
+                displayFormatter: { String(format: "%+.1f dB", $0) },
+                inputFormatter: { String(format: "%.1f", $0) },
+                width: 54,
+                alignment: .center,
+                onCommit: { newValue in
+                    gain = Self.roundToStep(EqualizerStore.clampGain(newValue))
+                }
+            )
             .onTapGesture(count: 2) {
                 gain = 0
             }
@@ -604,48 +600,15 @@ struct GainStepperControl: View {
                 .disabled(!isActive)
         }
         .opacity(isActive ? 1 : 0.35)
-        .onAppear {
-            editedValue = Self.format(gain)
-        }
-        .onChange(of: gain) { _, newValue in
-            if !isFocused {
-                editedValue = Self.format(newValue)
-            }
-        }
-        .onChange(of: editedValue) { _, newValue in
-            guard isFocused else { return }
-            let allowed = CharacterSet(charactersIn: "-0123456789.")
-            let filteredScalars = newValue.unicodeScalars.filter { allowed.contains($0) }
-            let filtered = String(filteredScalars)
-            if filtered != newValue {
-                editedValue = filtered
-            }
-        }
     }
 
     private func adjustGain(by delta: Float) {
         let newValue = EqualizerStore.clampGain(gain + delta)
         gain = Self.roundToStep(newValue)
-        editedValue = Self.format(gain)
-    }
-
-    private func applyEditedValue() {
-        guard let value = Float(editedValue) else {
-            editedValue = Self.format(gain)
-            isFocused = false
-            return
-        }
-        gain = Self.roundToStep(EqualizerStore.clampGain(value))
-        editedValue = Self.format(gain)
-        isFocused = false
     }
 
     private static func roundToStep(_ value: Float) -> Float {
         (value * 2).rounded() / 2
-    }
-
-    private static func format(_ value: Float) -> String {
-        String(format: "%+.1f", value)
     }
 }
 
@@ -814,17 +777,39 @@ private struct InlineEditableValue: View {
 }
 
 private struct EQBandDetailPopover: View {
+    let gainUpdate: (Float) -> Void
+    let frequencyUpdate: (Float) -> Void
+    let bandwidthUpdate: (Float) -> Void
     let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
+    @State private var gain: Float
+    @State private var frequency: Float
+    @State private var bandwidth: Float
     @State private var filterType: AVAudioUnitEQFilterType
     @State private var bypass: Bool
 
+    @State private var gainText: String = ""
+    @State private var frequencyText: String = ""
+    @State private var bandwidthText: String = ""
+
     init(band: EQBandConfiguration,
+         gainUpdate: @escaping (Float) -> Void,
+         frequencyUpdate: @escaping (Float) -> Void,
+         bandwidthUpdate: @escaping (Float) -> Void,
          filterTypeUpdate: @escaping (AVAudioUnitEQFilterType) -> Void,
          bypassUpdate: @escaping (Bool) -> Void) {
+        _gain = State(initialValue: band.gain)
+        _frequency = State(initialValue: band.frequency)
+        _bandwidth = State(initialValue: band.bandwidth)
         _filterType = State(initialValue: band.filterType)
         _bypass = State(initialValue: band.bypass)
+        _gainText = State(initialValue: String(format: "%.1f", band.gain))
+        _frequencyText = State(initialValue: String(format: "%.0f", band.frequency))
+        _bandwidthText = State(initialValue: String(format: "%.2f", band.bandwidth))
+        self.gainUpdate = gainUpdate
+        self.frequencyUpdate = frequencyUpdate
+        self.bandwidthUpdate = bandwidthUpdate
         self.filterTypeUpdate = filterTypeUpdate
         self.bypassUpdate = bypassUpdate
     }
@@ -833,6 +818,62 @@ private struct EQBandDetailPopover: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Band Options")
                 .font(.headline)
+
+            // Gain
+            HStack {
+                Text("Gain (dB)")
+                Spacer()
+                TextField("0.0", text: $gainText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 70)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit {
+                        if let value = Float(gainText) {
+                            let clamped = min(max(value, -12), 12)
+                            gain = clamped
+                            gainText = String(format: "%.1f", clamped)
+                            gainUpdate(clamped)
+                        }
+                    }
+            }
+
+            // Frequency
+            HStack {
+                Text("Frequency (Hz)")
+                Spacer()
+                TextField("1000", text: $frequencyText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 70)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit {
+                        if let value = Float(frequencyText) {
+                            let clamped = min(max(value, 20), 20000)
+                            frequency = clamped
+                            frequencyText = String(format: "%.0f", clamped)
+                            frequencyUpdate(clamped)
+                        }
+                    }
+            }
+
+            // Bandwidth
+            HStack {
+                Text("Bandwidth (oct)")
+                Spacer()
+                TextField("1.0", text: $bandwidthText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 70)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit {
+                        if let value = Float(bandwidthText) {
+                            let clamped = min(max(value, 0.05), 5.0)
+                            bandwidth = clamped
+                            bandwidthText = String(format: "%.2f", clamped)
+                            bandwidthUpdate(clamped)
+                        }
+                    }
+            }
+
+            Divider()
 
             Picker("Filter Type", selection: $filterType) {
                 ForEach(AVAudioUnitEQFilterType.allCasesInUIOrder, id: \.self) { type in
@@ -875,12 +916,19 @@ struct EQBandSliderView: View {
     var body: some View {
         VStack(spacing: 8) {
             header
-            bandwidthEditor
             slider
                 .frame(height: 175)
-            Text(gainString)
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(gain == 0 ? .secondary : .primary)
+            InlineEditableValue(
+                value: gain,
+                displayFormatter: { $0 >= 0 ? String(format: "+%.1f", $0) : String(format: "%.1f", $0) },
+                inputFormatter: { String(format: "%.1f", $0) },
+                width: 56,
+                alignment: .center,
+                onCommit: { newGain in
+                    gain = min(max(newGain, minGain), maxGain)
+                }
+            )
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 4)
@@ -893,44 +941,37 @@ struct EQBandSliderView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Spacer(minLength: 0)
-                Button {
-                    isShowingDetail = true
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .padding(4)
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $isShowingDetail, arrowEdge: .top) {
-                    EQBandDetailPopover(
-                        band: band,
-                        filterTypeUpdate: filterTypeUpdate,
-                        bypassUpdate: bypassUpdate
-                    )
-                    .frame(width: 220)
-                }
+        VStack(alignment: .center, spacing: 4) {
+            Button {
+                isShowingDetail = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .padding(4)
             }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(band.filterType.abbreviation)
-                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(Color.accentColor.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-
-                InlineEditableValue(
-                    value: band.frequency,
-                    displayFormatter: { String(format: "%.0f Hz", $0) },
-                    inputFormatter: { String(format: "%.0f", $0) },
-                    width: 56,
-                    alignment: .leading,
-                    onCommit: frequencyUpdate
+            .buttonStyle(.plain)
+            .popover(isPresented: $isShowingDetail, arrowEdge: .top) {
+                EQBandDetailPopover(
+                    band: band,
+                    gainUpdate: { newGain in
+                        gain = min(max(newGain, minGain), maxGain)
+                    },
+                    frequencyUpdate: frequencyUpdate,
+                    bandwidthUpdate: bandwidthUpdate,
+                    filterTypeUpdate: filterTypeUpdate,
+                    bypassUpdate: bypassUpdate
                 )
+                .frame(width: 240)
             }
+
+            InlineEditableValue(
+                value: band.frequency,
+                displayFormatter: { String(format: "%.0f Hz", $0) },
+                inputFormatter: { String(format: "%.0f", $0) },
+                width: 56,
+                alignment: .center,
+                onCommit: frequencyUpdate
+            )
         }
     }
 
