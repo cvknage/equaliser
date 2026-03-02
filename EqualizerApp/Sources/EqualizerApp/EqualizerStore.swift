@@ -35,6 +35,25 @@ struct StereoMeterState: Equatable {
     static let silent = StereoMeterState(left: .silent, right: .silent)
 }
 
+/// Shared constants for meter visualization.
+enum MeterConstants {
+    static let meterRange: ClosedRange<Float> = -36...0
+    static let gamma: Float = 0.5
+    static let meterHeight: CGFloat = 126
+    static let standardTickValues: [Float] = [0, -6, -12, -18, -24, -30, -36]
+
+    /// Converts a dB value to a normalized position (0-1) matching the meter visual.
+    static func normalizedPosition(for db: Float) -> Float {
+        if db <= meterRange.lowerBound { return 0 }
+        if db >= meterRange.upperBound { return 1 }
+        let amp = powf(10.0, 0.05 * db)
+        let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
+        let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
+        let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
+        return powf(normalizedAmp, gamma)
+    }
+}
+
 @MainActor
 final class EqualizerStore: ObservableObject {
     // MARK: - Published Properties
@@ -128,8 +147,9 @@ final class EqualizerStore: ObservableObject {
     private static let peakReleaseSmoothing: Float = 0.33
     private static let rmsSmoothing: Float = 0.05
     private static let clipHoldDuration: TimeInterval = 0.5
-    private static let meterRange: ClosedRange<Float> = -80...0
+    private static let meterRange: ClosedRange<Float> = Float(-36)...Float(0)
     private static let gainRange: ClosedRange<Float> = -24...24
+    private static let gamma: Float = 0.5
 
     // MARK: - Private Properties
 
@@ -388,7 +408,7 @@ final class EqualizerStore: ObservableObject {
         let delta = normalized - previous.rms
         let rawRMS = previous.rms + delta * Self.rmsSmoothing
         let rms = max(0, min(1, rawRMS))
-        
+
         return ChannelMeterState(
             peak: previous.peak,
             peakHold: previous.peakHold,
@@ -448,7 +468,8 @@ final class EqualizerStore: ObservableObject {
         }
         let amp = powf(10.0, 0.05 * db)
         let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
-        let normalizedAmp = (amp - minAmp) / (1.0 - minAmp)
-        return powf(normalizedAmp, 0.5)
+        let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
+        let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
+        return powf(normalizedAmp, gamma)
     }
 }

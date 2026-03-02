@@ -238,7 +238,7 @@ struct EQWindowView: View {
                     outputGain: $store.outputGain,
                     isActive: store.routingStatus.isActive
                 )
-                .frame(width: 480)
+                .frame(width: 620)
 
                 Spacer()
 
@@ -322,11 +322,14 @@ struct LevelMetersView: View {
     let isActive: Bool
 
     var body: some View {
-        HStack(alignment: .center, spacing: 20) {
-            StereoMeterGroup(title: "Peak In", state: inputState, gain: $inputGain, isActive: isActive)
-            StereoMeterGroup(title: "Peak Out", state: outputState, gain: $outputGain, isActive: isActive)
-            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, gain: $inputGain, isActive: isActive)
-            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, gain: $outputGain, isActive: isActive)
+        HStack(alignment: .top, spacing: 20) {
+            // Peak meters with scales on left
+            StereoMeterGroup(title: "Peak In", state: inputState, gain: $inputGain, isActive: isActive, showScale: true)
+            StereoMeterGroup(title: "Peak Out", state: outputState, gain: $outputGain, isActive: isActive, showScale: true)
+
+            // RMS meters with scales on left
+            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, gain: $inputGain, isActive: isActive, showScale: true)
+            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, gain: $outputGain, isActive: isActive, showScale: true)
         }
     }
 }
@@ -336,13 +339,17 @@ struct StereoMeterGroup: View {
     let state: StereoMeterState
     @Binding var gain: Float
     let isActive: Bool
+    var showScale: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .top, spacing: 4) {
+                if showScale {
+                    MeterScaleView(height: MeterConstants.meterHeight)
+                }
                 DualPeakMeterView(channelLabel: "L", state: state.left, isActive: isActive)
                 DualPeakMeterView(channelLabel: "R", state: state.right, isActive: isActive)
                 GainStepperControl(gain: $gain, isActive: isActive)
@@ -492,18 +499,76 @@ struct StereoMeterGroupRMS: View {
     let rmsState: StereoMeterState
     @Binding var gain: Float
     let isActive: Bool
+    var showScale: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .top, spacing: 4) {
+                if showScale {
+                    MeterScaleView(height: MeterConstants.meterHeight)
+                }
                 DualPeakRMSMeterView(channelLabel: "L", rmsState: rmsState.left, isActive: isActive)
                 DualPeakRMSMeterView(channelLabel: "R", rmsState: rmsState.right, isActive: isActive)
                 GainStepperControl(gain: $gain, isActive: isActive)
             }
 
+        }
+    }
+}
+
+struct MeterScaleView: View {
+    let height: CGFloat
+
+    var body: some View {
+        // Match DualPeakMeterView structure: VStack(spacing: 4) with content + label
+        VStack(spacing: 4) {
+            Canvas { context, size in
+                for db in MeterConstants.standardTickValues {
+                    let position = MeterConstants.normalizedPosition(for: db)
+                    let y = size.height * (1 - CGFloat(position))
+
+                    // Draw tick mark
+                    let tickWidth: CGFloat = db == 0 ? 6 : 4
+                    let tickRect = CGRect(
+                        x: size.width - tickWidth,
+                        y: y - 0.5,
+                        width: tickWidth,
+                        height: 1
+                    )
+                    context.fill(Path(tickRect), with: .color(.gray.opacity(0.6)))
+
+                    // Draw label with appropriate anchor to avoid clipping
+                    let label = db == 0 ? "0" : String(format: "%.0f", db)
+                    let text = Text(label)
+                        .font(.system(size: 8, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.secondary)
+
+                    // Use different anchors for top/bottom to keep text in bounds
+                    let anchor: UnitPoint
+                    if db == 0 {
+                        anchor = .topTrailing  // Top label: text below tick
+                    } else if db == -36 {
+                        anchor = .bottomTrailing  // Bottom label: text above tick
+                    } else {
+                        anchor = .trailing  // Middle labels: centered on tick
+                    }
+
+                    context.draw(
+                        context.resolve(text),
+                        at: CGPoint(x: size.width - tickWidth - 3, y: y),
+                        anchor: anchor
+                    )
+                }
+            }
+            .frame(width: 32, height: height)
+
+            // Match channel label height from DualPeakMeterView
+            Text(" ")
+                .font(.caption2)
+                .foregroundStyle(.clear)
         }
     }
 }
