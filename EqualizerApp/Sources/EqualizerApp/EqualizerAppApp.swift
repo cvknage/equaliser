@@ -93,7 +93,8 @@ struct EqualizerAppMain: App {
                 .environmentObject(store)
         }
         .defaultPosition(.center)
-        .defaultSize(width: 700, height: 520)
+        .defaultSize(width: 1060, height: 630)
+        .windowResizability(.contentMinSize)
 
         // Menu bar popover (always available)
         MenuBarExtra("Equalizer", systemImage: "slider.horizontal.3") {
@@ -209,7 +210,7 @@ struct EQWindowView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Header: App title + devices + routing controls
+            // Header: App title only
             HStack {
                 Image(systemName: "slider.horizontal.3")
                     .font(.title)
@@ -222,14 +223,11 @@ struct EQWindowView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-
-                // Device pickers
-                DevicePickerView(layout: .horizontal)
             }
             .padding(.horizontal)
             .padding(.top, 8)
 
-            // Routing status + controls
+            // Level meters + unified control panel
             HStack(alignment: .top, spacing: 16) {
                 LevelMetersView(
                     inputState: store.inputMeterLevel,
@@ -241,10 +239,15 @@ struct EQWindowView: View {
                     isActive: store.routingStatus.isActive
                 )
                 .frame(width: 620)
+                .layoutPriority(1)
 
                 Spacer()
 
+                // Unified control panel - device pickers, status, and buttons grouped together
                 VStack(alignment: .trailing, spacing: 8) {
+                    // Device pickers
+                    DevicePickerView(layout: .horizontal)
+
                     RoutingStatusView(status: store.routingStatus)
                         .frame(width: 376)
 
@@ -282,6 +285,7 @@ struct EQWindowView: View {
                         }
                     }
                 }
+                .frame(minWidth: 376)
             }
             .padding(.horizontal)
             .padding(.bottom, 8)
@@ -319,7 +323,7 @@ struct EQWindowView: View {
             // EQ sliders
             EQBandGridView()
         }
-        .frame(minWidth: 600, minHeight: 500)
+        .frame(minWidth: 1060, minHeight: 630)
     }
 }
 
