@@ -664,38 +664,59 @@ struct EQBandGridView: View {
 
 struct BandCountControl: View {
     @EnvironmentObject var store: EqualizerStore
-    @FocusState private var isFocused: Bool
+    @State private var isEditing = false
     @State private var editedValue: String = ""
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             StepperButton(symbol: "-", action: { adjustBands(by: -1) })
-            TextField("Bands", text: Binding(
-                get: { editedValue.isEmpty ? "\(store.bandCount)" : editedValue },
-                set: { editedValue = $0 }
-            ))
-            .frame(width: 60)
-            .textFieldStyle(.roundedBorder)
-            .multilineTextAlignment(.center)
-            .focused($isFocused)
-            .onSubmit(applyEditedValue)
+
+            // Tap-to-edit band count display
+            if isEditing {
+                TextField("", text: $editedValue)
+                    .frame(width: 60)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                    .focused($isFocused)
+                    .onAppear {
+                        DispatchQueue.main.async {
+                            isFocused = true
+                        }
+                    }
+                    .onSubmit(commit)
+                    .onChange(of: editedValue) { _, newValue in
+                        let digitsOnly = newValue.filter { $0.isNumber }
+                        if digitsOnly != newValue {
+                            editedValue = digitsOnly
+                        }
+                    }
+                    .onChange(of: isFocused) { _, focused in
+                        if !focused {
+                            commit()
+                        }
+                    }
+            } else {
+                Text("\(store.bandCount)")
+                    .frame(width: 60)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        editedValue = "\(store.bandCount)"
+                        isEditing = true
+                    }
+            }
+
             StepperButton(symbol: "+", action: { adjustBands(by: 1) })
         }
-        .onAppear {
-            editedValue = "\(store.bandCount)"
-        }
         .onChange(of: store.bandCount) { _, newValue in
-            if !isFocused {
-                editedValue = "\(newValue)"
-            }
-        }
-        .onChange(of: editedValue) { _, newValue in
-            if !newValue.isEmpty {
-                let digitsOnly = newValue.filter { $0.isNumber }
-                if digitsOnly != newValue {
-                    editedValue = digitsOnly
-                }
-            }
+            // Always update display when value changes externally (e.g., preset load)
+            editedValue = "\(newValue)"
+            isEditing = false  // Exit edit mode when value changes externally
         }
     }
 
@@ -704,13 +725,14 @@ struct BandCountControl: View {
         applyBandCount(newCount)
     }
 
-    private func applyEditedValue() {
-        guard let value = Int(editedValue) else {
+    private func commit() {
+        guard isEditing else { return }
+        defer { isEditing = false }
+        if let value = Int(editedValue) {
+            applyBandCount(value)
+        } else {
             editedValue = "\(store.bandCount)"
-            return
         }
-        applyBandCount(value)
-        isFocused = false
     }
 
     private func applyBandCount(_ count: Int) {

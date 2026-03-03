@@ -176,15 +176,69 @@ final class EQConfiguration: ObservableObject {
     // MARK: - Band Count Management
 
     /// Sets the number of active bands, clamping to the supported range.
+    /// - Parameters:
+    ///   - newValue: The desired number of bands.
+    ///   - preserveConfiguredBands: If true and bands have been modified (non-zero gains),
+    ///     only add/remove bands from the right side. If false, respread all bands across the spectrum.
     /// - Returns: The clamped value actually set.
     @discardableResult
-    func setActiveBandCount(_ newValue: Int) -> Int {
+    func setActiveBandCount(_ newValue: Int, preserveConfiguredBands: Bool = true) -> Int {
         let clamped = EQConfiguration.clampBandCount(newValue)
-        if clamped != activeBandCount {
-            activeBandCount = clamped
-            persistSnapshot()
+        guard clamped != activeBandCount else { return clamped }
+
+        let oldCount = activeBandCount
+
+        if preserveConfiguredBands && hasModifiedBands(upTo: min(oldCount, clamped)) {
+            // Bands have been configured - add/remove from right only
+            if clamped > oldCount {
+                // Adding bands: extend frequencies to the right
+                let lastFreq = bands[oldCount - 1].frequency
+                let maxFreq: Float = 26000
+                let newBandCount = clamped - oldCount
+                let ratio = pow(maxFreq / lastFreq, 1 / Float(newBandCount + 1))
+                for i in oldCount..<clamped {
+                    let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
+                    bands[i] = EQBandConfiguration.parametric(
+                        frequency: freq,
+                        bandwidth: EQConfiguration.defaultBandwidth
+                    )
+                }
+            }
+            // Removing bands: just decrease count, existing bands preserved
+        } else {
+            // No modifications - respread all bands across full spectrum
+            let frequencies = EQConfiguration.frequenciesForBandCount(clamped)
+            for (index, frequency) in frequencies.enumerated() {
+                bands[index] = EQBandConfiguration.parametric(
+                    frequency: frequency,
+                    bandwidth: EQConfiguration.defaultBandwidth
+                )
+            }
         }
+
+        activeBandCount = clamped
+        persistSnapshot()
         return clamped
+    }
+
+    /// Checks if any bands up to the given count have been modified (non-zero gain).
+    private func hasModifiedBands(upTo count: Int) -> Bool {
+        for i in 0..<count {
+            if bands[i].gain != 0 { return true }
+        }
+        return false
+    }
+
+    /// Resets all bands with proper frequency spreading across the spectrum.
+    func resetBandsWithFrequencySpread() {
+        let frequencies = EQConfiguration.frequenciesForBandCount(activeBandCount)
+        for (index, frequency) in frequencies.enumerated() {
+            bands[index] = EQBandConfiguration.parametric(
+                frequency: frequency,
+                bandwidth: EQConfiguration.defaultBandwidth
+            )
+        }
+        persistSnapshot()
     }
 
     static func clampBandCount(_ value: Int) -> Int {
@@ -193,16 +247,21 @@ final class EQConfiguration: ObservableObject {
 
     // MARK: - Default Frequencies
 
-    /// Generates logarithmically spaced default frequencies for all 64 bands.
-    private static func defaultFrequencies() -> [Float] {
+    /// Generates logarithmically spaced frequencies for a specific band count.
+    static func frequenciesForBandCount(_ count: Int) -> [Float] {
         let minFrequency: Float = 20
         let maxFrequency: Float = 26000
-        let steps = maxBandCount - 1
+        let steps = max(count - 1, 1)
         let ratio = pow(maxFrequency / minFrequency, 1 / Float(steps))
 
-        return (0..<maxBandCount).map { index in
+        return (0..<count).map { index in
             minFrequency * pow(ratio, Float(index))
         }
+    }
+
+    /// Generates logarithmically spaced default frequencies for all 64 bands.
+    private static func defaultFrequencies() -> [Float] {
+        frequenciesForBandCount(maxBandCount)
     }
 
     // MARK: - Band Updates

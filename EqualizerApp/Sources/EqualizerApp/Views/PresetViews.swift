@@ -170,6 +170,16 @@ struct PresetToolbar: View {
 
             PresetPicker()
 
+            // New preset button
+            Button {
+                store.createNewPreset()
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .help("New preset")
+
             // Save button (updates current or shows save sheet)
             Button {
                 if store.presetManager.selectedPresetName != nil && store.presetManager.isModified {

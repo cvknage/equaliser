@@ -573,4 +573,26 @@ final class EqualizerStore: ObservableObject {
         // Clear preset selection
         presetManager.selectPreset(named: nil)
     }
+
+    /// Creates a new preset with 10 bands spread across the frequency spectrum.
+    func createNewPreset() {
+        // Always reset to 10 bands with proper frequency spreading
+        bandCount = 10
+        _ = eqConfiguration.setActiveBandCount(10, preserveConfiguredBands: false)
+
+        // Force frequency reset regardless of current band count
+        // (setActiveBandCount short-circuits if count hasn't changed)
+        eqConfiguration.resetBandsWithFrequencySpread()
+
+        // Reset gains
+        inputGain = 0
+        outputGain = 0
+        isBypassed = false
+
+        // Reapply to audio engine
+        renderPipeline?.reapplyConfiguration()
+
+        // Clear preset selection (this is a new unsaved preset)
+        presetManager.selectPreset(named: nil)
+    }
 }
