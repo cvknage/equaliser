@@ -37,18 +37,16 @@ struct PresetPicker: View {
                 HStack(spacing: 4) {
                     Text(currentPresetLabel)
                         .lineLimit(1)
+                        .frame(maxWidth: 200, alignment: .leading)
                     if store.presetManager.isModified {
                         Circle()
                             .fill(Color.orange)
                             .frame(width: 6, height: 6)
                     }
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
                 }
                 .frame(minWidth: 100)
             }
             .menuStyle(.borderlessButton)
-            .fixedSize()
         }
     }
 
@@ -180,28 +178,20 @@ struct PresetToolbar: View {
             .controlSize(.small)
             .help("New preset")
 
-            // Save button (updates current or shows save sheet)
-            Button {
-                if store.presetManager.selectedPresetName != nil && store.presetManager.isModified {
-                    // Update existing
-                    do {
-                        try store.updateCurrentPreset()
-                    } catch {
-                        // Fall back to save as new
-                        showingSaveSheet = true
-                    }
-                } else {
-                    showingSaveSheet = true
-                }
-            } label: {
-                Image(systemName: "square.and.arrow.down")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .help("Save preset")
-
             // More options menu
             Menu {
+                Button("Save") {
+                    if store.presetManager.selectedPresetName != nil && store.presetManager.isModified {
+                        do {
+                            try store.updateCurrentPreset()
+                        } catch {
+                            showingSaveSheet = true
+                        }
+                    } else {
+                        showingSaveSheet = true
+                    }
+                }
+
                 Button("Save As...") {
                     showingSaveSheet = true
                 }

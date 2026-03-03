@@ -206,7 +206,6 @@ struct MenuBarContentView: View {
 /// The main EQ settings window - detailed controls.
 struct EQWindowView: View {
     @EnvironmentObject var store: EqualizerStore
-    @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
         VStack(spacing: 12) {
@@ -231,10 +230,7 @@ struct EQWindowView: View {
             .padding(.top, 8)
 
             // Routing status + controls
-            HStack(alignment: .center, spacing: 16) {
-                RoutingStatusView(status: store.routingStatus)
-                    .frame(maxWidth: 280, alignment: .leading)
-
+            HStack(alignment: .top, spacing: 16) {
                 LevelMetersView(
                     inputState: store.inputMeterLevel,
                     outputState: store.outputMeterLevel,
@@ -248,36 +244,54 @@ struct EQWindowView: View {
 
                 Spacer()
 
-                // Routing action buttons
-                if store.routingStatus.isActive {
-                    Button("Stop Routing") {
-                        store.stopRouting()
+                VStack(alignment: .trailing, spacing: 8) {
+                    RoutingStatusView(status: store.routingStatus)
+                        .frame(width: 376)
+
+                    // Routing action buttons
+                    HStack(spacing: 8) {
+                        if store.isBypassed {
+                            Button("Activate EQ") {
+                                store.isBypassed.toggle()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            Button("Bypass EQ") {
+                                store.isBypassed.toggle()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+
+                        if store.routingStatus.isActive {
+                            Button("Stop Routing") {
+                                store.stopRouting()
+                            }
+                            .buttonStyle(.bordered)
+                        } else if case .error = store.routingStatus {
+                            Button("Retry") {
+                                store.reconfigureRouting()
+                            }
+                            .buttonStyle(.bordered)
+                        } else if store.routingStatus == .idle
+                                    && store.selectedInputDeviceID != nil
+                                    && store.selectedOutputDeviceID != nil {
+                            Button("Start Routing") {
+                                store.reconfigureRouting()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
                     }
-                    .buttonStyle(.bordered)
-                } else if case .error = store.routingStatus {
-                    Button("Retry") {
-                        store.reconfigureRouting()
-                    }
-                    .buttonStyle(.bordered)
-                } else if store.routingStatus == .idle
-                            && store.selectedInputDeviceID != nil
-                            && store.selectedOutputDeviceID != nil {
-                    Button("Start Routing") {
-                        store.reconfigureRouting()
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
             }
             .padding(.horizontal)
-            .padding(.vertical, 8)
+            .padding(.bottom, 8)
 
             Divider()
 
             // Preset and band controls toolbar
             HStack {
                 PresetToolbar()
-
-                Spacer()
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 Text("Bands")
                     .font(.headline)
@@ -285,41 +299,25 @@ struct EQWindowView: View {
 
                 BandCountControl()
 
-                Spacer()
+                HStack {
+                    BandwidthDisplayModePicker()
+                        .frame(width: 180)
 
-                BandwidthDisplayModePicker()
-                    .frame(width: 180)
-
-                Button("Flatten") {
-                    for i in 0..<store.bandCount {
-                        store.updateBandGain(index: i, gain: 0)
+                    Button("Flatten") {
+                        for i in 0..<store.bandCount {
+                            store.updateBandGain(index: i, gain: 0)
+                        }
                     }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(.horizontal)
             .padding(.vertical, 4)
 
             // EQ sliders
             EQBandGridView()
-
-            Divider()
-
-            // Footer with bypass toggle
-            HStack {
-                Toggle("Bypass EQ", isOn: $store.isBypassed)
-                    .toggleStyle(.checkbox)
-
-                Spacer()
-
-                Button("Close") {
-                    dismissWindow(id: "eq-settings")
-                }
-                .keyboardShortcut(.escape, modifiers: [])
-            }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
         }
         .frame(minWidth: 600, minHeight: 500)
     }
