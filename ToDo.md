@@ -77,18 +77,22 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Add fine-adjust increment buttons and keyboard nudging for focused bands (optional).
 - [x] Display real-time level meters or band activity indicators (optional stretch goal).
 
-## 8. Presets & Profiles
-- [ ] Create preset model (name + band settings + metadata).
-- [ ] Add preset dropdown/list to menu bar popover for quick switching.
-- [ ] Support save, rename, delete presets in main EQ window.
-- [ ] Presets should be stored in .json files.
+## 8. Presets & Profiles (Completed)
+- [x] Create preset model (name + band settings + metadata) in `PresetModel.swift`.
+- [x] Add preset dropdown/list to menu bar popover for quick switching (`CompactPresetPicker`).
+- [x] Support save, rename, delete presets in main EQ window (`PresetToolbar`, `SavePresetSheet`).
+- [x] Presets stored in `.eqpreset` JSON files at `~/Library/Application Support/Equalizer/Presets/`.
+- [x] Add EasyEffects import/export support with Q-to-bandwidth conversion.
+- [x] Add user preference to display bandwidth as octaves or Q factor.
+- [x] Include factory presets: Flat, Bass Boost, Treble Boost, Vocal Presence, Loudness, Acoustic.
+- [x] Show "modified" indicator when current settings differ from loaded preset.
 
-## 8. Onboarding & Settings
+## 9. Onboarding & Settings
 - [ ] Offer a lightweight settings window for startup behavior and BlackHole instructions.
 - [ ] Include a global bypass toggle and emergency reset-to-flat control.
 - [ ] Add analytics/diagnostics hooks if needed (log gain changes, device switches).
 
-## 9. Testing & Release Prep
+## 10. Testing & Release Prep
 - [ ] Add unit tests for band-mapping logic and preset serialization.
 - [ ] Build an integration harness that feeds sample audio through both EQ units for verification.
 - [ ] Prepare signed/notarized builds and optionally integrate Sparkle or TestFlight for updates.

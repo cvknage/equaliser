@@ -128,6 +128,13 @@ final class EqualizerStore: ObservableObject {
     @Published var inputMeterRMS: StereoMeterState = .silent
     @Published var outputMeterRMS: StereoMeterState = .silent
 
+    /// User preference for displaying bandwidth as octaves or Q factor.
+    @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves {
+        didSet {
+            storage.set(bandwidthDisplayMode.rawValue, forKey: Keys.bandwidthDisplayMode)
+        }
+    }
+
     // MARK: - Audio Components
 
     /// Device manager for enumerating audio devices.
@@ -135,6 +142,9 @@ final class EqualizerStore: ObservableObject {
 
     /// EQ configuration storage (no audio engine side effects).
     let eqConfiguration: EQConfiguration
+
+    /// Preset manager for saving and loading EQ presets.
+    let presetManager: PresetManager
 
     /// The render pipeline connecting HAL to AVAudioEngine.
     /// Owns the HALIOManager and ManualRenderingEngine internally.
@@ -165,6 +175,7 @@ final class EqualizerStore: ObservableObject {
         static let bandCount = "equalizer.bandCount"
         static let inputGain = "equalizer.inputGain"
         static let outputGain = "equalizer.outputGain"
+        static let bandwidthDisplayMode = "equalizer.bandwidthDisplayMode"
     }
 
     // MARK: - Convenience Accessors
@@ -184,6 +195,7 @@ final class EqualizerStore: ObservableObject {
     init(storage: UserDefaults = .standard) {
         self.storage = storage
         self.eqConfiguration = EQConfiguration(storage: storage)
+        self.presetManager = PresetManager(storage: storage)
 
         // Restore persisted state (no audio engine is created here)
         let storedBypass = storage.bool(forKey: Keys.bypass)
@@ -192,6 +204,8 @@ final class EqualizerStore: ObservableObject {
         let storedBands = storage.object(forKey: Keys.bandCount) as? Int ?? eqConfiguration.activeBandCount
         let storedInputGain = EqualizerStore.clampGain(storage.float(forKey: Keys.inputGain))
         let storedOutputGain = EqualizerStore.clampGain(storage.float(forKey: Keys.outputGain))
+        let storedBandwidthMode = storage.string(forKey: Keys.bandwidthDisplayMode)
+            .flatMap { BandwidthDisplayMode(rawValue: $0) } ?? .octaves
 
         // Apply to EQ configuration first
         eqConfiguration.globalBypass = storedBypass
@@ -207,6 +221,7 @@ final class EqualizerStore: ObservableObject {
         _outputGain = Published(initialValue: storedOutputGain)
         _selectedInputDeviceID = Published(initialValue: storedInput)
         _selectedOutputDeviceID = Published(initialValue: storedOutput)
+        _bandwidthDisplayMode = Published(initialValue: storedBandwidthMode)
 
         // Auto-start routing if both devices are already selected
         if storedInput != nil && storedOutput != nil {
@@ -217,6 +232,14 @@ final class EqualizerStore: ObservableObject {
         }
 
         eqConfiguration.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+                self?.presetManager.markAsModified()
+            }
+            .store(in: &cancellables)
+
+        presetManager.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -475,5 +498,79 @@ final class EqualizerStore: ObservableObject {
         let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
         let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
         return powf(normalizedAmp, gamma)
+    }
+
+    // MARK: - Preset Management
+
+    /// Saves the current EQ settings as a new preset.
+    ///
+    /// - Parameter name: The name for the preset.
+    /// - Returns: The created preset.
+    @discardableResult
+    func saveCurrentAsPreset(named name: String) throws -> Preset {
+        let preset = try presetManager.createPreset(
+            named: name,
+            from: eqConfiguration,
+            inputGain: inputGain,
+            outputGain: outputGain
+        )
+        presetManager.selectPreset(named: name)
+        return preset
+    }
+
+    /// Updates the currently selected preset with current EQ settings.
+    func updateCurrentPreset() throws {
+        guard let currentName = presetManager.selectedPresetName else { return }
+        try saveCurrentAsPreset(named: currentName)
+    }
+
+    /// Loads a preset and applies it to the EQ configuration.
+    ///
+    /// - Parameter preset: The preset to load.
+    func loadPreset(_ preset: Preset) {
+        // Apply settings to EQ configuration
+        presetManager.applyPreset(preset, to: eqConfiguration)
+
+        // Apply input/output gains
+        inputGain = preset.settings.inputGain
+        outputGain = preset.settings.outputGain
+        isBypassed = preset.settings.globalBypass
+        bandCount = preset.settings.activeBandCount
+
+        // Reapply to audio engine if active
+        renderPipeline?.reapplyConfiguration()
+
+        // Mark as selected (not modified since we just loaded it)
+        presetManager.selectPreset(named: preset.metadata.name)
+    }
+
+    /// Loads a preset by name.
+    ///
+    /// - Parameter name: The name of the preset to load.
+    func loadPreset(named name: String) {
+        guard let preset = presetManager.preset(named: name) else {
+            logger.warning("Preset not found: \(name)")
+            return
+        }
+        loadPreset(preset)
+    }
+
+    /// Resets to default EQ settings (flat response).
+    func resetToDefaults() {
+        // Reset all bands to flat
+        for i in 0..<eqConfiguration.activeBandCount {
+            eqConfiguration.updateBandGain(index: i, gain: 0)
+        }
+
+        // Reset gains
+        inputGain = 0
+        outputGain = 0
+        isBypassed = false
+
+        // Reapply to audio engine if active
+        renderPipeline?.reapplyConfiguration()
+
+        // Clear preset selection
+        presetManager.selectPreset(named: nil)
     }
 }

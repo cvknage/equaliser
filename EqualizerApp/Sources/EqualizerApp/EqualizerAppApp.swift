@@ -140,6 +140,12 @@ struct MenuBarContentView: View {
             Divider()
                 .padding(.vertical, 4)
 
+            // Preset Picker
+            CompactPresetPicker()
+
+            Divider()
+                .padding(.vertical, 4)
+
             // Controls
             Toggle("Bypass EQ", isOn: $store.isBypassed)
                 .toggleStyle(.checkbox)
@@ -167,7 +173,7 @@ struct MenuBarContentView: View {
             }
         }
         .padding(12)
-        .frame(width: 240, height: 300)
+        .frame(width: 240, height: 340)
     }
 
     private var statusColor: Color {
@@ -267,8 +273,12 @@ struct EQWindowView: View {
 
             Divider()
 
-            // Band controls toolbar
+            // Preset and band controls toolbar
             HStack {
+                PresetToolbar()
+
+                Spacer()
+
                 Text("Bands")
                     .font(.headline)
                     .foregroundStyle(.secondary)
@@ -276,6 +286,9 @@ struct EQWindowView: View {
                 BandCountControl()
 
                 Spacer()
+
+                BandwidthDisplayModePicker()
+                    .frame(width: 180)
 
                 Button("Flatten") {
                     for i in 0..<store.bandCount {
@@ -777,6 +790,8 @@ private struct InlineEditableValue: View {
 }
 
 private struct EQBandDetailPopover: View {
+    @EnvironmentObject var store: EqualizerStore
+
     let gainUpdate: (Float) -> Void
     let frequencyUpdate: (Float) -> Void
     let bandwidthUpdate: (Float) -> Void
@@ -806,7 +821,8 @@ private struct EQBandDetailPopover: View {
         _bypass = State(initialValue: band.bypass)
         _gainText = State(initialValue: String(format: "%.1f", band.gain))
         _frequencyText = State(initialValue: String(format: "%.0f", band.frequency))
-        _bandwidthText = State(initialValue: String(format: "%.2f", band.bandwidth))
+        // Bandwidth text is initialized in onAppear based on display mode
+        _bandwidthText = State(initialValue: "")
         self.gainUpdate = gainUpdate
         self.frequencyUpdate = frequencyUpdate
         self.bandwidthUpdate = bandwidthUpdate
@@ -855,22 +871,28 @@ private struct EQBandDetailPopover: View {
                     }
             }
 
-            // Bandwidth
+            // Bandwidth / Q Factor
             HStack {
-                Text("Bandwidth (oct)")
+                Text(bandwidthLabel)
                 Spacer()
                 TextField("1.0", text: $bandwidthText)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
                     .multilineTextAlignment(.trailing)
                     .onSubmit {
-                        if let value = Float(bandwidthText) {
-                            let clamped = min(max(value, 0.05), 5.0)
+                        if let newBandwidth = BandwidthConverter.parseInput(bandwidthText, mode: store.bandwidthDisplayMode) {
+                            let clamped = BandwidthConverter.clampBandwidth(newBandwidth)
                             bandwidth = clamped
-                            bandwidthText = String(format: "%.2f", clamped)
+                            bandwidthText = BandwidthConverter.formatForInput(bandwidth: clamped, mode: store.bandwidthDisplayMode)
                             bandwidthUpdate(clamped)
                         }
                     }
+            }
+            .onAppear {
+                bandwidthText = BandwidthConverter.formatForInput(bandwidth: bandwidth, mode: store.bandwidthDisplayMode)
+            }
+            .onChange(of: store.bandwidthDisplayMode) { _, newMode in
+                bandwidthText = BandwidthConverter.formatForInput(bandwidth: bandwidth, mode: newMode)
             }
 
             Divider()
@@ -894,6 +916,15 @@ private struct EQBandDetailPopover: View {
             Spacer(minLength: 0)
         }
         .padding(16)
+    }
+
+    private var bandwidthLabel: String {
+        switch store.bandwidthDisplayMode {
+        case .octaves:
+            return "Bandwidth (oct)"
+        case .qFactor:
+            return "Q Factor"
+        }
     }
 }
 

@@ -73,9 +73,9 @@ private struct EQSnapshot: Codable, Sendable {
 final class EQConfiguration: ObservableObject {
     // MARK: - Constants
 
-    static let maxBandCount: Int = 64
-    static let defaultBandCount: Int = 32
-    static let defaultBandwidth: Float = 0.67
+    nonisolated static let maxBandCount: Int = 64
+    nonisolated static let defaultBandCount: Int = 32
+    nonisolated static let defaultBandwidth: Float = 0.67
 
     // MARK: - Published Properties
 
