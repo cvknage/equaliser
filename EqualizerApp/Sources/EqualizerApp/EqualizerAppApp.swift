@@ -102,6 +102,12 @@ struct EqualizerAppMain: App {
                 .environmentObject(store)
         }
         .menuBarExtraStyle(.window)
+
+        // Settings window (Cmd+,)
+        Settings {
+            SettingsView()
+                .environmentObject(store)
+        }
     }
 }
 
@@ -303,18 +309,13 @@ struct EQWindowView: View {
 
                 BandCountControl()
 
-                HStack {
-                    BandwidthDisplayModePicker()
-                        .frame(width: 180)
-
-                    Button("Flatten") {
-                        for i in 0..<store.bandCount {
-                            store.updateBandGain(index: i, gain: 0)
-                        }
+                Button("Flatten") {
+                    for i in 0..<store.bandCount {
+                        store.updateBandGain(index: i, gain: 0)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(.horizontal)
@@ -323,7 +324,7 @@ struct EQWindowView: View {
             // EQ sliders
             EQBandGridView()
         }
-        .frame(minWidth: 1060, minHeight: 630)
+        .frame(minWidth: 1060, minHeight: 570)
     }
 }
 
