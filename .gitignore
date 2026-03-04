@@ -1,6 +1,7 @@
-EqualizerApp/.build/
-EqualizerApp/.swiftpm/
-EqualizerApp/.DS_Store
-EqualizerApp/EqualizerApp.xcodeproj/
 .DS_Store
+.build/
+.swiftpm/
+EqualizerApp.xcodeproj/
+*.xcworkspace/
+DerivedData/
 Equaliser.app/

@@ -12,7 +12,6 @@ This file provides guidance to Claude Code when working with this repository.
 ## Quick Reference
 
 ```bash
-cd EqualizerApp
 swift build        # Build
 swift test         # Test
 swift run          # Run

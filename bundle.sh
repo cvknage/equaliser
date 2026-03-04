@@ -2,22 +2,19 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PACKAGE_DIR="$ROOT_DIR/EqualizerApp"
-BUILD_DIR="$PACKAGE_DIR/.build/release"
+BUILD_DIR="$ROOT_DIR/.build/release"
 EXECUTABLE_NAME="EqualizerApp"
 APP_NAME="Equaliser"
 APP_BUNDLE="$ROOT_DIR/${APP_NAME}.app"
-INFO_PLIST_SRC="$PACKAGE_DIR/Sources/EqualizerApp/Info.plist"
-ENTITLEMENTS="$PACKAGE_DIR/EqualizerApp.entitlements"
+INFO_PLIST_SRC="$ROOT_DIR/Sources/EqualizerApp/Info.plist"
+ENTITLEMENTS="$ROOT_DIR/EqualizerApp.entitlements"
 
-if [[ ! -f "$PACKAGE_DIR/Package.swift" ]]; then
-    echo "\nError: bundle.sh must run from repo root containing EqualizerApp/Package.swift" >&2
+if [[ ! -f "$ROOT_DIR/Package.swift" ]]; then
+    echo "\nError: bundle.sh must run from repo root containing Package.swift" >&2
     exit 1
 fi
 
-pushd "$PACKAGE_DIR" >/dev/null
 swift build -c release
-popd >/dev/null
 
 echo "\nCreating app bundle at $APP_BUNDLE"
 rm -rf "$APP_BUNDLE"

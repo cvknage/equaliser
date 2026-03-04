@@ -12,15 +12,10 @@ A macOS menu bar equalizer application built with Swift 6 and SwiftUI.
 | Framework    | SwiftUI + AVFoundation + Core Audio               |
 | Platform     | macOS 15+ (Sequoia), Apple Silicon only           |
 | Build System | Swift Package Manager                             |
-| Package Root | `EqualizerApp/` (contains `Package.swift`)        |
 
 ## Build Commands
 
-All commands must be run from the `EqualizerApp/` directory:
-
 ```bash
-cd EqualizerApp
-
 # Build (debug)
 swift build
 
@@ -34,13 +29,11 @@ swift run
 swift package clean
 ```
 
-Or open `EqualizerApp/Package.swift` directly in Xcode 16+ (File > Open Package).
+Or open `Package.swift` directly in Xcode 16+ (File > Open Package).
 
 ## Test Commands
 
 ```bash
-cd EqualizerApp
-
 # Run all tests
 swift test
 
@@ -54,42 +47,47 @@ swift test --filter EqualizerAppTests.testExample
 swift test --verbose
 ```
 
-Test files are located in `EqualizerApp/Tests/EqualizerAppTests/`.
+Test files are located in `Tests/EqualizerAppTests/`.
 
 ## Project Structure
 
 ```
 equalizer/
-├── AGENTS.md                 # This file
-├── ToDo.md                   # Project roadmap
-└── EqualizerApp/
-    ├── Package.swift         # SPM manifest
-    ├── EqualizerApp.entitlements
-    ├── README.md
-    ├── Sources/EqualizerApp/
-    │   ├── EqualizerAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
-    │   ├── EqualizerStore.swift       # Global state (ObservableObject)
-    │   │
-    │   │   # Audio Pipeline (HAL + AVAudioEngine)
-    │   ├── HALIOManager.swift         # HAL audio unit management (input/output modes)
-    │   ├── HALIOError.swift           # Error types for HAL operations
-    │   ├── RenderPipeline.swift       # Orchestrates dual HAL + EQ processing
-    │   ├── RenderCallbackContext.swift # Pre-allocated buffers for audio callbacks
-    │   ├── AudioRingBuffer.swift      # Lock-free SPSC ring buffer
-    │   ├── ManualRenderingEngine.swift # AVAudioEngine in manual rendering mode
-    │   ├── AudioRenderContext.swift   # Wraps AVAudioEngine's manualRenderingBlock
-    │   ├── EQConfiguration.swift      # EQ band settings storage (up to 64 bands)
-    │   ├── ParameterSmoother.swift    # Smooth parameter ramping (actor)
-    │   │
-    │   │   # Device Management
-    │   ├── DeviceManager.swift        # Core Audio device enumeration
-    │   │
-    │   │   # UI Components
-    │   ├── DevicePickerView.swift     # Device selection pickers
-    │   └── RoutingStatusView.swift    # Routing status display
-    │
-    └── Tests/EqualizerAppTests/
-        └── EqualizerAppTests.swift
+├── Package.swift              # SPM manifest
+├── EqualizerApp.entitlements
+├── bundle.sh                  # Build app bundle
+├── AGENTS.md                  # This file
+├── ToDo.md                    # Project roadmap
+├── Sources/EqualizerApp/
+│   ├── EqualizerAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
+│   ├── EqualizerStore.swift       # Global state (ObservableObject)
+│   │
+│   │   # Audio Pipeline (HAL + AVAudioEngine)
+│   ├── HALIOManager.swift         # HAL audio unit management (input/output modes)
+│   ├── HALIOError.swift           # Error types for HAL operations
+│   ├── RenderPipeline.swift       # Orchestrates dual HAL + EQ processing
+│   ├── RenderCallbackContext.swift # Pre-allocated buffers for audio callbacks
+│   ├── AudioRingBuffer.swift      # Lock-free SPSC ring buffer
+│   ├── ManualRenderingEngine.swift # AVAudioEngine in manual rendering mode
+│   ├── AudioRenderContext.swift   # Wraps AVAudioEngine's manualRenderingBlock
+│   ├── EQConfiguration.swift      # EQ band settings storage (up to 64 bands)
+│   ├── ParameterSmoother.swift    # Smooth parameter ramping (actor)
+│   │
+│   │   # Device Management
+│   ├── DeviceManager.swift        # Core Audio device enumeration
+│   │
+│   │   # UI Components
+│   ├── Views/
+│   │   ├── DevicePickerView.swift     # Device selection pickers
+│   │   ├── RoutingStatusView.swift    # Routing status display
+│   │   ├── PresetViews.swift          # Preset management views
+│   │   └── SettingsView.swift         # Settings window
+│   │
+│   └── Presets/
+│       └── PresetManager.swift        # Preset loading/saving
+│
+└── Tests/EqualizerAppTests/
+    └── EqualizerAppTests.swift
 ```
 
 ## Code Style Guidelines
@@ -364,12 +362,12 @@ The app requires:
 
 ### Adding a New Source File
 
-1. Create `.swift` file in `EqualizerApp/Sources/EqualizerApp/`
+1. Create `.swift` file in `Sources/EqualizerApp/`
 2. No need to modify `Package.swift` (auto-discovered)
 
 ### Adding a Test
 
-1. Create test class in `EqualizerApp/Tests/EqualizerAppTests/`
+1. Create test class in `Tests/EqualizerAppTests/`
 2. Import with `@testable import EqualizerApp`
 3. Run with `swift test --filter YourTestClass`
 
