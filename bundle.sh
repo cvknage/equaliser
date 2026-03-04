@@ -6,7 +6,7 @@ BUILD_DIR="$ROOT_DIR/.build/release"
 EXECUTABLE_NAME="EqualizerApp"
 APP_NAME="Equaliser"
 APP_BUNDLE="$ROOT_DIR/${APP_NAME}.app"
-INFO_PLIST_SRC="$ROOT_DIR/Sources/EqualizerApp/Info.plist"
+INFO_PLIST_SRC="$ROOT_DIR/Sources/Info.plist"
 ENTITLEMENTS="$ROOT_DIR/EqualizerApp.entitlements"
 
 if [[ ! -f "$ROOT_DIR/Package.swift" ]]; then

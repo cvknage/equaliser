@@ -47,7 +47,7 @@ swift test --filter EqualizerAppTests.testExample
 swift test --verbose
 ```
 
-Test files are located in `Tests/EqualizerAppTests/`.
+Test files are located in `Tests/`.
 
 ## Project Structure
 
@@ -58,7 +58,7 @@ equalizer/
 ├── bundle.sh                  # Build app bundle
 ├── AGENTS.md                  # This file
 ├── ToDo.md                    # Project roadmap
-├── Sources/EqualizerApp/
+├── Sources/
 │   ├── EqualizerAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
 │   ├── EqualizerStore.swift       # Global state (ObservableObject)
 │   │
@@ -86,7 +86,7 @@ equalizer/
 │   └── Presets/
 │       └── PresetManager.swift        # Preset loading/saving
 │
-└── Tests/EqualizerAppTests/
+└── Tests/
     └── EqualizerAppTests.swift
 ```
 
@@ -362,12 +362,12 @@ The app requires:
 
 ### Adding a New Source File
 
-1. Create `.swift` file in `Sources/EqualizerApp/`
+1. Create `.swift` file in `Sources/`
 2. No need to modify `Package.swift` (auto-discovered)
 
 ### Adding a Test
 
-1. Create test class in `Tests/EqualizerAppTests/`
+1. Create test class in `Tests/`
 2. Import with `@testable import EqualizerApp`
 3. Run with `swift test --filter YourTestClass`
 
