@@ -16,6 +16,7 @@
 
         packages = with pkgs; [
           librsvg # SVG to PNG conversion (rsvg-convert)
+          gh # GitHub CLI for releases
         ];
 
         shellHook = ''
@@ -23,10 +24,6 @@
           export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
           export PATH="$PATH:/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin"
           export PATH="$PATH:/usr/bin"
-
-          echo "Equaliser devshell loaded"
-          echo "swift: $(which swift)"
-          echo "rsvg-convert: $(which rsvg-convert)"
         '';
       };
     });
