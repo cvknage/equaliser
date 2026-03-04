@@ -183,6 +183,16 @@ do {
 @EnvironmentObject var store: EqualizerStore
 ```
 
+### Testing
+
+- **Tests are required** for all new code - writing tests must be an included part of writing code
+- Focus on testing **correct behavior**, not the current implementation:
+  - If `add(2, 2)` returns `3`, write a test expecting `4`, then fix the code
+  - Don't write tests that validate existing bugs as "correct"
+- Test critical paths, calculations, and invariants - not necessarily 100% coverage
+- Follow existing test patterns in `Tests/EqualizerAppTests.swift`
+- Run tests before marking work complete: `swift test`
+
 ### Core Audio Conventions
 
 - Use `AudioObjectPropertyAddress` for property queries

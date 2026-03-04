@@ -1,6 +1,15 @@
 import AVFoundation
 
 extension AVAudioUnitEQFilterType {
+    /// Creates a filter type from a raw value, returning nil for unknown values.
+    /// Use this instead of `init(rawValue:)` when you need proper fallback behavior,
+    /// since the standard initializer accepts any raw value for ObjC-bridged enums.
+    init?(validatedRawValue rawValue: Int) {
+        // Valid raw values: 0-10 (parametric through resonantHighShelf)
+        guard (0...10).contains(rawValue) else { return nil }
+        self.init(rawValue: rawValue)
+    }
+
     var displayName: String {
         switch self {
         case .parametric:

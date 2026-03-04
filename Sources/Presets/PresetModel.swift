@@ -76,7 +76,7 @@ struct PresetBand: Codable, Sendable {
         bandwidth = try container.decode(Float.self, forKey: .bandwidth)
         gain = try container.decode(Float.self, forKey: .gain)
         let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
-        filterType = AVAudioUnitEQFilterType(rawValue: filterTypeRaw) ?? .parametric
+        filterType = AVAudioUnitEQFilterType(validatedRawValue: filterTypeRaw) ?? .parametric
         bypass = try container.decode(Bool.self, forKey: .bypass)
     }
 

@@ -1,0 +1,371 @@
+import AVFoundation
+import XCTest
+@testable import EqualizerApp
+
+final class PresetCodableTests: XCTestCase {
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+
+    // MARK: - EQBandConfiguration Tests
+
+    func testEQBandConfiguration_roundTrip() throws {
+        let original = EQBandConfiguration(
+            frequency: 1000.0,
+            bandwidth: 0.67,
+            gain: 3.5,
+            filterType: .parametric,
+            bypass: false
+        )
+
+        let data = try encoder.encode(original)
+        let decoded = try decoder.decode(EQBandConfiguration.self, from: data)
+
+        XCTAssertEqual(decoded.frequency, original.frequency)
+        XCTAssertEqual(decoded.bandwidth, original.bandwidth)
+        XCTAssertEqual(decoded.gain, original.gain)
+        XCTAssertEqual(decoded.filterType, original.filterType)
+        XCTAssertEqual(decoded.bypass, original.bypass)
+    }
+
+    func testEQBandConfiguration_allFilterTypes() throws {
+        let filterTypes: [AVAudioUnitEQFilterType] = [
+            .parametric,
+            .lowPass,
+            .highPass,
+            .resonantLowPass,
+            .resonantHighPass,
+            .bandPass,
+            .bandStop,
+            .lowShelf,
+            .highShelf,
+            .resonantLowShelf,
+            .resonantHighShelf
+        ]
+
+        for filterType in filterTypes {
+            let band = EQBandConfiguration(
+                frequency: 1000.0,
+                bandwidth: 1.0,
+                gain: 0,
+                filterType: filterType,
+                bypass: false
+            )
+
+            let data = try encoder.encode(band)
+            let decoded = try decoder.decode(EQBandConfiguration.self, from: data)
+
+            XCTAssertEqual(decoded.filterType, filterType, "Filter type \(filterType.rawValue) failed round-trip")
+        }
+    }
+
+    func testEQBandConfiguration_unknownFilterType() throws {
+        // Simulate decoding with an unknown filter type raw value
+        let json = """
+        {
+            "frequency": 1000.0,
+            "bandwidth": 1.0,
+            "gain": 0.0,
+            "filterType": 999,
+            "bypass": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try decoder.decode(EQBandConfiguration.self, from: json)
+
+        // Unknown filter types should fall back to parametric
+        XCTAssertEqual(decoded.filterType, .parametric)
+        XCTAssertEqual(decoded.frequency, 1000.0)
+        XCTAssertEqual(decoded.bandwidth, 1.0)
+        XCTAssertEqual(decoded.gain, 0.0)
+        XCTAssertFalse(decoded.bypass)
+    }
+
+    func testEQBandConfiguration_parametricFactory() {
+        let band = EQBandConfiguration.parametric(frequency: 440.0)
+
+        XCTAssertEqual(band.frequency, 440.0)
+        XCTAssertEqual(band.bandwidth, 0.67) // Default bandwidth
+        XCTAssertEqual(band.gain, 0)
+        XCTAssertEqual(band.filterType, .parametric)
+        XCTAssertFalse(band.bypass)
+    }
+
+    func testEQBandConfiguration_parametricFactory_customBandwidth() {
+        let band = EQBandConfiguration.parametric(frequency: 440.0, bandwidth: 1.5)
+
+        XCTAssertEqual(band.frequency, 440.0)
+        XCTAssertEqual(band.bandwidth, 1.5)
+    }
+
+    // MARK: - PresetBand Tests
+
+    func testPresetBand_roundTrip() throws {
+        let original = PresetBand(
+            frequency: 2000.0,
+            bandwidth: 1.0,
+            gain: -6.0,
+            filterType: .highShelf,
+            bypass: true
+        )
+
+        let data = try encoder.encode(original)
+        let decoded = try decoder.decode(PresetBand.self, from: data)
+
+        XCTAssertEqual(decoded.frequency, original.frequency)
+        XCTAssertEqual(decoded.bandwidth, original.bandwidth)
+        XCTAssertEqual(decoded.gain, original.gain)
+        XCTAssertEqual(decoded.filterType, original.filterType)
+        XCTAssertEqual(decoded.bypass, original.bypass)
+    }
+
+    func testPresetBand_unknownFilterType() throws {
+        // Simulate decoding with an unknown filter type raw value
+        let json = """
+        {
+            "frequency": 500.0,
+            "bandwidth": 0.5,
+            "gain": 2.0,
+            "filterType": 888,
+            "bypass": false
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try decoder.decode(PresetBand.self, from: json)
+
+        // Unknown filter types should fall back to parametric
+        XCTAssertEqual(decoded.filterType, .parametric)
+        XCTAssertEqual(decoded.frequency, 500.0)
+        XCTAssertEqual(decoded.bandwidth, 0.5)
+        XCTAssertEqual(decoded.gain, 2.0)
+        XCTAssertFalse(decoded.bypass)
+    }
+
+    func testPresetBand_conversionFromEQBandConfiguration() {
+        let eqBand = EQBandConfiguration(
+            frequency: 3000.0,
+            bandwidth: 0.8,
+            gain: 4.0,
+            filterType: .lowShelf,
+            bypass: true
+        )
+
+        let presetBand = PresetBand(from: eqBand)
+
+        XCTAssertEqual(presetBand.frequency, eqBand.frequency)
+        XCTAssertEqual(presetBand.bandwidth, eqBand.bandwidth)
+        XCTAssertEqual(presetBand.gain, eqBand.gain)
+        XCTAssertEqual(presetBand.filterType, eqBand.filterType)
+        XCTAssertEqual(presetBand.bypass, eqBand.bypass)
+    }
+
+    func testPresetBand_conversionToEQBandConfiguration() {
+        let presetBand = PresetBand(
+            frequency: 4000.0,
+            bandwidth: 1.2,
+            gain: -2.0,
+            filterType: .bandPass,
+            bypass: false
+        )
+
+        let eqBand = presetBand.toEQBandConfiguration()
+
+        XCTAssertEqual(eqBand.frequency, presetBand.frequency)
+        XCTAssertEqual(eqBand.bandwidth, presetBand.bandwidth)
+        XCTAssertEqual(eqBand.gain, presetBand.gain)
+        XCTAssertEqual(eqBand.filterType, presetBand.filterType)
+        XCTAssertEqual(eqBand.bypass, presetBand.bypass)
+    }
+
+    // MARK: - PresetMetadata Tests
+
+    func testPresetMetadata_roundTrip() throws {
+        let createdAt = Date(timeIntervalSince1970: 1700000000)
+        let modifiedAt = Date(timeIntervalSince1970: 1700001000)
+
+        let original = PresetMetadata(name: "Test Preset", createdAt: createdAt, modifiedAt: modifiedAt)
+
+        let data = try encoder.encode(original)
+        let decoded = try decoder.decode(PresetMetadata.self, from: data)
+
+        XCTAssertEqual(decoded.name, original.name)
+        XCTAssertEqual(decoded.createdAt.timeIntervalSince1970, createdAt.timeIntervalSince1970, accuracy: 0.001)
+        XCTAssertEqual(decoded.modifiedAt.timeIntervalSince1970, modifiedAt.timeIntervalSince1970, accuracy: 0.001)
+    }
+
+    func testPresetMetadata_defaultTimestamps() {
+        let beforeCreation = Date()
+        let metadata = PresetMetadata(name: "New Preset")
+        let afterCreation = Date()
+
+        XCTAssertEqual(metadata.name, "New Preset")
+        XCTAssertGreaterThanOrEqual(metadata.createdAt, beforeCreation)
+        XCTAssertLessThanOrEqual(metadata.createdAt, afterCreation)
+        XCTAssertGreaterThanOrEqual(metadata.modifiedAt, beforeCreation)
+        XCTAssertLessThanOrEqual(metadata.modifiedAt, afterCreation)
+    }
+
+    // MARK: - PresetSettings Tests
+
+    func testPresetSettings_roundTrip() throws {
+        let bands = [
+            PresetBand(frequency: 100, bandwidth: 1.0, gain: -3.0, filterType: .lowShelf, bypass: false),
+            PresetBand(frequency: 1000, bandwidth: 0.5, gain: 2.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 10000, bandwidth: 1.0, gain: -1.0, filterType: .highShelf, bypass: true)
+        ]
+
+        let original = PresetSettings(
+            globalBypass: true,
+            globalGain: 2.0,
+            inputGain: -3.0,
+            outputGain: 1.5,
+            activeBandCount: 3,
+            bands: bands
+        )
+
+        let data = try encoder.encode(original)
+        let decoded = try decoder.decode(PresetSettings.self, from: data)
+
+        XCTAssertEqual(decoded.globalBypass, original.globalBypass)
+        XCTAssertEqual(decoded.globalGain, original.globalGain)
+        XCTAssertEqual(decoded.inputGain, original.inputGain)
+        XCTAssertEqual(decoded.outputGain, original.outputGain)
+        XCTAssertEqual(decoded.activeBandCount, original.activeBandCount)
+        XCTAssertEqual(decoded.bands.count, original.bands.count)
+    }
+
+    func testPresetSettings_defaultValues() {
+        let settings = PresetSettings()
+
+        XCTAssertFalse(settings.globalBypass)
+        XCTAssertEqual(settings.globalGain, 0)
+        XCTAssertEqual(settings.inputGain, 0)
+        XCTAssertEqual(settings.outputGain, 0)
+        XCTAssertEqual(settings.activeBandCount, EQConfiguration.defaultBandCount)
+        XCTAssertTrue(settings.bands.isEmpty)
+    }
+
+    // MARK: - Preset Tests
+
+    func testPreset_roundTrip_fullPreset() throws {
+        let bands = [
+            PresetBand(frequency: 60, bandwidth: 0.8, gain: 4.0, filterType: .lowShelf, bypass: false),
+            PresetBand(frequency: 250, bandwidth: 1.0, gain: -2.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 1000, bandwidth: 1.0, gain: 0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 4000, bandwidth: 0.67, gain: 3.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 12000, bandwidth: 1.2, gain: 2.0, filterType: .highShelf, bypass: false)
+        ]
+
+        let settings = PresetSettings(
+            globalBypass: false,
+            globalGain: 0,
+            inputGain: -2.0,
+            outputGain: 1.0,
+            activeBandCount: 5,
+            bands: bands
+        )
+
+        let original = Preset(
+            version: Preset.currentVersion,
+            metadata: PresetMetadata(name: "Full Test Preset"),
+            settings: settings
+        )
+
+        let data = try encoder.encode(original)
+        let decoded = try decoder.decode(Preset.self, from: data)
+
+        XCTAssertEqual(decoded.version, original.version)
+        XCTAssertEqual(decoded.metadata.name, original.metadata.name)
+        XCTAssertEqual(decoded.settings.globalBypass, original.settings.globalBypass)
+        XCTAssertEqual(decoded.settings.globalGain, original.settings.globalGain)
+        XCTAssertEqual(decoded.settings.inputGain, original.settings.inputGain)
+        XCTAssertEqual(decoded.settings.outputGain, original.settings.outputGain)
+        XCTAssertEqual(decoded.settings.activeBandCount, original.settings.activeBandCount)
+        XCTAssertEqual(decoded.settings.bands.count, original.settings.bands.count)
+
+        // Verify individual bands
+        for (index, decodedBand) in decoded.settings.bands.enumerated() {
+            let originalBand = original.settings.bands[index]
+            XCTAssertEqual(decodedBand.frequency, originalBand.frequency, "Band \(index) frequency mismatch")
+            XCTAssertEqual(decodedBand.bandwidth, originalBand.bandwidth, "Band \(index) bandwidth mismatch")
+            XCTAssertEqual(decodedBand.gain, originalBand.gain, "Band \(index) gain mismatch")
+            XCTAssertEqual(decodedBand.filterType, originalBand.filterType, "Band \(index) filterType mismatch")
+            XCTAssertEqual(decodedBand.bypass, originalBand.bypass, "Band \(index) bypass mismatch")
+        }
+    }
+
+    func testPreset_currentVersion() {
+        XCTAssertEqual(Preset.currentVersion, 1)
+    }
+
+    func testPreset_fileExtension() {
+        XCTAssertEqual(Preset.fileExtension, "eqpreset")
+    }
+
+    func testPreset_filename() {
+        let preset = Preset(
+            metadata: PresetMetadata(name: "My Preset"),
+            settings: PresetSettings()
+        )
+
+        XCTAssertEqual(preset.filename, "My Preset.eqpreset")
+    }
+
+    func testPreset_filename_sanitizesSpecialCharacters() {
+        let preset = Preset(
+            metadata: PresetMetadata(name: "Test/Preset:Name"),
+            settings: PresetSettings()
+        )
+
+        XCTAssertEqual(preset.filename, "Test-Preset-Name.eqpreset")
+    }
+
+    func testPreset_id() {
+        let preset = Preset(
+            metadata: PresetMetadata(name: "Unique Name"),
+            settings: PresetSettings()
+        )
+
+        XCTAssertEqual(preset.id, "Unique Name")
+    }
+
+    func testPreset_withUpdatedTimestamp() {
+        let originalDate = Date(timeIntervalSince1970: 1700000000)
+        let preset = Preset(
+            metadata: PresetMetadata(name: "Test", createdAt: originalDate, modifiedAt: originalDate),
+            settings: PresetSettings()
+        )
+
+        let beforeUpdate = Date()
+        let updated = preset.withUpdatedTimestamp()
+        let afterUpdate = Date()
+
+        // Created date should remain the same
+        XCTAssertEqual(updated.metadata.createdAt.timeIntervalSince1970, originalDate.timeIntervalSince1970, accuracy: 0.001)
+
+        // Modified date should be updated
+        XCTAssertGreaterThanOrEqual(updated.metadata.modifiedAt, beforeUpdate)
+        XCTAssertLessThanOrEqual(updated.metadata.modifiedAt, afterUpdate)
+    }
+
+    func testPreset_renamed() {
+        let originalDate = Date(timeIntervalSince1970: 1700000000)
+        let preset = Preset(
+            metadata: PresetMetadata(name: "Original Name", createdAt: originalDate, modifiedAt: originalDate),
+            settings: PresetSettings()
+        )
+
+        let beforeRename = Date()
+        let renamed = preset.renamed(to: "New Name")
+        let afterRename = Date()
+
+        // Name should be updated
+        XCTAssertEqual(renamed.metadata.name, "New Name")
+
+        // Created date should remain the same
+        XCTAssertEqual(renamed.metadata.createdAt.timeIntervalSince1970, originalDate.timeIntervalSince1970, accuracy: 0.001)
+
+        // Modified date should be updated
+        XCTAssertGreaterThanOrEqual(renamed.metadata.modifiedAt, beforeRename)
+        XCTAssertLessThanOrEqual(renamed.metadata.modifiedAt, afterRename)
+    }
+}
