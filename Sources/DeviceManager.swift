@@ -16,8 +16,60 @@ final class DeviceManager: ObservableObject {
     @Published private(set) var inputDevices: [AudioDevice] = []
     @Published private(set) var outputDevices: [AudioDevice] = []
 
+    private nonisolated(unsafe) var deviceListenerBlock: AudioObjectPropertyListenerBlock?
+    private let listenerBlockQueue = DispatchQueue(label: "com.example.EqualizerApp.DeviceManager.listener")
+
     init() {
         refreshDevices()
+        setupDeviceChangeListener()
+    }
+
+    nonisolated func cleanupListener() {
+        guard let block = deviceListenerBlock else { return }
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        AudioObjectRemovePropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            listenerBlockQueue,
+            block
+        )
+    }
+
+    deinit {
+        cleanupListener()
+    }
+
+    private func setupDeviceChangeListener() {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            Task { @MainActor in
+                self?.refreshDevices()
+            }
+        }
+
+        deviceListenerBlock = block
+
+        let status = AudioObjectAddPropertyListenerBlock(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address,
+            listenerBlockQueue,
+            block
+        )
+
+        if status != noErr {
+            print("DeviceManager: Failed to add device change listener: \(status)")
+        }
     }
 
     func refreshDevices() {
@@ -58,6 +110,10 @@ final class DeviceManager: ObservableObject {
               let name = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceNameCFString)
         else { return nil }
 
+        guard shouldIncludeDevice(name: name) else {
+            return nil
+        }
+
         let hasInput = hasStreams(id: id, scope: kAudioDevicePropertyScopeInput)
         let hasOutput = hasStreams(id: id, scope: kAudioDevicePropertyScopeOutput)
 
@@ -68,6 +124,24 @@ final class DeviceManager: ObservableObject {
             isInput: hasInput,
             isOutput: hasOutput
         )
+    }
+
+    func shouldIncludeDevice(name: String) -> Bool {
+        !name.hasPrefix("CADefaultDeviceAggregate")
+    }
+
+    private func getTransportType(id: AudioDeviceID) -> UInt32 {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyTransportType,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var transportType: UInt32 = 0
+        var dataSize = UInt32(MemoryLayout<UInt32>.size)
+        guard AudioObjectGetPropertyData(id, &address, 0, nil, &dataSize, &transportType) == noErr else {
+            return 0
+        }
+        return transportType
     }
 
     private func fetchStringProperty(id: AudioDeviceID, selector: AudioObjectPropertySelector) -> String? {

@@ -46,11 +46,11 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Surface routing status/errors to the menu UI (e.g., "BlackHole 2ch → Built-in Output" or warning on failure).
 - [x] Add Start/Stop routing buttons with proper state management.
 - [x] Add optional level meter or debug log toggle so we can verify signal presence without leaving the app.
-- [ ] Add device hot-swap handling (listener for device changes).
+- [x] Add device hot-swap handling (listener for device changes).
 
 ### Testing & validation
 - [x] Scenario: macOS output → BlackHole, app input=BlackHole, output=Built-in Output; verified audio through speakers.
-- [ ] Scenario: hot-swap output (e.g., to headphones) mid-stream and confirm seamless switch.
+- [x] Scenario: hot-swap output (e.g., to headphones) mid-stream and confirm seamless switch.
 - [ ] Scenario: device removed or mic permission denied; ensure graceful fallback messaging.
 
 ## 6. Window Architecture (Completed)
