@@ -48,7 +48,7 @@ struct PresetPicker: View {
                             .frame(width: 6, height: 6)
                     }
                 }
-                .frame(minWidth: 100)
+                .frame(minWidth: 100, minHeight: 20)
             }
             .menuStyle(.borderlessButton)
         }
@@ -217,6 +217,8 @@ struct PresetToolbar: View {
                     store.createNewPreset()
                 } label: {
                     Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .bold))
+                        .frame(width: 24, height: 16)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -278,9 +280,10 @@ struct PresetToolbar: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
+                        .font(.system(size: 12, weight: .bold))
+                        .frame(width: 24, height: 24)
                 }
                 .menuStyle(.borderlessButton)
-                .fixedSize()
             }
         }
         .sheet(isPresented: $showingSaveSheet) {

@@ -80,8 +80,8 @@ struct MenuBarContentView: View {
                 .padding(.vertical, 4)
 
             // Open Equaliser Button
-            Button("Open Equaliser App") {
-                openWindow(id: "eq-settings")
+            Button("Open Equaliser") {
+                openWindow(id: "equaliser")
                 NSApp.activate(ignoringOtherApps: true)
             }
             .buttonStyle(.bordered)

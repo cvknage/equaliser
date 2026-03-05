@@ -22,7 +22,7 @@ struct EqualiserAppMain: App {
 
     var body: some Scene {
         // Main EQ settings window (hidden by default, opened on demand)
-        Window("Equaliser Settings", id: "eq-settings") {
+        Window("Equaliser", id: "equaliser") {
             EQWindowView()
                 .environmentObject(store)
         }

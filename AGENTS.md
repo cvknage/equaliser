@@ -246,7 +246,7 @@ The app uses SwiftUI's native `MenuBarExtra` for the menu bar interface:
 @main
 struct EqualiserAppMain: App {
     var body: some Scene {
-        Window("Equaliser Settings", id: "eq-settings") { ... }
+        Window("Equaliser", id: "equaliser") { ... }
         MenuBarExtra("Equaliser", systemImage: "slider.vertical.3") { ... }
             .menuBarExtraStyle(.window)
     }
@@ -294,8 +294,8 @@ Use `@Environment(\.openWindow)` with a window ID:
 ```swift
 @Environment(\.openWindow) private var openWindow
 
-Button("Open Settings") {
-    openWindow(id: "eq-settings")
+Button("Open Equaliser") {
+    openWindow(id: "equaliser")
     NSApp.activate(ignoringOtherApps: true)  // Bring to front
 }
 ```

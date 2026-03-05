@@ -4,7 +4,7 @@ struct GainStepperControl: View {
     @Binding var gain: Float
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 12) {
             StepperButton(symbol: "+", action: { adjustGain(by: 0.5) })
 
             InlineEditableValue(

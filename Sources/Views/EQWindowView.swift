@@ -89,8 +89,11 @@ struct EQWindowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .opacity(0)
-                    Button("Reset") {
+                    Button {
                         store.resetToDefaults()
+                    } label: {
+                        Text("Reset")
+                            .frame(width: 50, height: 16)
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
@@ -103,7 +106,7 @@ struct EQWindowView: View {
             EQBandGridView()
         }
         .padding(12)
-        .frame(minWidth: 1060, minHeight: 540)
+        .frame(minWidth: 1060, minHeight: 530)
     }
 }
 

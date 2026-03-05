@@ -7,7 +7,7 @@ struct BandCountControl: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             StepperButton(symbol: "-", action: { adjustBands(by: -1) })
 
             // Inline editable band count - matching gain control style
