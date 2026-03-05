@@ -24,17 +24,21 @@ struct EQWindowView: View {
             .padding(.top, 8)
 
             // Level meters + unified control panel
-            HStack(alignment: .top, spacing: 16) {
+            HStack(alignment: .top, spacing: 0) {
                 LevelMetersView(
                     inputState: store.inputMeterLevel,
                     outputState: store.outputMeterLevel,
                     inputRMSState: store.inputMeterRMS,
-                    outputRMSState: store.outputMeterRMS,
+                    outputRMSState: store.outputMeterRMS
+                )
+                .layoutPriority(1)
+
+                Spacer(minLength: 64)
+
+                GainControlsView(
                     inputGain: $store.inputGain,
                     outputGain: $store.outputGain
                 )
-                .frame(width: 620)
-                .layoutPriority(1)
 
                 Spacer()
 

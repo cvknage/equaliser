@@ -31,7 +31,7 @@ struct EQBandGridView: View {
                     }
                 }
                 .frame(minWidth: max(0, proxy.size.width - 24), maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 12)
+                .padding(.horizontal)
             }
         }
     }

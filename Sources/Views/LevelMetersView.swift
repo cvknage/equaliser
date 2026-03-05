@@ -5,18 +5,43 @@ struct LevelMetersView: View {
     let outputState: StereoMeterState
     let inputRMSState: StereoMeterState
     let outputRMSState: StereoMeterState
-    @Binding var inputGain: Float
-    @Binding var outputGain: Float
 
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
             // Peak meters with scales on left
-            StereoMeterGroup(title: "Peak In", state: inputState, gain: $inputGain, showScale: true)
-            StereoMeterGroup(title: "Peak Out", state: outputState, gain: $outputGain, showScale: true)
+            StereoMeterGroup(title: "Peak In", state: inputState, showScale: true)
+            StereoMeterGroup(title: "Peak Out", state: outputState, showScale: true)
 
             // RMS meters with scales on left
-            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, gain: $inputGain, showScale: true)
-            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, gain: $outputGain, showScale: true)
+            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, showScale: true)
+            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, showScale: true)
+        }
+    }
+}
+
+struct GainControlsView: View {
+    @Binding var inputGain: Float
+    @Binding var outputGain: Float
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 6) {
+                Text("Input Gain")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                GainStepperControl(gain: $inputGain)
+            }
+
+            VStack(spacing: 6) {
+                Text("Output Gain")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                GainStepperControl(gain: $outputGain)
+            }
         }
     }
 }
@@ -24,7 +49,6 @@ struct LevelMetersView: View {
 struct StereoMeterGroup: View {
     let title: String
     let state: StereoMeterState
-    @Binding var gain: Float
     var showScale: Bool = false
 
     var body: some View {
@@ -38,9 +62,7 @@ struct StereoMeterGroup: View {
                 }
                 DualPeakMeterView(channelLabel: "L", state: state.left)
                 DualPeakMeterView(channelLabel: "R", state: state.right)
-                GainStepperControl(gain: $gain)
             }
-
         }
     }
 }
@@ -62,11 +84,7 @@ struct DualPeakMeterView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .bottom) {
                     RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.gray.opacity(0.18))
-                        )
+                        .fill(Color.gray.opacity(0.18))
 
                     if state.peak > 0 {
                         RoundedRectangle(cornerRadius: 3)
@@ -96,6 +114,10 @@ struct DualPeakMeterView: View {
                 }
             }
             .frame(width: 18, height: 126)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
+            )
 
             Text(channelLabel)
                 .font(.caption2)
@@ -144,11 +166,7 @@ struct DualPeakRMSMeterView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .bottom) {
                     RoundedRectangle(cornerRadius: 4)
-                        .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(Color.gray.opacity(0.18))
-                        )
+                        .fill(Color.gray.opacity(0.18))
 
                     if rmsState.rms > 0 {
                         RoundedRectangle(cornerRadius: 3)
@@ -168,6 +186,10 @@ struct DualPeakRMSMeterView: View {
                 }
             }
             .frame(width: 14, height: 126)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
+            )
 
             Text(channelLabel)
                 .font(.caption2)
@@ -179,7 +201,6 @@ struct DualPeakRMSMeterView: View {
 struct StereoMeterGroupRMS: View {
     let title: String
     let rmsState: StereoMeterState
-    @Binding var gain: Float
     var showScale: Bool = false
 
     var body: some View {
@@ -193,9 +214,7 @@ struct StereoMeterGroupRMS: View {
                 }
                 DualPeakRMSMeterView(channelLabel: "L", rmsState: rmsState.left)
                 DualPeakRMSMeterView(channelLabel: "R", rmsState: rmsState.right)
-                GainStepperControl(gain: $gain)
             }
-
         }
     }
 }
