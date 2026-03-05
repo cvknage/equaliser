@@ -86,7 +86,6 @@ struct EQWindowView: View {
                 .controlSize(.small)
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
-            .padding(.horizontal)
             .padding(.vertical, 4)
 
             // EQ sliders
