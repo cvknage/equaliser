@@ -169,7 +169,7 @@ struct EQBandSliderView: View {
 }
 
 struct EQBandDetailPopover: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     let gainUpdate: (Float) -> Void
     let frequencyUpdate: (Float) -> Void

@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The menu bar popover content - quick access controls.
 struct MenuBarContentView: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -11,7 +11,7 @@ struct MenuBarContentView: View {
             HStack {
                 Image(systemName: "slider.vertical.3")
                     .font(.title3)
-                Text("Equalizer")
+                Text("Equaliser")
                     .font(.headline)
                 Spacer()
             }
@@ -131,5 +131,5 @@ struct MenuBarContentView: View {
 
 #Preview("Menu Bar") {
     MenuBarContentView()
-        .environmentObject(EqualizerStore())
+        .environmentObject(EqualiserStore())
 }

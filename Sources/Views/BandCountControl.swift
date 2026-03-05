@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct BandCountControl: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
     @State private var isEditing = false
     @State private var editedValue: String = ""
     @FocusState private var isFocused: Bool

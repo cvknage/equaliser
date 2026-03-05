@@ -14,7 +14,7 @@ struct GainStepperControl: View {
                 width: 54,
                 alignment: .center,
                 onCommit: { newValue in
-                    gain = Self.roundToStep(EqualizerStore.clampGain(newValue))
+                    gain = Self.roundToStep(EqualiserStore.clampGain(newValue))
                 }
             )
             .onTapGesture(count: 2) {
@@ -26,7 +26,7 @@ struct GainStepperControl: View {
     }
 
     private func adjustGain(by delta: Float) {
-        let newValue = EqualizerStore.clampGain(gain + delta)
+        let newValue = EqualiserStore.clampGain(gain + delta)
         gain = Self.roundToStep(newValue)
     }
 

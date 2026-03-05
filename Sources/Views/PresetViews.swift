@@ -28,7 +28,7 @@ struct MenuSection<Content: View>: View {
 
 /// A picker for selecting presets, with modified indicator.
 struct PresetPicker: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     var body: some View {
         HStack(spacing: 4) {
@@ -106,7 +106,7 @@ struct PresetPicker: View {
 /// A sheet for saving a new preset or renaming an existing one.
 struct SavePresetSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     @State private var presetName: String = ""
     @State private var errorMessage: String?
@@ -195,7 +195,7 @@ struct SavePresetSheet: View {
 
 /// A toolbar with preset controls for the main EQ window.
 struct PresetToolbar: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
     @State private var showingSaveSheet = false
     @State private var showingRenameSheet = false
     @State private var showingDeleteConfirmation = false
@@ -400,7 +400,7 @@ struct PresetToolbar: View {
 
 /// A compact preset picker suitable for the menu bar popover.
 struct CompactPresetPicker: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     var body: some View {
         MenuSection(title: "Preset") {
@@ -473,7 +473,7 @@ struct CompactPresetPicker: View {
 
 /// A picker for selecting between octaves and Q factor display.
 struct BandwidthDisplayModePicker: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     var body: some View {
         HStack {

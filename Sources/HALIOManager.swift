@@ -27,7 +27,7 @@ final class HALIOManager {
     /// Marked nonisolated(unsafe) to allow cleanup in deinit.
     private nonisolated(unsafe) var audioUnit: AudioComponentInstance?
 
-    private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "HALIO")
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "HALIO")
 
     /// The currently configured device ID, or 0 if not set.
     private(set) var currentDeviceID: AudioDeviceID = 0

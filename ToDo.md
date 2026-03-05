@@ -1,4 +1,4 @@
-# Equalizer App Roadmap
+# Equaliser App Roadmap
 
 A sequential plan so we can ship the menu-bar equalizer step by step.
 
@@ -9,7 +9,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 
 ## 2. Core Application Shell
 - [x] Implement the menu-bar status item with a SwiftUI popover host view.
-- [x] Set up a shared `EqualizerStore` (ObservableObject) for global state.
+- [x] Set up a shared `EqualiserStore` (ObservableObject) for global state.
 - [x] Persist minimal preferences (selected devices, bypass state) via UserDefaults.
 
 ## 3. Audio Engine Foundation
@@ -42,7 +42,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Guard against rate mismatches (resample or reject) and zero-fill if the EQ render returns insufficient data.
 
 ### Store & UI integration
-- [x] Update `EqualizerStore` to own `RenderPipeline`, persist selected device UIDs, and trigger rebuilds on change.
+- [x] Update `EqualiserStore` to own `RenderPipeline`, persist selected device UIDs, and trigger rebuilds on change.
 - [x] Surface routing status/errors to the menu UI (e.g., "BlackHole 2ch → Built-in Output" or warning on failure).
 - [x] Add Start/Stop routing buttons with proper state management.
 - [x] Add optional level meter or debug log toggle so we can verify signal presence without leaving the app.
@@ -69,7 +69,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 | Menu Bar Popover | Quick access: device selection, routing, bypass, preset picker, open EQ settings |
 | Main EQ Window | Detailed 32-band EQ controls, preset management, advanced settings |
 
-## 7. Equalizer Controls UI (Completed)
+## 7. Equaliser Controls UI (Completed)
 - [x] Design compact 32-band controls in the main EQ window (horizontal scrolling sliders).
 - [x] Add gain/frequency readouts for each band.
 - [x] Add "Flatten" button to reset all bands to 0 dB.
@@ -81,7 +81,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Create preset model (name + band settings + metadata) in `PresetModel.swift`.
 - [x] Add preset dropdown/list to menu bar popover for quick switching (`CompactPresetPicker`).
 - [x] Support save, rename, delete presets in main EQ window (`PresetToolbar`, `SavePresetSheet`).
-- [x] Presets stored in `.eqpreset` JSON files at `~/Library/Application Support/Equalizer/Presets/`.
+- [x] Presets stored in `.eqpreset` JSON files at `~/Library/Application Support/Equaliser/Presets/`.
 - [x] Add EasyEffects import/export support with Q-to-bandwidth conversion.
 - [x] Add user preference to display bandwidth as octaves or Q factor.
 - [x] Include factory presets: Flat, Bass Boost, Treble Boost, Vocal Presence, Loudness, Acoustic.

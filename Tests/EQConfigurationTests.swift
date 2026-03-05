@@ -1,5 +1,5 @@
 import XCTest
-@testable import EqualizerApp
+@testable import EqualiserApp
 
 final class EQConfigurationTests: XCTestCase {
     // MARK: - Frequency Generation Tests

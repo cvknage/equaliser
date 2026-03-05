@@ -35,7 +35,7 @@ enum EasyEffectsExportError: LocalizedError {
 /// - `slope` → "x1" (first-order slope)
 /// - `solo` → false
 enum EasyEffectsExporter {
-    private static let logger = Logger(subsystem: "com.example.EqualizerApp", category: "EasyEffectsExporter")
+    private static let logger = Logger(subsystem: "net.knage.equaliser", category: "EasyEffectsExporter")
 
     // MARK: - Public API
 

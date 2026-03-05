@@ -49,7 +49,7 @@ struct EasyEffectsImportResult {
 /// - `split-channels` - per-channel EQ not supported
 /// - Non-EQ plugins (compressor, limiter, gate) - app is EQ-only
 enum EasyEffectsImporter {
-    private static let logger = Logger(subsystem: "com.example.EqualizerApp", category: "EasyEffectsImporter")
+    private static let logger = Logger(subsystem: "net.knage.equaliser", category: "EasyEffectsImporter")
 
     // MARK: - Public API
 

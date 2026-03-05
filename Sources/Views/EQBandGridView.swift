@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Grid of EQ band sliders.
 struct EQBandGridView: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     var body: some View {
         GeometryReader { proxy in

@@ -17,7 +17,7 @@ final class DeviceManager: ObservableObject {
     @Published private(set) var outputDevices: [AudioDevice] = []
 
     private nonisolated(unsafe) var deviceListenerBlock: AudioObjectPropertyListenerBlock?
-    private let listenerBlockQueue = DispatchQueue(label: "com.example.EqualizerApp.DeviceManager.listener")
+    private let listenerBlockQueue = DispatchQueue(label: "net.knage.equaliser.DeviceManager.listener")
 
     init() {
         refreshDevices()

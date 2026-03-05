@@ -42,7 +42,7 @@ final class RenderPipeline {
     private var outputHALManager: HALIOManager?
 
     private let eqConfiguration: EQConfiguration
-    private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "RenderPipeline")
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "RenderPipeline")
 
     /// The manual rendering engine (created with the correct format in start()).
     private var renderingEngine: ManualRenderingEngine?
@@ -79,7 +79,7 @@ final class RenderPipeline {
     private nonisolated(unsafe) static var didLogFirstOutputCallback: Bool = false
 
     /// Logger for static/audio thread context.
-    private static let staticLogger = Logger(subsystem: "com.example.EqualizerApp", category: "RenderCallback")
+    private static let staticLogger = Logger(subsystem: "net.knage.equaliser", category: "RenderCallback")
 
     // MARK: - Initialization
 

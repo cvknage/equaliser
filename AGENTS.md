@@ -1,4 +1,4 @@
-# AGENTS.md - Equalizer App
+# AGENTS.md - Equaliser App
 
 Guidelines for AI coding agents working in this repository.
 
@@ -38,10 +38,10 @@ Or open `Package.swift` directly in Xcode 16+ (File > Open Package).
 swift test
 
 # Run a single test class
-swift test --filter EqualizerAppTests
+swift test --filter EqualiserAppTests
 
 # Run a single test method
-swift test --filter EqualizerAppTests.testExample
+swift test --filter EqualiserAppTests.testExample
 
 # Run tests with verbose output
 swift test --verbose
@@ -54,13 +54,13 @@ Test files are located in `Tests/`.
 ```
 equalizer/
 ├── Package.swift              # SPM manifest
-├── EqualizerApp.entitlements
+├── EqualiserApp.entitlements
 ├── bundle.sh                  # Build app bundle
 ├── AGENTS.md                  # This file
 ├── ToDo.md                    # Project roadmap
 ├── Sources/
-│   ├── EqualizerAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
-│   ├── EqualizerStore.swift       # Global state (ObservableObject)
+│   ├── EqualiserAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
+│   ├── EqualiserStore.swift       # Global state (ObservableObject)
 │   │
 │   │   # Audio Pipeline (HAL + AVAudioEngine)
 │   ├── HALIOManager.swift         # HAL audio unit management (input/output modes)
@@ -87,7 +87,7 @@ equalizer/
 │       └── PresetManager.swift        # Preset loading/saving
 │
 └── Tests/
-    └── EqualizerAppTests.swift
+    └── EqualiserAppTests.swift
 ```
 
 ## Code Style Guidelines
@@ -116,7 +116,7 @@ import os.log
 
 | Element           | Convention                    | Example                          |
 |-------------------|-------------------------------|----------------------------------|
-| Types/Protocols   | UpperCamelCase                | `AudioDevice`, `EqualizerStore`  |
+| Types/Protocols   | UpperCamelCase                | `AudioDevice`, `EqualiserStore`  |
 | Functions/Methods | lowerCamelCase                | `refreshDevices()`, `start()`    |
 | Variables         | lowerCamelCase                | `isRunning`, `inputDevices`      |
 | Constants         | lowerCamelCase                | `let smoothingInterval`          |
@@ -143,14 +143,14 @@ func bandMapping(for index: Int) -> (AVAudioUnitEQ, Int)
 
 This project uses Swift 6 strict concurrency:
 
-- **Main Actor**: Use `@MainActor` on UI-bound classes (`EqualizerStore`, `DeviceManager`, `EQConfiguration`)
+- **Main Actor**: Use `@MainActor` on UI-bound classes (`EqualiserStore`, `DeviceManager`, `EQConfiguration`)
 - **Actors**: Use `actor` for thread-safe isolated state (`ParameterSmoother`)
 - **Sendable**: Ensure types crossing actor boundaries are `Sendable`
 - **Task**: Use structured concurrency with `Task` and `async/await`
 
 ```swift
 @MainActor
-final class EqualizerStore: ObservableObject { ... }
+final class EqualiserStore: ObservableObject { ... }
 
 actor ParameterSmoother { ... }
 ```
@@ -179,8 +179,8 @@ do {
 - Prefer computed properties for derived state
 
 ```swift
-@StateObject private var store = EqualizerStore()
-@EnvironmentObject var store: EqualizerStore
+@StateObject private var store = EqualiserStore()
+@EnvironmentObject var store: EqualiserStore
 ```
 
 ### Testing
@@ -190,7 +190,7 @@ do {
   - If `add(2, 2)` returns `3`, write a test expecting `4`, then fix the code
   - Don't write tests that validate existing bugs as "correct"
 - Test critical paths, calculations, and invariants - not necessarily 100% coverage
-- Follow existing test patterns in `Tests/EqualizerAppTests.swift`
+- Follow existing test patterns in `Tests/EqualiserAppTests.swift`
 - Run tests before marking work complete: `swift test`
 
 ### Core Audio Conventions
@@ -204,7 +204,7 @@ do {
 
 ### State Management
 
-- `EqualizerStore`: Central `ObservableObject` for app state
+- `EqualiserStore`: Central `ObservableObject` for app state
 - Persists preferences via `UserDefaults`
 - Owns reference to `RenderPipeline`
 
@@ -244,10 +244,10 @@ The app uses SwiftUI's native `MenuBarExtra` for the menu bar interface:
 
 ```swift
 @main
-struct EqualizerAppMain: App {
+struct EqualiserAppMain: App {
     var body: some Scene {
-        Window("Equalizer Settings", id: "eq-settings") { ... }
-        MenuBarExtra("Equalizer", systemImage: "slider.vertical.3") { ... }
+        Window("Equaliser Settings", id: "eq-settings") { ... }
+        MenuBarExtra("Equaliser", systemImage: "slider.vertical.3") { ... }
             .menuBarExtraStyle(.window)
     }
 }
@@ -378,7 +378,7 @@ The app requires:
 ### Adding a Test
 
 1. Create test class in `Tests/`
-2. Import with `@testable import EqualizerApp`
+2. Import with `@testable import EqualiserApp`
 3. Run with `swift test --filter YourTestClass`
 
 ### Modifying EQ Bands

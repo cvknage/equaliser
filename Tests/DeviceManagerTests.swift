@@ -1,5 +1,5 @@
 import XCTest
-@testable import EqualizerApp
+@testable import EqualiserApp
 
 final class DeviceManagerTests: XCTestCase {
 

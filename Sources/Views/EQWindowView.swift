@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The main EQ settings window - detailed controls.
 struct EQWindowView: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     var body: some View {
         VStack(spacing: 12) {
@@ -99,5 +99,5 @@ struct EQWindowView: View {
 
 #Preview("EQ Window") {
     EQWindowView()
-        .environmentObject(EqualizerStore())
+        .environmentObject(EqualiserStore())
 }

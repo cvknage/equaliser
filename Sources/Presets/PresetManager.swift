@@ -71,7 +71,7 @@ final class PresetManager: ObservableObject {
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
-    private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "PresetManager")
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "PresetManager")
     private let storage: UserDefaults
 
     private enum Keys {
@@ -81,7 +81,7 @@ final class PresetManager: ObservableObject {
     /// The directory where presets are stored.
     private var presetsDirectory: URL {
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("Equalizer/Presets", isDirectory: true)
+        return appSupport.appendingPathComponent("Equaliser/Presets", isDirectory: true)
     }
 
     // MARK: - Initialization

@@ -17,6 +17,6 @@ swift test         # Test
 swift run          # Run
 ```
 
-macOS menu bar equalizer: Input Device -> Ring Buffer -> EQ (up to 64 bands) -> Output Device
+macOS menu bar equaliser: Input Device -> Ring Buffer -> EQ (up to 64 bands) -> Output Device
 
-Key files: `EqualizerStore.swift` (state), `RenderPipeline.swift` (audio orchestration), `EQConfiguration.swift` (band settings).
+Key files: `EqualiserStore.swift` (state), `RenderPipeline.swift` (audio orchestration), `EQConfiguration.swift` (band settings).

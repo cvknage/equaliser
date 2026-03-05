@@ -34,7 +34,7 @@ final class AudioRingBuffer: @unchecked Sendable {
 
     /// Logger for diagnostics (used sparingly to avoid audio thread overhead).
     private static let logger = Logger(
-        subsystem: "com.example.EqualizerApp",
+        subsystem: "net.knage.equaliser",
         category: "AudioRingBuffer"
     )
 

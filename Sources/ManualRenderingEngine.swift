@@ -3,7 +3,7 @@ import AudioToolbox
 import os.log
 
 /// Logger for source node callbacks (module-level to avoid actor isolation).
-private let sourceNodeLogger = Logger(subsystem: "com.example.EqualizerApp", category: "SourceNode")
+private let sourceNodeLogger = Logger(subsystem: "net.knage.equaliser", category: "SourceNode")
 
 /// Errors that can occur when creating a ManualRenderingEngine.
 enum ManualRenderingError: Error, LocalizedError {
@@ -56,7 +56,7 @@ final class ManualRenderingEngine {
     private let eqConfiguration: EQConfiguration
 
     /// Logger for this engine instance.
-    private let logger = Logger(subsystem: "com.example.EqualizerApp", category: "ManualRenderingEngine")
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "ManualRenderingEngine")
 
     // MARK: - Static State (for audio thread)
 

@@ -6,7 +6,7 @@ enum DevicePickerLayout {
 }
 
 struct DevicePickerView: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
     var layout: DevicePickerLayout = .horizontal
 
     private func binding(for selection: Binding<String?>) -> Binding<String> {

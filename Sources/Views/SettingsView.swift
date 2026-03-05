@@ -2,7 +2,7 @@ import SwiftUI
 
 /// App preferences accessible via Cmd+,
 struct SettingsView: View {
-    @EnvironmentObject var store: EqualizerStore
+    @EnvironmentObject var store: EqualiserStore
 
     var body: some View {
         Form {
