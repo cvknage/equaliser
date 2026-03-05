@@ -34,15 +34,15 @@ struct EQWindowView: View {
                         .frame(width: 376)
 
                     // Routing controls
-                    HStack(spacing: 16) {
-                        Toggle("EQ", isOn: Binding(
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Toggle("System EQ", isOn: Binding(
                             get: { !store.isBypassed },
                             set: { store.isBypassed = !$0 }
                         ))
                         .controlSize(.small)
                         .toggleStyle(.switch)
 
-                        Toggle("Routing", isOn: Binding(
+                        Toggle("Audio Routing", isOn: Binding(
                             get: { store.routingStatus.isActive },
                             set: { newValue in
                                 if newValue {

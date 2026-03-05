@@ -49,7 +49,7 @@ struct RoutingStatusView: View {
     private var statusText: some View {
         switch status {
         case .idle:
-            Text("Routing stopped")
+            Text("Audio Routing Stopped")
                 .foregroundStyle(.secondary)
         case .starting:
             Text("Starting...")

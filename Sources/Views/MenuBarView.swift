@@ -35,14 +35,14 @@ struct MenuBarContentView: View {
 
                 // Toggle controls (stacked vertically)
                 VStack(alignment: .trailing, spacing: 8) {
-                    Toggle("EQ", isOn: Binding(
+                    Toggle("System EQ", isOn: Binding(
                         get: { !store.isBypassed },
                         set: { store.isBypassed = !$0 }
                     ))
                     .controlSize(.small)
                     .toggleStyle(.switch)
 
-                    Toggle("Routing", isOn: Binding(
+                    Toggle("Audio Routing", isOn: Binding(
                         get: { store.routingStatus.isActive },
                         set: { newValue in
                             if newValue {
