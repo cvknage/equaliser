@@ -12,7 +12,7 @@ struct MenuBarContentView: View {
                 Image(systemName: "slider.vertical.3")
                     .font(.title3)
                 Text("Equaliser")
-                    .font(.headline)
+                    .font(.caption)
                 Spacer()
             }
 

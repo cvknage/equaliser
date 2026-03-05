@@ -123,7 +123,7 @@ struct SavePresetSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(isRenaming ? "Rename Preset" : "Save Preset")
-                .font(.headline)
+                .font(.caption)
 
             TextField("Preset Name", text: $presetName)
                 .textFieldStyle(.roundedBorder)
@@ -204,82 +204,84 @@ struct PresetToolbar: View {
     @State private var presetToRename: String?
 
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("Preset")
-                .font(.headline)
+                .font(.caption)
                 .foregroundStyle(.secondary)
+            
+            HStack(spacing: 8) {
+                PresetPicker()
 
-            PresetPicker()
+                // New preset button
+                Button {
+                    store.createNewPreset()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("New preset")
 
-            // New preset button
-            Button {
-                store.createNewPreset()
-            } label: {
-                Image(systemName: "plus")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .help("New preset")
-
-            // More options menu
-            Menu {
-                Button("Save") {
-                    if store.presetManager.selectedPresetName != nil && store.presetManager.isModified {
-                        do {
-                            try store.updateCurrentPreset()
-                        } catch {
+                // More options menu
+                Menu {
+                    Button("Save") {
+                        if store.presetManager.selectedPresetName != nil && store.presetManager.isModified {
+                            do {
+                                try store.updateCurrentPreset()
+                            } catch {
+                                showingSaveSheet = true
+                            }
+                        } else {
                             showingSaveSheet = true
                         }
-                    } else {
+                    }
+
+                    Button("Save As...") {
                         showingSaveSheet = true
                     }
-                }
 
-                Button("Save As...") {
-                    showingSaveSheet = true
-                }
+                    if store.presetManager.selectedPresetName != nil {
+                        Button("Rename...") {
+                            presetToRename = store.presetManager.selectedPresetName
+                            showingRenameSheet = true
+                        }
 
-                if store.presetManager.selectedPresetName != nil {
-                    Button("Rename...") {
-                        presetToRename = store.presetManager.selectedPresetName
-                        showingRenameSheet = true
+                        Button("Delete", role: .destructive) {
+                            showingDeleteConfirmation = true
+                        }
                     }
 
-                    Button("Delete", role: .destructive) {
-                        showingDeleteConfirmation = true
+                    Divider()
+
+                    Button("Import EasyEffects Preset...") {
+                        importEasyEffectsPreset()
                     }
-                }
 
-                Divider()
-
-                Button("Import EasyEffects Preset...") {
-                    importEasyEffectsPreset()
-                }
-
-                if store.presetManager.selectedPresetName != nil,
-                   let preset = store.presetManager.preset(named: store.presetManager.selectedPresetName!) {
-                    Button("Export to EasyEffects...") {
-                        exportEasyEffectsPreset(preset)
+                    if store.presetManager.selectedPresetName != nil,
+                       let preset = store.presetManager.preset(named: store.presetManager.selectedPresetName!) {
+                        Button("Export to EasyEffects...") {
+                            exportEasyEffectsPreset(preset)
+                        }
                     }
-                }
 
-                Divider()
+                    Divider()
 
-                Button("Import Preset...") {
-                    importNativePreset()
-                }
-
-                if store.presetManager.selectedPresetName != nil,
-                   let preset = store.presetManager.preset(named: store.presetManager.selectedPresetName!) {
-                    Button("Export Preset...") {
-                        exportNativePreset(preset)
+                    Button("Import Preset...") {
+                        importNativePreset()
                     }
+
+                    if store.presetManager.selectedPresetName != nil,
+                       let preset = store.presetManager.preset(named: store.presetManager.selectedPresetName!) {
+                        Button("Export Preset...") {
+                            exportNativePreset(preset)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
-            } label: {
-                Image(systemName: "ellipsis.circle")
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
         }
         .sheet(isPresented: $showingSaveSheet) {
             SavePresetSheet()

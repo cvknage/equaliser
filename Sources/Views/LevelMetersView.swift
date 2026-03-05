@@ -26,7 +26,7 @@ struct GainControlsView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 6) {
-                Text("Input Gain")
+                Text("Gain In")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -35,7 +35,7 @@ struct GainControlsView: View {
             }
 
             VStack(spacing: 6) {
-                Text("Output Gain")
+                Text("Gain Out")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

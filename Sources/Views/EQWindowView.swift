@@ -69,21 +69,32 @@ struct EQWindowView: View {
             Divider()
 
             // Preset and band controls toolbar
-            HStack {
+            ZStack(alignment: .top) {
+                // Preset controls on left
                 PresetToolbar()
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text("Bands")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-
-                BandCountControl()
-
-                Button("Reset") {
-                    store.resetToDefaults()
+                
+                // Bands control centered
+                VStack(spacing: 4) {
+                    Text("Bands")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    BandCountControl()
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .frame(maxWidth: .infinity, alignment: .center)
+                
+                // Reset button on right
+                VStack(spacing: 4) {
+                    Text("Reset")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .opacity(0)
+                    Button("Reset") {
+                        store.resetToDefaults()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .padding(.vertical, 4)
@@ -92,7 +103,7 @@ struct EQWindowView: View {
             EQBandGridView()
         }
         .padding(12)
-        .frame(minWidth: 1060, minHeight: 520)
+        .frame(minWidth: 1060, minHeight: 540)
     }
 }
 

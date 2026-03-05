@@ -212,7 +212,7 @@ struct EQBandDetailPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Band Options")
-                .font(.headline)
+                .font(.caption)
 
             // Gain
             HStack {
