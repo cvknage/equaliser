@@ -31,7 +31,7 @@ struct EqualizerAppMain: App {
         .windowResizability(.contentMinSize)
 
         // Menu bar popover (always available)
-        MenuBarExtra("Equalizer", systemImage: "slider.horizontal.3") {
+        MenuBarExtra("Equalizer", systemImage: "slider.vertical.3") {
             MenuBarContentView()
                 .environmentObject(store)
         }

@@ -247,7 +247,7 @@ The app uses SwiftUI's native `MenuBarExtra` for the menu bar interface:
 struct EqualizerAppMain: App {
     var body: some Scene {
         Window("Equalizer Settings", id: "eq-settings") { ... }
-        MenuBarExtra("Equalizer", systemImage: "slider.horizontal.3") { ... }
+        MenuBarExtra("Equalizer", systemImage: "slider.vertical.3") { ... }
             .menuBarExtraStyle(.window)
     }
 }

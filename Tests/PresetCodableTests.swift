@@ -182,7 +182,7 @@ final class PresetCodableTests: XCTestCase {
         let createdAt = Date(timeIntervalSince1970: 1700000000)
         let modifiedAt = Date(timeIntervalSince1970: 1700001000)
 
-        let original = PresetMetadata(name: "Test Preset", createdAt: createdAt, modifiedAt: modifiedAt)
+        let original = PresetMetadata(name: "Test Preset", createdAt: createdAt, modifiedAt: modifiedAt, isFactoryPreset: true)
 
         let data = try encoder.encode(original)
         let decoded = try decoder.decode(PresetMetadata.self, from: data)
@@ -190,6 +190,7 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.name, original.name)
         XCTAssertEqual(decoded.createdAt.timeIntervalSince1970, createdAt.timeIntervalSince1970, accuracy: 0.001)
         XCTAssertEqual(decoded.modifiedAt.timeIntervalSince1970, modifiedAt.timeIntervalSince1970, accuracy: 0.001)
+        XCTAssertTrue(decoded.isFactoryPreset)
     }
 
     func testPresetMetadata_defaultTimestamps() {
@@ -198,10 +199,28 @@ final class PresetCodableTests: XCTestCase {
         let afterCreation = Date()
 
         XCTAssertEqual(metadata.name, "New Preset")
+        XCTAssertFalse(metadata.isFactoryPreset)
         XCTAssertGreaterThanOrEqual(metadata.createdAt, beforeCreation)
         XCTAssertLessThanOrEqual(metadata.createdAt, afterCreation)
         XCTAssertGreaterThanOrEqual(metadata.modifiedAt, beforeCreation)
         XCTAssertLessThanOrEqual(metadata.modifiedAt, afterCreation)
+    }
+
+    func testPresetMetadata_decodesMissingFactoryFlag() throws {
+        decoder.dateDecodingStrategy = .iso8601
+        let json = """
+        {
+            "name": "Legacy",
+            "createdAt": "2023-11-11T00:00:00Z",
+            "modifiedAt": "2023-11-12T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let decoded = try decoder.decode(PresetMetadata.self, from: json)
+
+        XCTAssertEqual(decoded.name, "Legacy")
+        XCTAssertFalse(decoded.isFactoryPreset)
+        decoder.dateDecodingStrategy = .deferredToDate
     }
 
     // MARK: - PresetSettings Tests
@@ -266,7 +285,7 @@ final class PresetCodableTests: XCTestCase {
 
         let original = Preset(
             version: Preset.currentVersion,
-            metadata: PresetMetadata(name: "Full Test Preset"),
+            metadata: PresetMetadata(name: "Full Test Preset", isFactoryPreset: true),
             settings: settings
         )
 
@@ -281,6 +300,7 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.settings.outputGain, original.settings.outputGain)
         XCTAssertEqual(decoded.settings.activeBandCount, original.settings.activeBandCount)
         XCTAssertEqual(decoded.settings.bands.count, original.settings.bands.count)
+        XCTAssertTrue(decoded.metadata.isFactoryPreset)
 
         // Verify individual bands
         for (index, decodedBand) in decoded.settings.bands.enumerated() {
@@ -303,7 +323,7 @@ final class PresetCodableTests: XCTestCase {
 
     func testPreset_filename() {
         let preset = Preset(
-            metadata: PresetMetadata(name: "My Preset"),
+            metadata: PresetMetadata(name: "My Preset", isFactoryPreset: true),
             settings: PresetSettings()
         )
 
@@ -312,7 +332,7 @@ final class PresetCodableTests: XCTestCase {
 
     func testPreset_filename_sanitizesSpecialCharacters() {
         let preset = Preset(
-            metadata: PresetMetadata(name: "Test/Preset:Name"),
+            metadata: PresetMetadata(name: "Test/Preset:Name", isFactoryPreset: true),
             settings: PresetSettings()
         )
 
@@ -321,7 +341,7 @@ final class PresetCodableTests: XCTestCase {
 
     func testPreset_id() {
         let preset = Preset(
-            metadata: PresetMetadata(name: "Unique Name"),
+            metadata: PresetMetadata(name: "Unique Name", isFactoryPreset: true),
             settings: PresetSettings()
         )
 
@@ -331,7 +351,7 @@ final class PresetCodableTests: XCTestCase {
     func testPreset_withUpdatedTimestamp() {
         let originalDate = Date(timeIntervalSince1970: 1700000000)
         let preset = Preset(
-            metadata: PresetMetadata(name: "Test", createdAt: originalDate, modifiedAt: originalDate),
+            metadata: PresetMetadata(name: "Test", createdAt: originalDate, modifiedAt: originalDate, isFactoryPreset: true),
             settings: PresetSettings()
         )
 
@@ -350,7 +370,7 @@ final class PresetCodableTests: XCTestCase {
     func testPreset_renamed() {
         let originalDate = Date(timeIntervalSince1970: 1700000000)
         let preset = Preset(
-            metadata: PresetMetadata(name: "Original Name", createdAt: originalDate, modifiedAt: originalDate),
+            metadata: PresetMetadata(name: "Original Name", createdAt: originalDate, modifiedAt: originalDate, isFactoryPreset: true),
             settings: PresetSettings()
         )
 

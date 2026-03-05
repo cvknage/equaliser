@@ -8,7 +8,7 @@ struct EQWindowView: View {
         VStack(spacing: 12) {
             // Header: App title only
             HStack {
-                Image(systemName: "slider.horizontal.3")
+                Image(systemName: "slider.vertical.3")
                     .font(.title)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Equalizer")

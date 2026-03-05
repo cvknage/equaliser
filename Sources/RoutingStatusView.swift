@@ -20,7 +20,7 @@ struct RoutingStatusView: View {
     private var statusIcon: some View {
         switch status {
         case .idle:
-            Image(systemName: "pause.circle")
+            Image(systemName: "stop.circle")
                 .foregroundStyle(.secondary)
         case .starting:
             ProgressView()
@@ -38,7 +38,7 @@ struct RoutingStatusView: View {
     private var statusText: some View {
         switch status {
         case .idle:
-            Text("Select devices to start")
+            Text("Routing stopped")
                 .foregroundStyle(.secondary)
         case .starting:
             Text("Starting...")

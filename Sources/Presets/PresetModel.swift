@@ -3,14 +3,39 @@ import Foundation
 
 /// Metadata for a preset (name, timestamps).
 struct PresetMetadata: Codable, Sendable {
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case createdAt
+        case modifiedAt
+        case isFactoryPreset
+    }
+
     var name: String
     var createdAt: Date
     var modifiedAt: Date
+    var isFactoryPreset: Bool
 
-    init(name: String, createdAt: Date = Date(), modifiedAt: Date = Date()) {
+    init(name: String, createdAt: Date = Date(), modifiedAt: Date = Date(), isFactoryPreset: Bool = false) {
         self.name = name
         self.createdAt = createdAt
         self.modifiedAt = modifiedAt
+        self.isFactoryPreset = isFactoryPreset
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        modifiedAt = try container.decode(Date.self, forKey: .modifiedAt)
+        isFactoryPreset = try container.decodeIfPresent(Bool.self, forKey: .isFactoryPreset) ?? false
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(modifiedAt, forKey: .modifiedAt)
+        try container.encode(isFactoryPreset, forKey: .isFactoryPreset)
     }
 }
 

@@ -47,7 +47,18 @@ final class PresetManager: ObservableObject {
     // MARK: - Published Properties
 
     /// All loaded presets, sorted by name.
-    @Published private(set) var presets: [Preset] = []
+    @Published private(set) var presets: [Preset] = [] {
+        didSet {
+            factoryPresets = presets.filter { $0.metadata.isFactoryPreset }
+            customPresets = presets.filter { !$0.metadata.isFactoryPreset }
+        }
+    }
+
+    /// Built-in presets bundled with the app.
+    @Published private(set) var factoryPresets: [Preset] = []
+
+    /// Presets created or imported by the user.
+    @Published private(set) var customPresets: [Preset] = []
 
     /// The currently selected preset name (nil if no preset is selected or if modified).
     @Published var selectedPresetName: String?
@@ -104,6 +115,16 @@ final class PresetManager: ObservableObject {
         }
     }
 
+    /// Returns factory presets bundled with the app.
+    var builtInPresets: [Preset] {
+        factoryPresets
+    }
+
+    /// Returns presets created or imported by the user.
+    var userPresets: [Preset] {
+        customPresets
+    }
+
     // MARK: - Loading Presets
 
     /// Loads all presets from the presets directory.
@@ -129,6 +150,8 @@ final class PresetManager: ObservableObject {
             }
 
             presets = loadedPresets.sorted { $0.metadata.name.localizedCaseInsensitiveCompare($1.metadata.name) == .orderedAscending }
+            factoryPresets = presets.filter { $0.metadata.isFactoryPreset }
+            customPresets = presets.filter { !$0.metadata.isFactoryPreset }
             logger.info("Loaded \(self.presets.count) presets")
         } catch {
             logger.error("Failed to enumerate presets directory: \(error.localizedDescription)")

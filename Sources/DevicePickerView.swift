@@ -58,10 +58,7 @@ struct DevicePickerView: View {
 
     private var verticalLayout: some View {
         VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Input")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            MenuSection(title: "Input") {
                 Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
                     ForEach(store.inputDevices) { device in
                         Text(device.displayName).tag(device.uid)
@@ -70,10 +67,7 @@ struct DevicePickerView: View {
                 .labelsHidden()
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Output")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            MenuSection(title: "Output") {
                 Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
                     ForEach(store.outputDevices) { device in
                         Text(device.displayName).tag(device.uid)

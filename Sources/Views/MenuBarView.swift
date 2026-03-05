@@ -9,23 +9,64 @@ struct MenuBarContentView: View {
         VStack(spacing: 8) {
             // Header
             HStack {
-                Image(systemName: "slider.horizontal.3")
+                Image(systemName: "slider.vertical.3")
                     .font(.title3)
                 Text("Equalizer")
                     .font(.headline)
                 Spacer()
             }
 
-            // Status indicator
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Divider()
+                .padding(.vertical, 4)
+
+            // Control strip - status indicator + controls grouped together
+            HStack(spacing: 8) {
+                // Status indicator
+                HStack(spacing: 4) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 8, height: 8)
+                    Text(statusText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                // Bypass Button
+                if store.isBypassed {
+                    Button("Activate EQ") {
+                        store.isBypassed.toggle()
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Button("Bypass EQ") {
+                        store.isBypassed.toggle()
+                    }
+                    .buttonStyle(.bordered)
+                }
+
+                // Routing Button
+                if store.routingStatus.isActive {
+                    Button("Stop Routing") {
+                        store.stopRouting()
+                    }
+                    .buttonStyle(.bordered)
+                } else if case .error = store.routingStatus {
+                    Button("Retry") {
+                        store.reconfigureRouting()
+                    }
+                    .buttonStyle(.bordered)
+                } else if store.routingStatus == .idle
+                    && store.selectedInputDeviceID != nil
+                    && store.selectedOutputDeviceID != nil
+                {
+                    Button("Start Routing") {
+                        store.reconfigureRouting()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             Divider()
                 .padding(.vertical, 4)
@@ -42,16 +83,8 @@ struct MenuBarContentView: View {
             Divider()
                 .padding(.vertical, 4)
 
-            // Controls
-            Toggle("Bypass EQ", isOn: $store.isBypassed)
-                .toggleStyle(.checkbox)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Divider()
-                .padding(.vertical, 4)
-
-            // EQ Settings Button
-            Button("Open EQ Settings...") {
+            // Open Equaliser Button
+            Button("Open Equaliser App") {
                 openWindow(id: "eq-settings")
                 NSApp.activate(ignoringOtherApps: true)
             }
@@ -68,8 +101,8 @@ struct MenuBarContentView: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding(12)
-        .frame(width: 240, height: 340)
+        .padding(16)
+        .frame(width: 280, height: 340)
     }
 
     private var statusColor: Color {
@@ -88,11 +121,11 @@ struct MenuBarContentView: View {
     private var statusText: String {
         switch store.routingStatus {
         case .idle:
-            return "Idle"
+            return "Stopped"
         case .starting:
             return "Starting..."
         case .active:
-            return "Active"
+            return "Running"
         case .error(let message):
             return "Error: \(message)"
         }

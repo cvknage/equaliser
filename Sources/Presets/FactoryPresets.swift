@@ -5,12 +5,29 @@ import Foundation
 enum FactoryPresets {
     /// All factory presets.
     static let all: [Preset] = [
+        flat,
         bassBoost,
         trebleBoost,
         vocalPresence,
         loudness,
         acoustic,
     ]
+
+    /// Flat - neutral EQ with all bands at 0 dB.
+    static let flat: Preset = {
+        let bands = defaultBands(count: 10, gainAdjustments: [:])
+        return Preset(
+            metadata: PresetMetadata(name: "Flat", isFactoryPreset: true),
+            settings: PresetSettings(
+                globalBypass: false,
+                globalGain: 0,
+                inputGain: 0,
+                outputGain: 0,
+                activeBandCount: 10,
+                bands: bands
+            )
+        )
+    }()
 
     /// Bass Boost - enhanced low frequencies.
     static let bassBoost: Preset = {
@@ -23,7 +40,7 @@ enum FactoryPresets {
         ]
         let bands = defaultBands(count: 10, gainAdjustments: gainAdjustments)
         return Preset(
-            metadata: PresetMetadata(name: "Bass Boost"),
+            metadata: PresetMetadata(name: "Bass Boost", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
                 globalGain: 0,
@@ -46,7 +63,7 @@ enum FactoryPresets {
         ]
         let bands = defaultBands(count: 10, gainAdjustments: gainAdjustments)
         return Preset(
-            metadata: PresetMetadata(name: "Treble Boost"),
+            metadata: PresetMetadata(name: "Treble Boost", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
                 globalGain: 0,
@@ -69,7 +86,7 @@ enum FactoryPresets {
         ]
         let bands = defaultBands(count: 10, gainAdjustments: gainAdjustments)
         return Preset(
-            metadata: PresetMetadata(name: "Vocal Presence"),
+            metadata: PresetMetadata(name: "Vocal Presence", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
                 globalGain: 0,
@@ -94,7 +111,7 @@ enum FactoryPresets {
         ]
         let bands = defaultBands(count: 10, gainAdjustments: gainAdjustments)
         return Preset(
-            metadata: PresetMetadata(name: "Loudness"),
+            metadata: PresetMetadata(name: "Loudness", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
                 globalGain: 0,
@@ -120,7 +137,7 @@ enum FactoryPresets {
         ]
         let bands = defaultBands(count: 10, gainAdjustments: gainAdjustments)
         return Preset(
-            metadata: PresetMetadata(name: "Acoustic"),
+            metadata: PresetMetadata(name: "Acoustic", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
                 globalGain: 0,
@@ -164,7 +181,7 @@ enum FactoryPresets {
 // MARK: - PresetManager Extension
 
 extension PresetManager {
-    private static let factoryPresetVersion = 2  // Bump when factory presets change
+    private static let factoryPresetVersion = 3  // Bump when factory presets change
     private static let factoryVersionKey = "equalizer.factoryPresetVersion"
 
     /// Installs factory presets if they don't exist or version changed.
@@ -182,6 +199,14 @@ extension PresetManager {
                     try savePreset(factoryPreset)
                 } catch {
                     // Ignore errors - factory presets are optional
+                }
+            } else if let existingIndex = presets.firstIndex(where: { $0.metadata.name == factoryPreset.metadata.name }) {
+                // Ensure existing factory presets retain factory flag
+                let existingPreset = presets[existingIndex]
+                if !existingPreset.metadata.isFactoryPreset {
+                    var updatedPreset = existingPreset
+                    updatedPreset.metadata.isFactoryPreset = true
+                    try? savePreset(updatedPreset)
                 }
             }
         }

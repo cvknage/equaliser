@@ -1,6 +1,29 @@
 import AppKit
 import SwiftUI
 
+// MARK: - Menu Section Helper
+
+struct MenuSection<Content: View>: View {
+    let title: String
+    let content: () -> Content
+
+    init(title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
 // MARK: - Preset Picker
 
 /// A picker for selecting presets, with modified indicator.
@@ -10,23 +33,7 @@ struct PresetPicker: View {
     var body: some View {
         HStack(spacing: 4) {
             Menu {
-                if store.presetManager.presets.isEmpty {
-                    Text("No presets")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(store.presetManager.presets) { preset in
-                        Button {
-                            store.loadPreset(preset)
-                        } label: {
-                            HStack {
-                                Text(preset.metadata.name)
-                                if preset.metadata.name == store.presetManager.selectedPresetName {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
+                presetSections
 
                 Divider()
 
@@ -34,6 +41,7 @@ struct PresetPicker: View {
                     store.resetToDefaults()
                 }
             } label: {
+
                 HStack(spacing: 4) {
                     Text(currentPresetLabel)
                         .lineLimit(1)
@@ -55,6 +63,45 @@ struct PresetPicker: View {
             return name
         }
         return "Custom"
+    }
+
+    @ViewBuilder
+    private var presetSections: some View {
+        if store.presetManager.presets.isEmpty {
+            Text("No presets")
+                .foregroundStyle(.secondary)
+        } else {
+            if !store.presetManager.builtInPresets.isEmpty {
+                presetSection(title: "Built-in Presets", presets: store.presetManager.builtInPresets)
+            }
+
+            if !store.presetManager.userPresets.isEmpty {
+                presetSection(title: "Custom Presets", presets: store.presetManager.userPresets)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func presetSection(title: String, presets: [Preset]) -> some View {
+        Section(title) {
+            ForEach(presets) { preset in
+                presetRow(for: preset)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func presetRow(for preset: Preset) -> some View {
+        Button {
+            store.loadPreset(preset)
+        } label: {
+            HStack {
+                Text(preset.metadata.name)
+                if preset.metadata.name == store.presetManager.selectedPresetName {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
     }
 }
 
@@ -360,53 +407,52 @@ struct CompactPresetPicker: View {
     @EnvironmentObject var store: EqualizerStore
 
     var body: some View {
-        HStack {
-            Text("Preset")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        MenuSection(title: "Preset") {
+            presetMenu
+        }
+    }
 
-            Spacer()
-
-            Menu {
-                if store.presetManager.presets.isEmpty {
-                    Text("No presets")
-                        .foregroundStyle(.secondary)
-                } else {
-                    ForEach(store.presetManager.presets) { preset in
-                        Button {
-                            store.loadPreset(preset)
-                        } label: {
-                            HStack {
-                                Text(preset.metadata.name)
-                                if preset.metadata.name == store.presetManager.selectedPresetName {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
+    @ViewBuilder
+    private var presetMenu: some View {
+        Menu {
+            if store.presetManager.presets.isEmpty {
+                Text("No presets")
+                    .foregroundStyle(.secondary)
+            } else {
+                if !store.presetManager.builtInPresets.isEmpty {
+                    Section("Built-in Presets") {
+                        ForEach(store.presetManager.builtInPresets) { preset in
+                            compactPresetRow(for: preset)
                         }
                     }
                 }
 
-                Divider()
-
-                Button("Reset to Flat") {
-                    store.resetToDefaults()
-                }
-            } label: {
-                HStack(spacing: 4) {
-                    Text(currentPresetLabel)
-                        .lineLimit(1)
-                    if store.presetManager.isModified {
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 5, height: 5)
+                if !store.presetManager.userPresets.isEmpty {
+                    Section("Custom Presets") {
+                        ForEach(store.presetManager.userPresets) { preset in
+                            compactPresetRow(for: preset)
+                        }
                     }
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 9))
                 }
             }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
+
+            Divider()
+
+            Button("Reset to Flat") {
+                store.resetToDefaults()
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Text(currentPresetLabel)
+                    .lineLimit(1)
+                if store.presetManager.isModified {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 5, height: 5)
+                }
+            }
         }
+        .menuStyle(.borderlessButton)
     }
 
     private var currentPresetLabel: String {
@@ -414,6 +460,20 @@ struct CompactPresetPicker: View {
             return name
         }
         return "Custom"
+    }
+
+    @ViewBuilder
+    private func compactPresetRow(for preset: Preset) -> some View {
+        Button {
+            store.loadPreset(preset)
+        } label: {
+            HStack {
+                Text(preset.metadata.name)
+                if preset.metadata.name == store.presetManager.selectedPresetName {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
     }
 }
 
