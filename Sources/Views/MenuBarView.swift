@@ -112,7 +112,7 @@ struct MenuBarContentView: View {
         case .starting:
             return .orange
         case .active:
-            return .green
+            return store.isBypassed ? .yellow : .green
         case .error:
             return .red
         }
@@ -125,7 +125,7 @@ struct MenuBarContentView: View {
         case .starting:
             return "Starting..."
         case .active:
-            return "Running"
+            return store.isBypassed ? "Bypassed" : "Running"
         case .error(let message):
             return "Error: \(message)"
         }

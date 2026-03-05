@@ -3,6 +3,12 @@ import SwiftUI
 /// Displays the current audio routing status.
 struct RoutingStatusView: View {
     let status: RoutingStatus
+    let isBypassed: Bool
+
+    init(status: RoutingStatus, isBypassed: Bool = false) {
+        self.status = status
+        self.isBypassed = isBypassed
+    }
 
     var body: some View {
         HStack(spacing: 8) {
@@ -25,9 +31,14 @@ struct RoutingStatusView: View {
         case .starting:
             ProgressView()
                 .controlSize(.small)
-        case .active:
-            Image(systemName: "waveform.circle.fill")
-                .foregroundStyle(.green)
+        case .active(_, _):
+            if isBypassed {
+                Image(systemName: "pause.circle.fill")
+                    .foregroundStyle(.yellow)
+            } else {
+                Image(systemName: "waveform.circle.fill")
+                    .foregroundStyle(.green)
+            }
         case .error:
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
@@ -44,8 +55,13 @@ struct RoutingStatusView: View {
             Text("Starting...")
                 .foregroundStyle(.secondary)
         case .active(let inputName, let outputName):
-            Text("\(inputName) → \(outputName)")
-                .fontWeight(.medium)
+            if isBypassed {
+                Text("EQ Bypassed")
+                    .foregroundStyle(.yellow)
+            } else {
+                Text("\(inputName) → \(outputName)")
+                    .fontWeight(.medium)
+            }
         case .error(let message):
             Text(message)
                 .foregroundStyle(.red)
@@ -57,8 +73,8 @@ struct RoutingStatusView: View {
         switch status {
         case .idle, .starting:
             return Color.clear
-        case .active:
-            return Color.green.opacity(0.1)
+        case .active(_, _):
+            return isBypassed ? Color.yellow.opacity(0.1) : Color.green.opacity(0.1)
         case .error:
             return Color.red.opacity(0.1)
         }
@@ -76,7 +92,12 @@ struct RoutingStatusView: View {
 }
 
 #Preview("Active") {
-    RoutingStatusView(status: .active(inputName: "BlackHole 2ch", outputName: "Built-in Output"))
+    RoutingStatusView(status: .active(inputName: "BlackHole 2ch", outputName: "Built-in Output"), isBypassed: false)
+        .padding()
+}
+
+#Preview("Active (Bypassed)") {
+    RoutingStatusView(status: .active(inputName: "BlackHole 2ch", outputName: "Built-in Output"), isBypassed: true)
         .padding()
 }
 
