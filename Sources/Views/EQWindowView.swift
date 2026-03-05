@@ -46,38 +46,34 @@ struct EQWindowView: View {
                     RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed)
                         .frame(width: 376)
 
-                    // Routing action buttons
-                    HStack(spacing: 8) {
-                        if store.isBypassed {
-                            Button("Activate EQ") {
-                                store.isBypassed.toggle()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        } else {
-                            Button("Bypass EQ") {
-                                store.isBypassed.toggle()
-                            }
-                            .buttonStyle(.bordered)
-                        }
+                    // Routing controls
+                    HStack(spacing: 16) {
+                        Toggle("EQ", isOn: Binding(
+                            get: { !store.isBypassed },
+                            set: { store.isBypassed = !$0 }
+                        ))
+                        .controlSize(.small)
+                        .toggleStyle(.switch)
 
-                        if store.routingStatus.isActive {
-                            Button("Stop Routing") {
-                                store.stopRouting()
+                        Toggle("Routing", isOn: Binding(
+                            get: { store.routingStatus.isActive },
+                            set: { newValue in
+                                if newValue {
+                                    store.reconfigureRouting()
+                                } else {
+                                    store.stopRouting()
+                                }
                             }
-                            .buttonStyle(.bordered)
-                        } else if case .error = store.routingStatus {
-                            Button("Retry") {
-                                store.reconfigureRouting()
-                            }
-                            .buttonStyle(.bordered)
-                        } else if store.routingStatus == .idle
-                                    && store.selectedInputDeviceID != nil
-                                    && store.selectedOutputDeviceID != nil {
-                            Button("Start Routing") {
-                                store.reconfigureRouting()
-                            }
-                            .buttonStyle(.borderedProminent)
-                        }
+                        ))
+                        .controlSize(.small)
+                        .toggleStyle(.switch)
+                        .disabled(store.routingStatus == .idle
+                                  && (store.selectedInputDeviceID == nil
+                                      || store.selectedOutputDeviceID == nil))
+                        .errorTint({
+                            if case .error = store.routingStatus { return true }
+                            return false
+                        }())
                     }
                 }
                 .frame(minWidth: 376)

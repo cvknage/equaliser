@@ -19,8 +19,8 @@ struct MenuBarContentView: View {
             Divider()
                 .padding(.vertical, 4)
 
-            // Control strip - status indicator + controls grouped together
-            HStack(spacing: 8) {
+                // Control strip - status indicator + controls grouped together
+            HStack(alignment: .top, spacing: 12) {
                 // Status indicator
                 HStack(spacing: 4) {
                     Circle()
@@ -33,38 +33,34 @@ struct MenuBarContentView: View {
 
                 Spacer()
 
-                // Bypass Button
-                if store.isBypassed {
-                    Button("Activate EQ") {
-                        store.isBypassed.toggle()
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Button("Bypass EQ") {
-                        store.isBypassed.toggle()
-                    }
-                    .buttonStyle(.bordered)
-                }
+                // Toggle controls (stacked vertically)
+                VStack(alignment: .trailing, spacing: 8) {
+                    Toggle("EQ", isOn: Binding(
+                        get: { !store.isBypassed },
+                        set: { store.isBypassed = !$0 }
+                    ))
+                    .controlSize(.small)
+                    .toggleStyle(.switch)
 
-                // Routing Button
-                if store.routingStatus.isActive {
-                    Button("Stop Routing") {
-                        store.stopRouting()
-                    }
-                    .buttonStyle(.bordered)
-                } else if case .error = store.routingStatus {
-                    Button("Retry") {
-                        store.reconfigureRouting()
-                    }
-                    .buttonStyle(.bordered)
-                } else if store.routingStatus == .idle
-                    && store.selectedInputDeviceID != nil
-                    && store.selectedOutputDeviceID != nil
-                {
-                    Button("Start Routing") {
-                        store.reconfigureRouting()
-                    }
-                    .buttonStyle(.borderedProminent)
+                    Toggle("Routing", isOn: Binding(
+                        get: { store.routingStatus.isActive },
+                        set: { newValue in
+                            if newValue {
+                                store.reconfigureRouting()
+                            } else {
+                                store.stopRouting()
+                            }
+                        }
+                    ))
+                    .controlSize(.small)
+                    .toggleStyle(.switch)
+                    .disabled(store.routingStatus == .idle
+                              && (store.selectedInputDeviceID == nil
+                                  || store.selectedOutputDeviceID == nil))
+                    .errorTint({
+                        if case .error = store.routingStatus { return true }
+                        return false
+                    }())
                 }
             }
 
@@ -101,8 +97,9 @@ struct MenuBarContentView: View {
                 .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
-        .frame(width: 280, height: 340)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 20)
+        .frame(width: 280, height: 370)
     }
 
     private var statusColor: Color {
