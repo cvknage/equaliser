@@ -56,6 +56,7 @@ struct StereoMeterGroup: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .padding(.leading, 16)
             HStack(alignment: .top, spacing: 4) {
                 if showScale {
                     MeterScaleView(height: MeterConstants.meterHeight)
@@ -208,6 +209,7 @@ struct StereoMeterGroupRMS: View {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                .padding(.leading, 16)
             HStack(alignment: .top, spacing: 4) {
                 if showScale {
                     MeterScaleView(height: MeterConstants.meterHeight)

@@ -27,7 +27,7 @@ struct EqualiserAppMain: App {
                 .environmentObject(store)
         }
         .defaultPosition(.center)
-        .defaultSize(width: 1060, height: 630)
+        .defaultSize(width: 1060, height: 530)
         .windowResizability(.contentMinSize)
 
         // Menu bar popover (always available)

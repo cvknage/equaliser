@@ -15,6 +15,7 @@ struct EQWindowView: View {
                     outputRMSState: store.outputMeterRMS
                 )
                 .layoutPriority(1)
+                .offset(x: -8)
 
                 Spacer(minLength: 64)
 
