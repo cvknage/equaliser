@@ -7,17 +7,16 @@ struct LevelMetersView: View {
     let outputRMSState: StereoMeterState
     @Binding var inputGain: Float
     @Binding var outputGain: Float
-    let isActive: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
             // Peak meters with scales on left
-            StereoMeterGroup(title: "Peak In", state: inputState, gain: $inputGain, isActive: isActive, showScale: true)
-            StereoMeterGroup(title: "Peak Out", state: outputState, gain: $outputGain, isActive: isActive, showScale: true)
+            StereoMeterGroup(title: "Peak In", state: inputState, gain: $inputGain, showScale: true)
+            StereoMeterGroup(title: "Peak Out", state: outputState, gain: $outputGain, showScale: true)
 
             // RMS meters with scales on left
-            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, gain: $inputGain, isActive: isActive, showScale: true)
-            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, gain: $outputGain, isActive: isActive, showScale: true)
+            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, gain: $inputGain, showScale: true)
+            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, gain: $outputGain, showScale: true)
         }
     }
 }
@@ -26,7 +25,6 @@ struct StereoMeterGroup: View {
     let title: String
     let state: StereoMeterState
     @Binding var gain: Float
-    let isActive: Bool
     var showScale: Bool = false
 
     var body: some View {
@@ -38,9 +36,9 @@ struct StereoMeterGroup: View {
                 if showScale {
                     MeterScaleView(height: MeterConstants.meterHeight)
                 }
-                DualPeakMeterView(channelLabel: "L", state: state.left, isActive: isActive)
-                DualPeakMeterView(channelLabel: "R", state: state.right, isActive: isActive)
-                GainStepperControl(gain: $gain, isActive: isActive)
+                DualPeakMeterView(channelLabel: "L", state: state.left)
+                DualPeakMeterView(channelLabel: "R", state: state.right)
+                GainStepperControl(gain: $gain)
             }
 
         }
@@ -50,7 +48,6 @@ struct StereoMeterGroup: View {
 struct DualPeakMeterView: View {
     let channelLabel: String
     let state: ChannelMeterState
-    let isActive: Bool
 
     private let gradientStops: [Gradient.Stop] = [
         .init(color: Color(red: 0.0, green: 0.45, blue: 0.95), location: 0.0),
@@ -97,7 +94,6 @@ struct DualPeakMeterView: View {
                             .padding(.top, 2)
                     }
                 }
-                .opacity(isActive ? 1 : 0.35)
             }
             .frame(width: 18, height: 126)
 
@@ -134,7 +130,6 @@ struct ClipIndicator: View {
 struct DualPeakRMSMeterView: View {
     let channelLabel: String
     let rmsState: ChannelMeterState
-    let isActive: Bool
 
     private let rmsGradientStops: [Gradient.Stop] = [
         .init(color: Color(red: 0.0, green: 0.35, blue: 0.4), location: 0.0),
@@ -171,7 +166,6 @@ struct DualPeakRMSMeterView: View {
                             .animation(.easeOut(duration: 0.03), value: rmsState.rms)
                     }
                 }
-                .opacity(isActive ? 1 : 0.35)
             }
             .frame(width: 14, height: 126)
 
@@ -186,7 +180,6 @@ struct StereoMeterGroupRMS: View {
     let title: String
     let rmsState: StereoMeterState
     @Binding var gain: Float
-    let isActive: Bool
     var showScale: Bool = false
 
     var body: some View {
@@ -198,9 +191,9 @@ struct StereoMeterGroupRMS: View {
                 if showScale {
                     MeterScaleView(height: MeterConstants.meterHeight)
                 }
-                DualPeakRMSMeterView(channelLabel: "L", rmsState: rmsState.left, isActive: isActive)
-                DualPeakRMSMeterView(channelLabel: "R", rmsState: rmsState.right, isActive: isActive)
-                GainStepperControl(gain: $gain, isActive: isActive)
+                DualPeakRMSMeterView(channelLabel: "L", rmsState: rmsState.left)
+                DualPeakRMSMeterView(channelLabel: "R", rmsState: rmsState.right)
+                GainStepperControl(gain: $gain)
             }
 
         }

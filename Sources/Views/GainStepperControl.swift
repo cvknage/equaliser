@@ -2,12 +2,10 @@ import SwiftUI
 
 struct GainStepperControl: View {
     @Binding var gain: Float
-    let isActive: Bool
 
     var body: some View {
         VStack(spacing: 6) {
             StepperButton(symbol: "+", action: { adjustGain(by: 0.5) })
-                .disabled(!isActive)
 
             InlineEditableValue(
                 value: gain,
@@ -24,9 +22,7 @@ struct GainStepperControl: View {
             }
 
             StepperButton(symbol: "-", action: { adjustGain(by: -0.5) })
-                .disabled(!isActive)
         }
-        .opacity(isActive ? 1 : 0.35)
     }
 
     private func adjustGain(by delta: Float) {

@@ -31,8 +31,7 @@ struct EQWindowView: View {
                     inputRMSState: store.inputMeterRMS,
                     outputRMSState: store.outputMeterRMS,
                     inputGain: $store.inputGain,
-                    outputGain: $store.outputGain,
-                    isActive: store.routingStatus.isActive
+                    outputGain: $store.outputGain
                 )
                 .frame(width: 620)
                 .layoutPriority(1)
