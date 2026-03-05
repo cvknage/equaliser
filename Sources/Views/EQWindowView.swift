@@ -6,23 +6,6 @@ struct EQWindowView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Header: App title only
-            HStack {
-                Image(systemName: "slider.vertical.3")
-                    .font(.title)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Equalizer")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                    Text("Parametric EQ")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            .padding(.horizontal)
-            .padding(.top, 8)
-
             // Level meters + unified control panel
             HStack(alignment: .top, spacing: 0) {
                 LevelMetersView(
@@ -82,8 +65,6 @@ struct EQWindowView: View {
                 }
                 .frame(minWidth: 376)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 8)
 
             Divider()
 
@@ -111,7 +92,8 @@ struct EQWindowView: View {
             // EQ sliders
             EQBandGridView()
         }
-        .frame(minWidth: 1060, minHeight: 570)
+        .padding(12)
+        .frame(minWidth: 1060, minHeight: 520)
     }
 }
 
