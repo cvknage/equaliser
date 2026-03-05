@@ -74,7 +74,7 @@ final class EQConfiguration: ObservableObject {
     // MARK: - Constants
 
     nonisolated static let maxBandCount: Int = 64
-    nonisolated static let defaultBandCount: Int = 32
+    nonisolated static let defaultBandCount: Int = 10
     nonisolated static let defaultBandwidth: Float = 0.67
 
     // MARK: - Published Properties
@@ -247,8 +247,16 @@ final class EQConfiguration: ObservableObject {
 
     // MARK: - Default Frequencies
 
-    /// Generates logarithmically spaced frequencies for a specific band count.
-    static func frequenciesForBandCount(_ count: Int) -> [Float] {
+    /// Generates frequencies for a specific band count.
+    /// For 10 bands, uses standard musical frequencies: 32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000
+    /// For other counts, uses logarithmic spacing from 20Hz to 26000Hz.
+    nonisolated static func frequenciesForBandCount(_ count: Int) -> [Float] {
+        // Standard 10-band EQ frequencies (powers of 2, centered around 1kHz)
+        if count == 10 {
+            return [32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000]
+        }
+
+        // Logarithmic spacing for other band counts
         let minFrequency: Float = 20
         let maxFrequency: Float = 26000
         let steps = max(count - 1, 1)
