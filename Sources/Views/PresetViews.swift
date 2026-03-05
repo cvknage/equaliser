@@ -36,10 +36,6 @@ struct PresetPicker: View {
                 presetSections
 
                 Divider()
-
-                Button("Reset to Flat") {
-                    store.resetToDefaults()
-                }
             } label: {
 
                 HStack(spacing: 4) {
@@ -437,10 +433,6 @@ struct CompactPresetPicker: View {
             }
 
             Divider()
-
-            Button("Reset to Flat") {
-                store.resetToDefaults()
-            }
         } label: {
             HStack(spacing: 4) {
                 Text(currentPresetLabel)

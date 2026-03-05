@@ -99,10 +99,8 @@ struct EQWindowView: View {
 
                 BandCountControl()
 
-                Button("Flatten") {
-                    for i in 0..<store.bandCount {
-                        store.updateBandGain(index: i, gain: 0)
-                    }
+                Button("Reset") {
+                    store.resetToDefaults()
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
