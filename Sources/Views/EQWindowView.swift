@@ -36,25 +36,38 @@ struct EQWindowView: View {
 
                     // Routing controls
                     VStack(alignment: .trailing, spacing: 8) {
-                        Toggle("System EQ", isOn: Binding(
-                            get: { !store.isBypassed },
-                            set: { store.isBypassed = !$0 }
-                        ))
-                        .controlSize(.small)
-                        .toggleStyle(.switch)
+                        // Meters toggle with CPU usage help
+                        ToggleWithHelp(
+                            label: "Meters",
+                            isOn: $store.metersEnabled,
+                            helpText: "Level meters update at 30 FPS and can increase CPU usage. When this window is closed or minimized, meters stop rendering. Disable to reduce CPU while the window is open."
+                        )
 
-                        Toggle("Audio Routing", isOn: Binding(
-                            get: { store.routingStatus.isActive },
-                            set: { newValue in
-                                if newValue {
-                                    store.reconfigureRouting()
-                                } else {
-                                    store.stopRouting()
+                        // System EQ toggle with help
+                        ToggleWithHelp(
+                            label: "System EQ",
+                            isOn: Binding(
+                                get: { !store.isBypassed },
+                                set: { store.isBypassed = !$0 }
+                            ),
+                            helpText: "Enable or disable the equalizer processing. When disabled, audio passes through without EQ applied."
+                        )
+
+                        // Audio Routing toggle with help
+                        ToggleWithHelp(
+                            label: "Audio Routing",
+                            isOn: Binding(
+                                get: { store.routingStatus.isActive },
+                                set: { newValue in
+                                    if newValue {
+                                        store.reconfigureRouting()
+                                    } else {
+                                        store.stopRouting()
+                                    }
                                 }
-                            }
-                        ))
-                        .controlSize(.small)
-                        .toggleStyle(.switch)
+                            ),
+                            helpText: "Enable or disable audio routing between the selected input and output devices. Both devices must be selected to enable routing."
+                        )
                         .disabled(store.routingStatus == .idle
                                   && (store.selectedInputDeviceID == nil
                                       || store.selectedOutputDeviceID == nil))

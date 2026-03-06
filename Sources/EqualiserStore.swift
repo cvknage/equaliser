@@ -78,6 +78,21 @@ final class EqualiserStore: ObservableObject {
     @Published var inputMeterRMS: StereoMeterState = .silent
     @Published var outputMeterRMS: StereoMeterState = .silent
 
+    /// Meters toggle to reduce CPU when enabled
+    @Published var metersEnabled: Bool = true {
+        didSet {
+            storage.set(metersEnabled, forKey: Keys.metersEnabled)
+            if !metersEnabled {
+                // Force meters to silent state
+                inputMeterLevel = .silent
+                outputMeterLevel = .silent
+                inputMeterRMS = .silent
+                outputMeterRMS = .silent
+                metersAtRest = true
+            }
+        }
+    }
+
     /// User preference for displaying bandwidth as octaves or Q factor.
     @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves {
         didSet {
@@ -128,6 +143,7 @@ final class EqualiserStore: ObservableObject {
         static let inputGain = "equalizer.inputGain"
         static let outputGain = "equalizer.outputGain"
         static let bandwidthDisplayMode = "equalizer.bandwidthDisplayMode"
+        static let metersEnabled = "equalizer.metersEnabled"
     }
 
     // MARK: - Convenience Accessors
@@ -174,6 +190,10 @@ final class EqualiserStore: ObservableObject {
         _selectedInputDeviceID = Published(initialValue: storedInput)
         _selectedOutputDeviceID = Published(initialValue: storedOutput)
         _bandwidthDisplayMode = Published(initialValue: storedBandwidthMode)
+
+        // Restore meters enabled setting (defaults to true if not previously set)
+        let storedMetersEnabled = storage.object(forKey: Keys.metersEnabled) as? Bool ?? true
+        _metersEnabled = Published(initialValue: storedMetersEnabled)
 
         // Auto-start routing if both devices are already selected
         if storedInput != nil && storedOutput != nil {
@@ -369,6 +389,9 @@ final class EqualiserStore: ObservableObject {
     }
 
     private func refreshMeterSnapshot() {
+        // Skip updates if meters are disabled by user
+        guard metersEnabled else { return }
+
         // Skip updates if window is not visible
         // If no window reference, check if any key window exists
         if let window = equaliserWindow {
