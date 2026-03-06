@@ -3,6 +3,7 @@ import Combine
 import Foundation
 import os.log
 import AppKit
+import SwiftUI
 
 @MainActor
 final class EqualiserStore: ObservableObject {
@@ -73,24 +74,12 @@ final class EqualiserStore: ObservableObject {
     }
 
     @Published private(set) var routingStatus: RoutingStatus = .idle
-    @Published var inputMeterLevel: StereoMeterState = .silent
-    @Published var outputMeterLevel: StereoMeterState = .silent
-    @Published var inputMeterRMS: StereoMeterState = .silent
-    @Published var outputMeterRMS: StereoMeterState = .silent
 
-    /// Meters toggle to reduce CPU when enabled
-    @Published var metersEnabled: Bool = true {
-        didSet {
-            storage.set(metersEnabled, forKey: Keys.metersEnabled)
-            if !metersEnabled {
-                // Force meters to silent state
-                inputMeterLevel = .silent
-                outputMeterLevel = .silent
-                inputMeterRMS = .silent
-                outputMeterRMS = .silent
-                metersAtRest = true
-            }
-        }
+    var metersEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { self.meterStore.metersEnabled },
+            set: { self.meterStore.metersEnabled = $0 }
+        )
     }
 
     /// User preference for displaying bandwidth as octaves or Q factor.
@@ -114,26 +103,8 @@ final class EqualiserStore: ObservableObject {
     /// The render pipeline connecting HAL to AVAudioEngine.
     /// Owns the HALIOManager and ManualRenderingEngine internally.
     private var renderPipeline: RenderPipeline?
-
-    private static let meterInterval: TimeInterval = 1.0 / 30.0
-    private static let peakHoldHoldDuration: TimeInterval = 1.0
-    private static let peakHoldDecayPerTick: Float = 0.02
-    private static let peakAttackSmoothing: Float = 0.8
-    private static let peakReleaseSmoothing: Float = 0.33
-    private static let rmsSmoothing: Float = 0.12
-    private static let clipHoldDuration: TimeInterval = 0.5
-    private static let meterRange: ClosedRange<Float> = Float(-36)...Float(0)
-    private static let gainRange: ClosedRange<Float> = -24...24
-    private static let gamma: Float = 0.5
-
-    // MARK: - Private Properties
-
-    private let storage: UserDefaults
-    private let logger = Logger(subsystem: "net.knage.equaliser", category: "EqualiserStore")
-    private var cancellables = Set<AnyCancellable>()
-    private var meterTimer: AnyCancellable?
+    let meterStore: MeterStore
     private weak var equaliserWindow: NSWindow?
-    private var metersAtRest = false
 
     private enum Keys {
         static let bypass = "equalizer.bypass"
@@ -143,8 +114,12 @@ final class EqualiserStore: ObservableObject {
         static let inputGain = "equalizer.inputGain"
         static let outputGain = "equalizer.outputGain"
         static let bandwidthDisplayMode = "equalizer.bandwidthDisplayMode"
-        static let metersEnabled = "equalizer.metersEnabled"
     }
+
+    private let storage: UserDefaults
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "EqualiserStore")
+    private var cancellables = Set<AnyCancellable>()
+    private static let gainRange: ClosedRange<Float> = -24...24
 
     // MARK: - Convenience Accessors
 
@@ -164,6 +139,7 @@ final class EqualiserStore: ObservableObject {
         self.storage = storage
         self.eqConfiguration = EQConfiguration(storage: storage)
         self.presetManager = PresetManager(storage: storage)
+        self.meterStore = MeterStore(storage: storage)
 
         // Restore persisted state (no audio engine is created here)
         let storedBypass = storage.bool(forKey: Keys.bypass)
@@ -190,10 +166,6 @@ final class EqualiserStore: ObservableObject {
         _selectedInputDeviceID = Published(initialValue: storedInput)
         _selectedOutputDeviceID = Published(initialValue: storedOutput)
         _bandwidthDisplayMode = Published(initialValue: storedBandwidthMode)
-
-        // Restore meters enabled setting (defaults to true if not previously set)
-        let storedMetersEnabled = storage.object(forKey: Keys.metersEnabled) as? Bool ?? true
-        _metersEnabled = Published(initialValue: storedMetersEnabled)
 
         // Auto-start routing if both devices are already selected
         if storedInput != nil && storedOutput != nil {
@@ -240,14 +212,10 @@ final class EqualiserStore: ObservableObject {
         // Stop existing pipeline if running
         if let pipeline = renderPipeline {
             logger.info("Stopping existing render pipeline")
-            meterTimer?.cancel()
-            meterTimer = nil
+            meterStore.stopMeterUpdates()
+            meterStore.setRenderPipeline(nil)
             _ = pipeline.stop()
             renderPipeline = nil
-            inputMeterLevel = .silent
-            outputMeterLevel = .silent
-            inputMeterRMS = .silent
-            outputMeterRMS = .silent
         }
 
         // Check if both devices are selected
@@ -300,7 +268,8 @@ final class EqualiserStore: ObservableObject {
             renderPipeline?.updateOutputGain(linear: EqualiserStore.dbToLinear(outputGain))
             routingStatus = .active(inputName: inputName, outputName: outputName)
             logger.info("Routing active: \(inputName) → \(outputName)")
-            startMeterUpdates()
+            meterStore.setRenderPipeline(pipeline)
+            meterStore.startMeterUpdates()
         case .failure(let error):
             routingStatus = .error("Start failed: \(error.localizedDescription)")
             logger.error("Pipeline start failed: \(error.localizedDescription)")
@@ -311,15 +280,11 @@ final class EqualiserStore: ObservableObject {
 
     func stopRouting() {
         if let pipeline = renderPipeline {
-            meterTimer?.cancel()
-            meterTimer = nil
+            meterStore.stopMeterUpdates()
+            meterStore.setRenderPipeline(nil)
             _ = pipeline.stop()
             renderPipeline = nil
         }
-        inputMeterLevel = .silent
-        outputMeterLevel = .silent
-        inputMeterRMS = .silent
-        outputMeterRMS = .silent
         routingStatus = .idle
         logger.info("Routing stopped")
     }
@@ -375,104 +340,7 @@ final class EqualiserStore: ObservableObject {
     /// Call this when the EQ window is created or becomes key.
     func setEqualiserWindow(_ window: NSWindow?) {
         equaliserWindow = window
-    }
-
-    private func startMeterUpdates() {
-        meterTimer?.cancel()
-        guard renderPipeline != nil else { return }
-
-        meterTimer = Timer.publish(every: Self.meterInterval, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                self?.refreshMeterSnapshot()
-            }
-    }
-
-    private func refreshMeterSnapshot() {
-        // Skip updates if meters are disabled by user
-        guard metersEnabled else { return }
-
-        // Skip updates if window is not visible
-        // If no window reference, check if any key window exists
-        if let window = equaliserWindow {
-            guard window.isVisible else { return }
-        } else if let keyWindow = NSApp.keyWindow {
-            // If we don't have a specific window reference, check if any window is visible
-            guard keyWindow.isVisible else { return }
-        }
-
-        guard let pipeline = renderPipeline else { return }
-
-        // If meters are at rest, check if audio has returned before updating
-        if metersAtRest {
-            let snapshot = pipeline.currentMeters()
-            let silenceThreshold: Float = -85
-            let stillSilent = snapshot.inputDB.allSatisfy({ $0 <= silenceThreshold }) &&
-                              snapshot.outputDB.allSatisfy({ $0 <= silenceThreshold }) &&
-                              snapshot.inputRmsDB.allSatisfy({ $0 <= silenceThreshold }) &&
-                              snapshot.outputRmsDB.allSatisfy({ $0 <= silenceThreshold })
-
-            if stillSilent {
-                return  // Stay at rest, no updates needed
-            }
-            // Audio detected - resume normal updates
-            metersAtRest = false
-        }
-
-        let snapshot = pipeline.currentMeters()
-
-        // Normal full update with smoothing
-        inputMeterLevel = meterState(from: snapshot.inputDB, previous: inputMeterLevel)
-        outputMeterLevel = meterState(from: snapshot.outputDB, previous: outputMeterLevel)
-        inputMeterRMS = rmsState(from: snapshot.inputRmsDB, previous: inputMeterRMS)
-        outputMeterRMS = rmsState(from: snapshot.outputRmsDB, previous: outputMeterRMS)
-
-        // Check if meters have settled at the bottom (including peak hold lines)
-        let atRestThreshold: Float = 0.01
-        metersAtRest = inputMeterLevel.left.peak < atRestThreshold &&
-                       inputMeterLevel.right.peak < atRestThreshold &&
-                       inputMeterLevel.left.peakHold < atRestThreshold &&
-                       inputMeterLevel.right.peakHold < atRestThreshold &&
-                       outputMeterLevel.left.peak < atRestThreshold &&
-                       outputMeterLevel.right.peak < atRestThreshold &&
-                       outputMeterLevel.left.peakHold < atRestThreshold &&
-                       outputMeterLevel.right.peakHold < atRestThreshold &&
-                       inputMeterRMS.left.rms < atRestThreshold &&
-                       inputMeterRMS.right.rms < atRestThreshold &&
-                       outputMeterRMS.left.rms < atRestThreshold &&
-                       outputMeterRMS.right.rms < atRestThreshold
-    }
-
-    private func rmsState(from dbValues: [Float], previous: StereoMeterState) -> StereoMeterState {
-        let left = channelRMSState(from: dbValues, channelIndex: 0, previous: previous.left)
-        let right = channelRMSState(from: dbValues, channelIndex: 1, previous: previous.right)
-        return StereoMeterState(left: left, right: right)
-    }
-
-    private func channelRMSState(from dbValues: [Float], channelIndex: Int, previous: ChannelMeterState) -> ChannelMeterState {
-        let db = dbValues.indices.contains(channelIndex) ? dbValues[channelIndex] : Self.meterRange.lowerBound
-        let normalized = EqualiserStore.normalize(db: db)
-        let delta = normalized - previous.rms
-        let rawRMS = previous.rms + delta * Self.rmsSmoothing
-        let rms = max(0, min(1, rawRMS))
-        
-        // Clamp near-zero RMS values to exactly zero so they can reach at-rest state
-        let zeroThreshold: Float = 0.005
-        let clampedRMS = rms < zeroThreshold ? 0 : rms
-
-        return ChannelMeterState(
-            peak: previous.peak,
-            peakHold: previous.peakHold,
-            peakHoldTimeRemaining: previous.peakHoldTimeRemaining,
-            clipHold: previous.clipHold,
-            rms: clampedRMS
-        )
-    }
-
-    private func meterState(from dbValues: [Float], previous: StereoMeterState) -> StereoMeterState {
-        let left = channelState(from: dbValues, channelIndex: 0, previous: previous.left)
-        let right = channelState(from: dbValues, channelIndex: 1, previous: previous.right)
-        return StereoMeterState(left: left, right: right)
+        meterStore.setEqualiserWindow(window)
     }
 
     static func clampGain(_ gain: Float) -> Float {
@@ -481,54 +349,6 @@ final class EqualiserStore: ObservableObject {
 
     private static func dbToLinear(_ db: Float) -> Float {
         powf(10.0, db / 20.0)
-    }
-
-    private func channelState(from dbValues: [Float], channelIndex: Int, previous: ChannelMeterState) -> ChannelMeterState {
-        let db = dbValues.indices.contains(channelIndex) ? dbValues[channelIndex] : Self.meterRange.lowerBound
-        let normalized = EqualiserStore.normalize(db: db)
-        let delta = normalized - previous.peak
-        let smoothing = delta >= 0 ? Self.peakAttackSmoothing : Self.peakReleaseSmoothing
-        let rawPeak = previous.peak + delta * smoothing
-        let zeroThreshold: Float = 0.005
-        let peak = max(0, min(1, rawPeak)) < zeroThreshold ? 0 : max(0, min(1, rawPeak))
-
-        // When clipping occurs, use the actual normalized value (1.0) for peak hold
-        // rather than the smoothed peak, so the white line shows the true maximum
-        let isClipping = db >= 0
-        let actualPeakForHold = isClipping ? normalized : peak
-        let isNewPeak = actualPeakForHold > previous.peakHold
-        let newHoldTime: TimeInterval
-        let peakHold: Float
-        if isNewPeak {
-            newHoldTime = Self.peakHoldHoldDuration
-            peakHold = actualPeakForHold
-        } else if previous.peakHoldTimeRemaining > 0 {
-            newHoldTime = max(0, previous.peakHoldTimeRemaining - Self.meterInterval)
-            peakHold = previous.peakHold
-        } else {
-            newHoldTime = 0
-            // Peak hold now decays to zero, not just to current peak
-            let rawPeakHold = previous.peakHold - Self.peakHoldDecayPerTick
-            let clampedPeakHold = rawPeakHold < zeroThreshold ? 0 : max(0, min(1, rawPeakHold))
-            peakHold = clampedPeakHold
-        }
-
-        let clipHold = isClipping ? Self.clipHoldDuration : max(0, previous.clipHold - Self.meterInterval)
-        return ChannelMeterState(peak: peak, peakHold: peakHold, peakHoldTimeRemaining: newHoldTime, clipHold: clipHold, rms: previous.rms)
-    }
-
-    private static func normalize(db: Float) -> Float {
-        if db <= meterRange.lowerBound {
-            return 0
-        }
-        if db >= meterRange.upperBound {
-            return 1
-        }
-        let amp = powf(10.0, 0.05 * db)
-        let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
-        let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
-        let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
-        return powf(normalizedAmp, gamma)
     }
 
     // MARK: - Preset Management

@@ -8,7 +8,7 @@ struct MeterToggleView: View {
     var body: some View {
         HStack(spacing: 8) {
             // Toggle with switch style like System EQ
-            Toggle("Meters", isOn: $store.metersEnabled)
+            Toggle("Meters", isOn: store.metersEnabledBinding)
                 .toggleStyle(.switch)
                 .controlSize(.small)
                 .font(.caption)

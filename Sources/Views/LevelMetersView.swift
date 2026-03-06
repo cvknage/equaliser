@@ -1,20 +1,15 @@
 import SwiftUI
 
 struct LevelMetersView: View {
-    let inputState: StereoMeterState
-    let outputState: StereoMeterState
-    let inputRMSState: StereoMeterState
-    let outputRMSState: StereoMeterState
+    @ObservedObject var meterStore: MeterStore
 
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
-            // Peak meters with scales on left
-            StereoMeterGroup(title: "Peak In", state: inputState, showScale: true)
-            StereoMeterGroup(title: "Peak Out", state: outputState, showScale: true)
+            StereoMeterGroup(title: "Peak In", state: meterStore.inputMeterLevel, showScale: true)
+            StereoMeterGroup(title: "Peak Out", state: meterStore.outputMeterLevel, showScale: true)
 
-            // RMS meters with scales on left
-            StereoMeterGroupRMS(title: "RMS In", rmsState: inputRMSState, showScale: true)
-            StereoMeterGroupRMS(title: "RMS Out", rmsState: outputRMSState, showScale: true)
+            StereoMeterGroupRMS(title: "RMS In", rmsState: meterStore.inputMeterRMS, showScale: true)
+            StereoMeterGroupRMS(title: "RMS Out", rmsState: meterStore.outputMeterRMS, showScale: true)
         }
     }
 }

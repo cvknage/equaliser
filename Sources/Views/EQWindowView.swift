@@ -8,14 +8,9 @@ struct EQWindowView: View {
         VStack(spacing: 12) {
             // Level meters + unified control panel
             HStack(alignment: .top, spacing: 0) {
-                LevelMetersView(
-                    inputState: store.inputMeterLevel,
-                    outputState: store.outputMeterLevel,
-                    inputRMSState: store.inputMeterRMS,
-                    outputRMSState: store.outputMeterRMS
-                )
-                .layoutPriority(1)
-                .offset(x: -8)
+                LevelMetersView(meterStore: store.meterStore)
+                    .layoutPriority(1)
+                    .offset(x: -8)
 
                 Spacer(minLength: 64)
 
@@ -39,7 +34,7 @@ struct EQWindowView: View {
                         // Meters toggle with CPU usage help
                         ToggleWithHelp(
                             label: "Meters",
-                            isOn: $store.metersEnabled,
+                            isOn: store.metersEnabledBinding,
                             helpText: "Level meters update at 30 FPS and can increase CPU usage. When this window is closed or minimized, meters stop rendering. Disable to reduce CPU while the window is open."
                         )
 
