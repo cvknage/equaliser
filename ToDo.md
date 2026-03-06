@@ -87,17 +87,12 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Include factory presets: Flat, Bass Boost, Treble Boost, Vocal Presence, Loudness, Acoustic.
 - [x] Show "modified" indicator when current settings differ from loaded preset.
 
-## 9. Onboarding & Settings
-- [ ] Offer a lightweight settings window for startup behavior and BlackHole instructions.
-- [ ] Include a global bypass toggle and emergency reset-to-flat control.
-- [ ] Add analytics/diagnostics hooks if needed (log gain changes, device switches).
-
-## 10. Testing & Release Prep
-- [ ] Add unit tests for band-mapping logic and preset serialization.
+## 9. Testing & Release Prep
+- [x] Add unit tests for band-mapping logic and preset serialization.
 - [ ] Build an integration harness that feeds sample audio through both EQ units for verification.
 - [ ] Prepare signed/notarized builds and optionally integrate Sparkle or TestFlight for updates.
 
-## 11. Bypass & Compare Mode
+## 10. Bypass & Compare Mode
 
 ### Bypass Behavior Requirements
 

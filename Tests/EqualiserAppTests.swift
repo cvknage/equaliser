@@ -3,12 +3,14 @@ import XCTest
 
 // Main test file for EqualiserApp.
 // Individual test suites are in their own files:
-// - BandwidthConverterTests.swift
-// - EQConfigurationTests.swift
 // - AudioRingBufferTests.swift
-// - MeterCalculationTests.swift
-// - PresetCodableTests.swift
+// - BandwidthConverterTests.swift
+// - DeviceManagerTests.swift
 // - EasyEffectsImportExportTests.swift
+// - EQConfigurationTests.swift
+// - MeterCalculationTests.swift
+// - MeterStoreTests.swift
+// - PresetCodableTests.swift
 
 final class EqualizerAppTests: XCTestCase {
     // This file serves as the entry point for the test suite.
