@@ -118,6 +118,7 @@ final class EqualiserStore: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var meterTimer: AnyCancellable?
     private weak var equaliserWindow: NSWindow?
+    private var metersAtRest = false
 
     private enum Keys {
         static let bypass = "equalizer.bypass"
@@ -378,11 +379,45 @@ final class EqualiserStore: ObservableObject {
         }
 
         guard let pipeline = renderPipeline else { return }
+
+        // If meters are at rest, check if audio has returned before updating
+        if metersAtRest {
+            let snapshot = pipeline.currentMeters()
+            let silenceThreshold: Float = -85
+            let stillSilent = snapshot.inputDB.allSatisfy({ $0 <= silenceThreshold }) &&
+                              snapshot.outputDB.allSatisfy({ $0 <= silenceThreshold }) &&
+                              snapshot.inputRmsDB.allSatisfy({ $0 <= silenceThreshold }) &&
+                              snapshot.outputRmsDB.allSatisfy({ $0 <= silenceThreshold })
+
+            if stillSilent {
+                return  // Stay at rest, no updates needed
+            }
+            // Audio detected - resume normal updates
+            metersAtRest = false
+        }
+
         let snapshot = pipeline.currentMeters()
+
+        // Normal full update with smoothing
         inputMeterLevel = meterState(from: snapshot.inputDB, previous: inputMeterLevel)
         outputMeterLevel = meterState(from: snapshot.outputDB, previous: outputMeterLevel)
         inputMeterRMS = rmsState(from: snapshot.inputRmsDB, previous: inputMeterRMS)
         outputMeterRMS = rmsState(from: snapshot.outputRmsDB, previous: outputMeterRMS)
+
+        // Check if meters have settled at the bottom (including peak hold lines)
+        let atRestThreshold: Float = 0.01
+        metersAtRest = inputMeterLevel.left.peak < atRestThreshold &&
+                       inputMeterLevel.right.peak < atRestThreshold &&
+                       inputMeterLevel.left.peakHold < atRestThreshold &&
+                       inputMeterLevel.right.peakHold < atRestThreshold &&
+                       outputMeterLevel.left.peak < atRestThreshold &&
+                       outputMeterLevel.right.peak < atRestThreshold &&
+                       outputMeterLevel.left.peakHold < atRestThreshold &&
+                       outputMeterLevel.right.peakHold < atRestThreshold &&
+                       inputMeterRMS.left.rms < atRestThreshold &&
+                       inputMeterRMS.right.rms < atRestThreshold &&
+                       outputMeterRMS.left.rms < atRestThreshold &&
+                       outputMeterRMS.right.rms < atRestThreshold
     }
 
     private func rmsState(from dbValues: [Float], previous: StereoMeterState) -> StereoMeterState {
@@ -397,13 +432,17 @@ final class EqualiserStore: ObservableObject {
         let delta = normalized - previous.rms
         let rawRMS = previous.rms + delta * Self.rmsSmoothing
         let rms = max(0, min(1, rawRMS))
+        
+        // Clamp near-zero RMS values to exactly zero so they can reach at-rest state
+        let zeroThreshold: Float = 0.005
+        let clampedRMS = rms < zeroThreshold ? 0 : rms
 
         return ChannelMeterState(
             peak: previous.peak,
             peakHold: previous.peakHold,
             peakHoldTimeRemaining: previous.peakHoldTimeRemaining,
             clipHold: previous.clipHold,
-            rms: rms
+            rms: clampedRMS
         )
     }
 
@@ -427,7 +466,8 @@ final class EqualiserStore: ObservableObject {
         let delta = normalized - previous.peak
         let smoothing = delta >= 0 ? Self.peakAttackSmoothing : Self.peakReleaseSmoothing
         let rawPeak = previous.peak + delta * smoothing
-        let peak = max(0, min(1, rawPeak))
+        let zeroThreshold: Float = 0.005
+        let peak = max(0, min(1, rawPeak)) < zeroThreshold ? 0 : max(0, min(1, rawPeak))
 
         // When clipping occurs, use the actual normalized value (1.0) for peak hold
         // rather than the smoothed peak, so the white line shows the true maximum
@@ -444,8 +484,10 @@ final class EqualiserStore: ObservableObject {
             peakHold = previous.peakHold
         } else {
             newHoldTime = 0
-            let rawPeakHold = max(previous.peakHold - Self.peakHoldDecayPerTick, peak)
-            peakHold = max(0, min(1, rawPeakHold))
+            // Peak hold now decays to zero, not just to current peak
+            let rawPeakHold = previous.peakHold - Self.peakHoldDecayPerTick
+            let clampedPeakHold = rawPeakHold < zeroThreshold ? 0 : max(0, min(1, rawPeakHold))
+            peakHold = clampedPeakHold
         }
 
         let clipHold = isClipping ? Self.clipHoldDuration : max(0, previous.clipHold - Self.meterInterval)
