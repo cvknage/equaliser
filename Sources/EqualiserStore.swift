@@ -5,6 +5,11 @@ import os.log
 import AppKit
 import SwiftUI
 
+enum CompareMode: Int, Codable, Sendable {
+    case eq = 0
+    case flat = 1
+}
+
 @MainActor
 final class EqualiserStore: ObservableObject {
     // MARK: - Published Properties
@@ -13,7 +18,19 @@ final class EqualiserStore: ObservableObject {
         didSet {
             persist()
             eqConfiguration.globalBypass = isBypassed
-            renderPipeline?.updateBypass()
+            renderPipeline?.updateProcessingMode(systemEQOff: isBypassed, compareMode: compareMode)
+        }
+    }
+
+    @Published var compareMode: CompareMode = .eq {
+        didSet {
+            renderPipeline?.updateProcessingMode(systemEQOff: isBypassed, compareMode: compareMode)
+
+            if compareMode == .flat {
+                startCompareModeRevertTimer()
+            } else {
+                cancelCompareModeRevertTimer()
+            }
         }
     }
 
@@ -105,6 +122,9 @@ final class EqualiserStore: ObservableObject {
     private var renderPipeline: RenderPipeline?
     let meterStore: MeterStore
     private weak var equaliserWindow: NSWindow?
+
+    private var compareModeRevertTimer: AnyCancellable?
+    private static let compareModeRevertInterval: TimeInterval = 300 // 5 minutes
 
     private enum Keys {
         static let bypass = "equalizer.bypass"
@@ -285,6 +305,7 @@ final class EqualiserStore: ObservableObject {
             _ = pipeline.stop()
             renderPipeline = nil
         }
+        cancelCompareModeRevertTimer()
         routingStatus = .idle
         logger.info("Routing stopped")
     }
@@ -341,6 +362,22 @@ final class EqualiserStore: ObservableObject {
     func setEqualiserWindow(_ window: NSWindow?) {
         equaliserWindow = window
         meterStore.setEqualiserWindow(window)
+    }
+
+    private func startCompareModeRevertTimer() {
+        compareModeRevertTimer?.cancel()
+        compareModeRevertTimer = Timer.publish(every: Self.compareModeRevertInterval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                self?.compareMode = .eq
+                self?.compareModeRevertTimer?.cancel()
+                self?.compareModeRevertTimer = nil
+            }
+    }
+
+    private func cancelCompareModeRevertTimer() {
+        compareModeRevertTimer?.cancel()
+        compareModeRevertTimer = nil
     }
 
     static func clampGain(_ gain: Float) -> Float {

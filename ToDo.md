@@ -110,7 +110,9 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 **Compare Mode** (EQ/Flat segmented control):
 - Located in bottom toolbar, to the left of Reset button
 - Segmented control with two options: `[ EQ | Flat ]`
-- Only active when System EQ is ON (disabled/grayed out when System EQ is OFF)
+- Works even when System EQ is OFF (Compare mode state persists)
+- Includes help button (?) with popover explaining the feature
+- Auto-reverts to EQ after 5 minutes when Flat is selected
 - When set to **EQ**: Normal operation - EQ bands active, gains applied
 - When set to **Flat**: EQ bands bypassed, but input/output gains still applied
 - Use case: A/B comparison at matched volume level (compare EQ curve to flat without volume bias)
@@ -142,7 +144,8 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 
 | System EQ | Compare Mode | EQ Bands | Input Gain | Output Gain | Result |
 |-----------|--------------|----------|------------|-------------|--------|
-| OFF | (ignored) | Bypassed | Skipped | Skipped | Complete bypass (Flat) |
+| OFF | EQ | Bypassed | Skipped | Skipped | Complete bypass (Flat) |
+| OFF | Flat | Bypassed | Skipped | Skipped | Complete bypass (Flat) |
 | ON | EQ | Active | Applied | Applied | Normal EQ processing |
 | ON | Flat | Bypassed | Applied | Applied | A/B comparison mode |
 
@@ -155,11 +158,14 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - Consider: atomic operations, lock-free data structures, or architectural changes
 
 **Todo:**
-- [ ] Add System EQ toggle (master bypass)
-- [ ] Add Compare mode segmented control ([EQ|Flat])
-- [ ] Implement bypass logic for EQ units
-- [ ] Implement bypass logic for input/output gains (skip when System EQ OFF)
-- [ ] Fix CPU usage issue caused by cross-thread bypass flag access
-- [ ] Test all bypass combinations for correct behavior
-- [ ] Verify meters remain responsive in all modes
+- [x] Add System EQ toggle (master bypass)
+- [x] Add Compare mode segmented control ([EQ|Flat])
+- [x] Implement bypass logic for EQ units
+- [x] Implement bypass logic for input/output gains (skip when System EQ OFF)
+- [x] Fix CPU usage issue caused by cross-thread bypass flag access (used Int32 atomic approach)
+- [x] Test all bypass combinations for correct behavior
+- [x] Verify meters remain responsive in all modes
+- [x] Make Compare Mode work independently of System EQ toggle
+- [x] Add help button (?) with popover explaining Compare Mode
+- [x] Add auto-revert timer (5 minutes) to switch back to EQ from Flat
 

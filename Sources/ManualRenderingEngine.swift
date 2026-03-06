@@ -243,8 +243,11 @@ final class ManualRenderingEngine {
     // MARK: - EQ Control
 
     /// Updates the bypass state from the current EQ configuration.
-    func updateBypass() {
-        eqConfiguration.applyBypass(to: eqUnits)
+    func updateBypass(systemEQOff: Bool, compareMode: CompareMode) {
+        let shouldBypassEQ = systemEQOff || compareMode == .flat
+        for unit in eqUnits {
+            unit.bypass = shouldBypassEQ
+        }
     }
 
     /// Updates a band's gain from the current EQ configuration.

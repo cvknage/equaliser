@@ -415,9 +415,18 @@ final class RenderPipeline {
 
     // MARK: - EQ Control
 
-    /// Updates the bypass state on the live engine.
-    func updateBypass() {
-        renderingEngine?.updateBypass()
+    /// Updates the processing mode on the live engine and audio thread.
+    func updateProcessingMode(systemEQOff: Bool, compareMode: CompareMode) {
+        let mode: Int32
+        if systemEQOff {
+            mode = 0
+        } else if compareMode == .flat {
+            mode = 2
+        } else {
+            mode = 1
+        }
+        callbackContext?.processingMode = mode
+        renderingEngine?.updateBypass(systemEQOff: systemEQOff, compareMode: compareMode)
     }
 
     /// Updates a band's gain on the live engine.
@@ -519,13 +528,15 @@ final class RenderPipeline {
             return noErr
         }
 
-        // Apply input gain before writing to ring buffers
-        context.applyGain(
-            to: context.inputSampleBuffers,
-            frameCount: frameCount,
-            currentGain: &context.inputGainLinear,
-            targetGain: context.targetInputGainLinear
-        )
+        // Apply input gain before writing to ring buffers (skip in full bypass mode)
+        if context.processingMode != 0 {
+            context.applyGain(
+                to: context.inputSampleBuffers,
+                frameCount: frameCount,
+                currentGain: &context.inputGainLinear,
+                targetGain: context.targetInputGainLinear
+            )
+        }
 
         // Write captured audio to ring buffers
         context.writeToRingBuffers(frameCount: frameCount)
@@ -611,13 +622,15 @@ final class RenderPipeline {
         // 4. Clear the input buffer reference
         renderCtx.clearInputBuffer()
 
-        // 5. Apply output gain after EQ rendering
-        context.applyGain(
-            to: ioData,
-            frameCount: frameCount,
-            currentGain: &context.outputGainLinear,
-            targetGain: context.targetOutputGainLinear
-        )
+        // 5. Apply output gain after EQ rendering (skip in full bypass mode)
+        if context.processingMode != 0 {
+            context.applyGain(
+                to: ioData,
+                frameCount: frameCount,
+                currentGain: &context.outputGainLinear,
+                targetGain: context.targetOutputGainLinear
+            )
+        }
 
         // 6. Update output meters with rendered audio
         context.updateOutputMeters(from: ioData, frameCount: frameCount)

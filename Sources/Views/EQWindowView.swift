@@ -3,6 +3,7 @@ import SwiftUI
 /// The main EQ settings window - detailed controls.
 struct EQWindowView: View {
     @EnvironmentObject var store: EqualiserStore
+    @State private var showCompareHelp = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -26,7 +27,7 @@ struct EQWindowView: View {
                     // Device pickers
                     DevicePickerView(layout: .horizontal)
 
-                    RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed)
+                    RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed, compareMode: store.compareMode)
                         .frame(width: 376)
 
                     // Routing controls
@@ -92,20 +93,54 @@ struct EQWindowView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 
-                // Reset button on right
-                VStack(spacing: 4) {
-                    Text("Reset")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .opacity(0)
-                    Button {
-                        store.resetToDefaults()
-                    } label: {
-                        Text("Reset")
-                            .frame(width: 50, height: 16)
+                // Compare mode + Reset on right
+                HStack(spacing: 12) {
+                    // Compare Mode segmented control
+                    VStack(spacing: 4) {
+                        HStack(spacing: 4) {
+                            Text("Compare")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+
+                            Button {
+                                showCompareHelp = true
+                            } label: {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .popover(isPresented: $showCompareHelp, arrowEdge: .trailing) {
+                                Text("A/B comparison: Switch between your EQ curve and a flat response at matched volume. Useful for comparing your EQ adjustments against the original sound. Automatically reverts to EQ after 5 minutes.")
+                                    .font(.caption)
+                                    .padding(12)
+                                    .frame(width: 250)
+                            }
+                        }
+
+                        Picker("", selection: $store.compareMode) {
+                            Text("EQ").tag(CompareMode.eq)
+                            Text("Flat").tag(CompareMode.flat)
+                        }
+                        .pickerStyle(.segmented)
+                        .controlSize(.small)
+                        .frame(width: 80)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+
+                    VStack(spacing: 4) {
+                        Text("Reset")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .opacity(0)
+                        Button {
+                            store.resetToDefaults()
+                        } label: {
+                            Text("Reset")
+                                .frame(width: 50, height: 16)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }

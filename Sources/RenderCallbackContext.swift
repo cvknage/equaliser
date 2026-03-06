@@ -66,6 +66,12 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Target linear gain applied to output samples after EQ rendering.
     nonisolated(unsafe) var targetOutputGainLinear: Float = 1.0
 
+    /// Processing mode for audio thread:
+    /// 0 = full bypass (System EQ OFF) - skip gains, bypass EQ
+    /// 1 = normal (EQ + gains)
+    /// 2 = gains only (Compare Flat mode) - apply gains, bypass EQ
+    nonisolated(unsafe) var processingMode: Int32 = 1
+
     /// Number of channels exposed to the level meters (up to two for stereo visualization).
     private let meterChannelCount: Int
 
