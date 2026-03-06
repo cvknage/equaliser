@@ -52,11 +52,12 @@ That's it. Adjust the EQ to taste.
 ## Features
 
 - **Up to 64-bands of parametric EQ** with adjustable frequency, gain, and bandwidth per band
-- **Real-time level meters** to monitor signal
+- **Compare Mode** — A/B comparison between your EQ curve and flat response at matched volume
+- **Real-time level meters** — monitor input/output signals
 - **Presets** — includes Bass Boost, Vocal Presence, and more; save your own
 - **EasyEffects import/export** for sharing presets with Linux users
-- **Bypass toggle** for quick A/B comparison
-- **Remembers your settings** — devices, routing, and EQ state persist across launches
+- **System EQ toggle** — master on/off for all processing = disable EQ
+- **Remembers your settings** — devices, routing, EQ state, and preferences persist across launches
 
 ## Requirements
 

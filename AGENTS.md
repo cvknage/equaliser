@@ -61,6 +61,7 @@ equalizer/
 ├── Sources/
 │   ├── EqualiserAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
 │   ├── EqualiserStore.swift       # Global state (ObservableObject)
+│   ├── MeterStore.swift           # Isolated meter state for rendering performance
 │   │
 │   │   # Audio Pipeline (HAL + AVAudioEngine)
 │   ├── HALIOManager.swift         # HAL audio unit management (input/output modes)
@@ -87,7 +88,15 @@ equalizer/
 │       └── PresetManager.swift        # Preset loading/saving
 │
 └── Tests/
-    └── EqualiserAppTests.swift
+    ├── EqualiserAppTests.swift        # Test suite entry point
+    ├── AudioRingBufferTests.swift     # Ring buffer tests
+    ├── BandwidthConverterTests.swift  # Bandwidth/Q conversion tests
+    ├── DeviceManagerTests.swift       # Device enumeration tests
+    ├── EasyEffectsImportExportTests.swift # Import/export tests
+    ├── EQConfigurationTests.swift     # EQ configuration tests
+    ├── MeterCalculationTests.swift    # Meter math tests
+    ├── MeterStoreTests.swift          # Meter state management tests
+    └── PresetCodableTests.swift       # Preset serialization tests
 ```
 
 ## Code Style Guidelines
@@ -190,7 +199,17 @@ do {
   - If `add(2, 2)` returns `3`, write a test expecting `4`, then fix the code
   - Don't write tests that validate existing bugs as "correct"
 - Test critical paths, calculations, and invariants - not necessarily 100% coverage
-- Follow existing test patterns in `Tests/EqualiserAppTests.swift`
+- **Testing pattern** (established convention):
+  - Test through **public API only** - never expose internals for testing
+  - Create **real instances** - no mocking frameworks
+  - Test **behavior/output** - not implementation details
+  - Use `@MainActor` on test classes for UI-bound code
+  - Use isolated `UserDefaults(suiteName:)` for persistence tests
+- Follow existing test patterns in `Tests/` directory:
+  - `EQConfigurationTests.swift` - tests static methods and state
+  - `DeviceManagerTests.swift` - tests public methods
+  - `MeterStoreTests.swift` - tests state management through public API
+  - `MeterCalculationTests.swift` - tests mathematical calculations
 - Run tests before marking work complete: `swift test`
 
 ### Core Audio Conventions
@@ -205,8 +224,40 @@ do {
 ### State Management
 
 - `EqualiserStore`: Central `ObservableObject` for app state
-- Persists preferences via `UserDefaults`
-- Owns reference to `RenderPipeline`
+  - Persists preferences via `UserDefaults`
+  - Owns references to `RenderPipeline` and `MeterStore`
+  - Handles routing, presets, EQ configuration, and bypass modes
+  
+- `MeterStore`: Isolated `ObservableObject` for meter state
+  - Owns all meter level state (`inputMeterLevel`, `outputMeterLevel`, etc.)
+  - Manages 30 FPS meter timer independently
+  - SwiftUI's diffing isolates re-renders to only meter views
+  - Pattern: Extract high-frequency update state into separate `ObservableObject`
+
+**Why separate stores?** Meter updates at 30 FPS would trigger SwiftUI re-renders of the entire view hierarchy if stored in `EqualiserStore`. By extracting to `MeterStore`, only views observing that specific store re-render.
+
+### Compare Mode Pattern
+
+Compare Mode (EQ vs Flat) uses an auto-revert timer to protect users from accidentally leaving Flat mode:
+
+```swift
+@Published var compareMode: CompareMode = .eq {
+    didSet {
+        renderPipeline?.updateProcessingMode(...)
+        
+        if compareMode == .flat {
+            startCompareModeRevertTimer()  // 5-minute timer
+        } else {
+            cancelCompareModeRevertTimer()
+        }
+    }
+}
+```
+
+**Key points:**
+- Compare Mode works independently of System EQ toggle
+- Auto-reverts to EQ after 5 minutes
+- Timer is cancelled on manual switch or routing stop
 
 ### Audio Pipeline Architecture
 
@@ -252,6 +303,61 @@ struct EqualiserAppMain: App {
     }
 }
 ```
+
+### SwiftUI Rendering Performance
+
+When a component updates at high frequency (e.g., meters at 30 FPS), isolate it to prevent re-rendering the entire view tree:
+
+**Problem:** Storing meter state in `EqualiserStore` causes all views observing that store to re-render 30 times per second.
+
+**Solution:** Extract high-frequency state into a separate `ObservableObject`:
+
+```swift
+// Bad - entire app re-renders on meter updates
+final class EqualiserStore: ObservableObject {
+    @Published var inputMeterLevel: StereoMeterState  // 30 FPS
+    @Published var eqBands: [EQBand]  // UI also re-renders!
+}
+
+// Good - only meter views re-render
+final class EqualiserStore: ObservableObject {
+    let meterStore: MeterStore  // Separate ObservableObject
+    @Published var eqBands: [EQBand]  // Unaffected by meter updates
+}
+
+final class MeterStore: ObservableObject {
+    @Published var inputMeterLevel: StereoMeterState  // 30 FPS
+}
+
+// In view
+LevelMetersView(meterStore: store.meterStore)  // Only this re-renders
+```
+
+SwiftUI's diffing automatically isolates changes to only views observing the modified store.
+
+### Feature Implementation Patterns
+
+#### Compare Mode (A/B Testing)
+
+Compare Mode allows switching between EQ and flat response while preserving volume matching:
+
+```swift
+enum CompareMode: Int, Codable, Sendable {
+    case eq = 0
+    case flat = 1
+}
+```
+
+**Implementation:**
+1. Segmented control in UI: `[EQ | Flat]`
+2. Auto-revert timer (5 minutes) when Flat selected
+3. Works independently of System EQ toggle
+4. Processing mode updated via `RenderPipeline.updateProcessingMode()`
+
+**Processing modes:**
+- Mode 0: System EQ OFF (complete bypass)
+- Mode 1: Normal EQ processing
+- Mode 2: Flat mode (EQ bypassed, gains applied)
 
 ## SwiftUI App Lifecycle Learnings
 
