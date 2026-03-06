@@ -2,6 +2,7 @@ import AVFoundation
 import Combine
 import Foundation
 import os.log
+import AppKit
 
 @MainActor
 final class EqualiserStore: ObservableObject {
@@ -116,6 +117,7 @@ final class EqualiserStore: ObservableObject {
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "EqualiserStore")
     private var cancellables = Set<AnyCancellable>()
     private var meterTimer: AnyCancellable?
+    private weak var equaliserWindow: NSWindow?
 
     private enum Keys {
         static let bypass = "equalizer.bypass"
@@ -348,6 +350,12 @@ final class EqualiserStore: ObservableObject {
         renderPipeline?.updateBandBypass(index: index)
     }
 
+    /// Sets the window reference for visibility checking.
+    /// Call this when the EQ window is created or becomes key.
+    func setEqualiserWindow(_ window: NSWindow?) {
+        equaliserWindow = window
+    }
+
     private func startMeterUpdates() {
         meterTimer?.cancel()
         guard renderPipeline != nil else { return }
@@ -360,6 +368,15 @@ final class EqualiserStore: ObservableObject {
     }
 
     private func refreshMeterSnapshot() {
+        // Skip updates if window is not visible
+        // If no window reference, check if any key window exists
+        if let window = equaliserWindow {
+            guard window.isVisible else { return }
+        } else if let keyWindow = NSApp.keyWindow {
+            // If we don't have a specific window reference, check if any window is visible
+            guard keyWindow.isVisible else { return }
+        }
+
         guard let pipeline = renderPipeline else { return }
         let snapshot = pipeline.currentMeters()
         inputMeterLevel = meterState(from: snapshot.inputDB, previous: inputMeterLevel)

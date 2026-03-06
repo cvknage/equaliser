@@ -108,6 +108,11 @@ struct EQWindowView: View {
         }
         .padding(12)
         .frame(minWidth: 1060, minHeight: 530)
+        .background(
+            WindowAccessor { window in
+                store.setEqualiserWindow(window)
+            }
+        )
     }
 }
 
