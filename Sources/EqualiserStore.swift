@@ -4,6 +4,11 @@ import Foundation
 import os.log
 import AppKit
 
+enum CompareMode: Int, Codable, Sendable {
+    case eq = 0
+    case flat = 1
+}
+
 @MainActor
 final class EqualiserStore: ObservableObject {
     // MARK: - Published Properties
@@ -12,7 +17,13 @@ final class EqualiserStore: ObservableObject {
         didSet {
             persist()
             eqConfiguration.globalBypass = isBypassed
-            renderPipeline?.updateBypass()
+            renderPipeline?.updateProcessingMode(systemEQOff: isBypassed, compareMode: compareMode)
+        }
+    }
+
+    @Published var compareMode: CompareMode = .eq {
+        didSet {
+            renderPipeline?.updateProcessingMode(systemEQOff: isBypassed, compareMode: compareMode)
         }
     }
 

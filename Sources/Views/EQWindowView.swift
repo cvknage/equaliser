@@ -31,7 +31,7 @@ struct EQWindowView: View {
                     // Device pickers
                     DevicePickerView(layout: .horizontal)
 
-                    RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed)
+                    RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed, compareMode: store.compareMode)
                         .frame(width: 376)
 
                     // Routing controls
@@ -97,20 +97,39 @@ struct EQWindowView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 
-                // Reset button on right
-                VStack(spacing: 4) {
-                    Text("Reset")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .opacity(0)
-                    Button {
-                        store.resetToDefaults()
-                    } label: {
-                        Text("Reset")
-                            .frame(width: 50, height: 16)
+                // Compare mode + Reset on right
+                HStack(spacing: 12) {
+                    // Compare Mode segmented control
+                    VStack(spacing: 4) {
+                        Text("Compare")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("", selection: $store.compareMode) {
+                            Text("EQ").tag(CompareMode.eq)
+                            Text("Flat").tag(CompareMode.flat)
+                        }
+                        .pickerStyle(.segmented)
+                        .controlSize(.small)
+                        .frame(width: 80)
+                        .disabled(store.isBypassed)
+                        .opacity(store.isBypassed ? 0.5 : 1.0)
+                        .help("A/B comparison: EQ vs Flat at matched volume. Disabled when System EQ is off.")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+
+                    VStack(spacing: 4) {
+                        Text("Reset")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .opacity(0)
+                        Button {
+                            store.resetToDefaults()
+                        } label: {
+                            Text("Reset")
+                                .frame(width: 50, height: 16)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }

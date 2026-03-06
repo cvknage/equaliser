@@ -155,11 +155,11 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - Consider: atomic operations, lock-free data structures, or architectural changes
 
 **Todo:**
-- [ ] Add System EQ toggle (master bypass)
-- [ ] Add Compare mode segmented control ([EQ|Flat])
-- [ ] Implement bypass logic for EQ units
-- [ ] Implement bypass logic for input/output gains (skip when System EQ OFF)
-- [ ] Fix CPU usage issue caused by cross-thread bypass flag access
+- [x] Add System EQ toggle (master bypass)
+- [x] Add Compare mode segmented control ([EQ|Flat])
+- [x] Implement bypass logic for EQ units
+- [x] Implement bypass logic for input/output gains (skip when System EQ OFF)
+- [x] Fix CPU usage issue caused by cross-thread bypass flag access (used Int32 atomic approach)
 - [ ] Test all bypass combinations for correct behavior
 - [ ] Verify meters remain responsive in all modes
 
