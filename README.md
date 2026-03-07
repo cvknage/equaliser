@@ -1,66 +1,127 @@
-# Equaliser
+# <img src="./Resources/AppIcon.svg" width="36" align="center"> Equaliser
 
-A system-wide audio equalizer for macOS. Apply EQ to everything playing on your Mac—Spotify, YouTube, games, anything.
+**Equaliser** (🇬🇧) is a system-wide audio equalizer (🇺🇸) for macOS.
 
-Lives in your menu bar. No dock icon, no clutter.
+It lets you shape the sound of everything playing on your Mac — Spotify, YouTube, films, games, or any other app.
 
-## What It Does
+Equaliser runs quietly in your **menu bar**, keeping your Dock uncluttered.
 
-Equaliser sits between your system audio and your speakers or headphones, letting you shape the sound of everything on your Mac with up to 64-bands of parametric EQ.
 
-**Use cases:**
-- Boost bass on laptop speakers that lack low end
-- Tame harsh treble on bright headphones
-- Add presence to dialogue in movies
-- Match the sound signature of your favorite headphones
+## Menu Bar Control
 
-## How It Works
+Equaliser lives in the macOS menu bar, where you can quickly start or stop processing, select devices, and access presets.
 
-Equaliser uses [BlackHole](https://existential.audio/blackhole/), a free virtual audio driver, to capture system audio. Your Mac sends audio to BlackHole, Equaliser processes it through the EQ, and outputs to your speakers or headphones.
+<p align="center">
+  <img src="./Graphics/equaliaer-menu-bar.png" alt="Equaliser Menu Bar" width="320">
+</p>
 
-```
-Apps → BlackHole → Equaliser → Speakers/Headphones
-```
 
-## Getting Started
+## Equaliser Interface
 
-### 1. Install BlackHole
+Equaliser provides a parametric equaliser with up to **64 adjustable bands**.  
+Each band allows precise control over **frequency**, **gain**, and **bandwidth**, making it possible to subtly correct headphones or completely reshape your sound.
 
-Download the free 2-channel version from [existential.audio/blackhole](https://existential.audio/blackhole/)
+<p align="center">
+  <img src="./Graphics/equaliaer-main-window.png" alt="Equaliser Main Window">
+</p>
 
-Or with Homebrew:
-```
-brew install blackhole-2ch
-```
+Level meters allow you to monitor both **input and output signals** in real time, with clip indicators to help you detect and avoid distortion. **Compare Mode** lets you instantly switch between your EQ curve and a flat response at matched volume.
 
-### 2. Get Equaliser
+All settings — including device routing, EQ state, and presets — are remembered automatically between launches.
 
-Download from [Releases](#), or build from source:
-```
-swift build -c release && ./bundle.sh
-```
-
-### 3. Set Up Audio Routing
-
-1. Set your Mac's sound output to **BlackHole 2ch** (System Settings → Sound)
-2. Open Equaliser from the menu bar
-3. Choose **BlackHole 2ch** as input, your speakers as output
-4. Click **Start**
-
-That's it. Adjust the EQ to taste.
 
 ## Features
 
-- **Up to 64-bands of parametric EQ** with adjustable frequency, gain, and bandwidth per band
-- **Compare Mode** — A/B comparison between your EQ curve and flat response at matched volume
-- **Real-time level meters** — monitor input/output signals
-- **Presets** — includes Bass Boost, Vocal Presence, and more; save your own
-- **EasyEffects import/export** for sharing presets with Linux users
-- **System EQ toggle** — master on/off for all processing = disable EQ
-- **Remembers your settings** — devices, routing, EQ state, and preferences persist across launches
+- **Up to 64 bands of parametric EQ** — precise frequency, gain, and bandwidth control.  
+- **Compare Mode** — quickly A/B your EQ curve against a flat response.  
+- **Real-time level meters with clip indicators** — monitor input/output and avoid distortion.  
+- **Presets** — built-in options like Bass Boost and Vocal Presence; save your own.  
+- **EasyEffects import/export** — share presets with Linux users.  
+- **System EQ toggle** — bypass all processing instantly.  
+- **Persistent settings** — device routing, EQ state, and preferences are remembered.
+
+
+## How It Works
+
+Equaliser uses **BlackHole**, a free virtual audio driver, to capture and process system audio.
+
+Your Mac sends audio to BlackHole, Equaliser applies the EQ, and the processed signal is then sent to your speakers or headphones.
+
+```
+Apps → BlackHole → Equaliser → Speakers / Headphones
+```
+
+
+## Getting Started
+
+### Install BlackHole
+
+Download the free **2-channel version**:
+
+https://existential.audio/blackhole/
+
+Or install with Homebrew:
+
+```bash
+brew install blackhole-2ch
+```
+
+### Get Equaliser
+
+Download the latest version from **Releases**, or build from source:
+
+```bash
+swift build -c release
+./bundle.sh
+```
+
+### Set Up Audio Routing
+
+1. Open **System Settings → Sound**
+2. Set the system output to **BlackHole 2ch**
+3. Open **Equaliser** from the menu bar
+4. Select:
+   * **Input:** BlackHole 2ch
+   * **Output:** your speakers or headphones
+5. Click **Start**
+
+Audio from all applications will now pass through Equaliser.
 
 ## Requirements
 
-- macOS 15 (Sequoia) or later
-- Apple Silicon Mac
-- BlackHole 2ch (free)
+* macOS 15 (Sequoia) or later
+* Apple Silicon Mac
+* BlackHole 2ch
+
+## Permissions
+
+Equaliser requires **Microphone access** on macOS.
+
+This is necessary because macOS treats virtual audio devices (such as **BlackHole**) as microphone inputs.  
+Granting this permission allows Equaliser to receive system audio from BlackHole so it can apply the equaliser.
+
+Equaliser **does not record, store, or transmit microphone audio** — the permission is only used to process system sound locally.
+
+## Alternatives
+
+Some other macOS system audio tools you might consider:
+
+* **[SoundMax](https://snap-sites.github.io/SoundMax/)** — Free, Open Source
+* **[eqMac (older version without Pro Features)](https://github.com/bitgapp/eqMac)** — Free, Open Source
+* **[Vizzdom Analyzer with EQ](https://www.krisdigital.com/en/blog/2018/08/23/vizzdom-mac-system-audio-spectrum-level-analyzer/)** — Gratis, Proprietary
+* **[Hosting AU](https://ju-x.com/hostingau.html)** — Gratis, Proprietary
+* **[AU Lab](https://www.apple.com/apple-music/apple-digital-masters/)** — Gratis, Proprietary
+* **[eqMac (latest version)](https://eqmac.app/)** — Paid, Proprietary
+* **[Sound Control 3](https://staticz.com/soundcontrol/)** — Paid, Proprietary
+* **[Airfoil](https://rogueamoeba.com/airfoil/)** — Paid, Proprietary
+* **[SoundSource](https://rogueamoeba.com/soundsource/)** — Paid, Proprietary
+
+**Legend:**  
+**Free** [as in Freedom](https://www.gnu.org/philosophy/free-sw.html) = FOSS; you can run, study, modify, and redistribute it  
+**Gratis** = free-of-charge, but without user freedoms; source is closed  
+**Paid** = software that requires purchase, regardless of license  
+**Proprietary** = source is closed; you cannot modify or redistribute it  
+
+---
+
+Made with 🤖 in 🇩🇰
