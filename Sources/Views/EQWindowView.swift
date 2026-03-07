@@ -1,9 +1,11 @@
 import SwiftUI
+import Combine
 
 /// The main EQ settings window - detailed controls.
 struct EQWindowView: View {
     @EnvironmentObject var store: EqualiserStore
     @State private var showCompareHelp = false
+    @State private var metersEnabledUI = false
 
     var body: some View {
         VStack(spacing: 12) {
@@ -35,9 +37,21 @@ struct EQWindowView: View {
                         // Meters toggle with CPU usage help
                         ToggleWithHelp(
                             label: "Meters",
-                            isOn: store.metersEnabledBinding,
+                            isOn: $metersEnabledUI,
                             helpText: "Level meters update at 30 FPS and can increase CPU usage. When this window is closed or minimized, meters stop rendering. Disable to reduce CPU while the window is open."
                         )
+                        .id("meters-toggle")
+                        .onAppear {
+                            metersEnabledUI = store.meterStore.metersEnabled
+                        }
+                        .onChange(of: metersEnabledUI) { newValue in
+                            store.meterStore.metersEnabled = newValue
+                        }
+                        .onReceive(store.meterStore.$metersEnabled.removeDuplicates()) { value in
+                            if metersEnabledUI != value {
+                                metersEnabledUI = value
+                            }
+                        }
 
                         // System EQ toggle with help
                         ToggleWithHelp(
@@ -48,6 +62,7 @@ struct EQWindowView: View {
                             ),
                             helpText: "Enable or disable the equalizer processing. When disabled, audio passes through without EQ applied."
                         )
+                        .id("system-eq-toggle")
 
                         // Audio Routing toggle with help
                         ToggleWithHelp(
@@ -71,6 +86,7 @@ struct EQWindowView: View {
                             if case .error = store.routingStatus { return true }
                             return false
                         }())
+                        .id("audio-routing-toggle")
                     }
                 }
                 .frame(minWidth: 376)

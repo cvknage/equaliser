@@ -92,13 +92,6 @@ final class EqualiserStore: ObservableObject {
 
     @Published private(set) var routingStatus: RoutingStatus = .idle
 
-    var metersEnabledBinding: Binding<Bool> {
-        Binding(
-            get: { self.meterStore.metersEnabled },
-            set: { self.meterStore.metersEnabled = $0 }
-        )
-    }
-
     /// User preference for displaying bandwidth as octaves or Q factor.
     @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves {
         didSet {
