@@ -9,7 +9,7 @@ Equaliser runs quietly in your **menu bar**, keeping your Dock uncluttered.
 
 ## Menu Bar Control
 
-Equaliser lives in the macOS menu bar, where you can quickly start or stop processing, select devices, and access presets.
+Equaliser lives in the macOS menu bar, where you can quickly enable or disable system EQ, select output device, and access presets.
 
 <p align="center">
   <img src="./Graphics/equaliaer-menu-bar.png" alt="Equaliser Menu Bar" width="320">

@@ -41,14 +41,12 @@ struct PresetPicker: View {
                 HStack(spacing: 4) {
                     Text(currentPresetLabel)
                         .lineLimit(1)
-                        .frame(maxWidth: 200, alignment: .leading)
                     if store.presetManager.isModified {
                         Circle()
                             .fill(Color.orange)
                             .frame(width: 6, height: 6)
                     }
                 }
-                .frame(minWidth: 100, minHeight: 20)
             }
             .menuStyle(.borderlessButton)
         }
@@ -88,6 +86,68 @@ struct PresetPicker: View {
 
     @ViewBuilder
     private func presetRow(for preset: Preset) -> some View {
+        Button {
+            store.loadPreset(preset)
+        } label: {
+            HStack {
+                Text(preset.metadata.name)
+                if preset.metadata.name == store.presetManager.selectedPresetName {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Compact Preset Picker (for Menu Bar)
+
+/// A compact preset picker suitable for the menu bar popover.
+struct CompactPresetPicker: View {
+    @EnvironmentObject var store: EqualiserStore
+
+    var body: some View {
+        Menu {
+            if store.presetManager.presets.isEmpty {
+                Text("No presets")
+                    .foregroundStyle(.secondary)
+            } else {
+                if !store.presetManager.builtInPresets.isEmpty {
+                    Section("Built-in") {
+                        ForEach(store.presetManager.builtInPresets) { preset in
+                            compactPresetRow(for: preset)
+                        }
+                    }
+                }
+
+                if !store.presetManager.userPresets.isEmpty {
+                    Section("Custom") {
+                        ForEach(store.presetManager.userPresets) { preset in
+                            compactPresetRow(for: preset)
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(currentPresetLabel)
+                    .lineLimit(1)
+                if store.presetManager.isModified {
+                    Circle()
+                        .fill(Color.orange)
+                        .frame(width: 5, height: 5)
+                }
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+
+    private var currentPresetLabel: String {
+        store.presetManager.selectedPresetName ?? "Custom"
+    }
+
+    @ViewBuilder
+    private func compactPresetRow(for preset: Preset) -> some View {
         Button {
             store.loadPreset(preset)
         } label: {
@@ -396,79 +456,6 @@ struct PresetToolbar: View {
                 alert.informativeText = error.localizedDescription
                 alert.alertStyle = .warning
                 alert.runModal()
-            }
-        }
-    }
-}
-
-// MARK: - Compact Preset Picker (for Menu Bar)
-
-/// A compact preset picker suitable for the menu bar popover.
-struct CompactPresetPicker: View {
-    @EnvironmentObject var store: EqualiserStore
-
-    var body: some View {
-        MenuSection(title: "Preset") {
-            presetMenu
-        }
-    }
-
-    @ViewBuilder
-    private var presetMenu: some View {
-        Menu {
-            if store.presetManager.presets.isEmpty {
-                Text("No presets")
-                    .foregroundStyle(.secondary)
-            } else {
-                if !store.presetManager.builtInPresets.isEmpty {
-                    Section("Built-in Presets") {
-                        ForEach(store.presetManager.builtInPresets) { preset in
-                            compactPresetRow(for: preset)
-                        }
-                    }
-                }
-
-                if !store.presetManager.userPresets.isEmpty {
-                    Section("Custom Presets") {
-                        ForEach(store.presetManager.userPresets) { preset in
-                            compactPresetRow(for: preset)
-                        }
-                    }
-                }
-            }
-
-            Divider()
-        } label: {
-            HStack(spacing: 4) {
-                Text(currentPresetLabel)
-                    .lineLimit(1)
-                if store.presetManager.isModified {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 5, height: 5)
-                }
-            }
-        }
-        .menuStyle(.borderlessButton)
-    }
-
-    private var currentPresetLabel: String {
-        if let name = store.presetManager.selectedPresetName {
-            return name
-        }
-        return "Custom"
-    }
-
-    @ViewBuilder
-    private func compactPresetRow(for preset: Preset) -> some View {
-        Button {
-            store.loadPreset(preset)
-        } label: {
-            HStack {
-                Text(preset.metadata.name)
-                if preset.metadata.name == store.presetManager.selectedPresetName {
-                    Image(systemName: "checkmark")
-                }
             }
         }
     }

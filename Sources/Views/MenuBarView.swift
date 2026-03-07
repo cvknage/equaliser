@@ -1,93 +1,123 @@
 import SwiftUI
 
 /// The menu bar popover content - quick access controls.
+/// Designed with compact controls: each control (label + picker) in its own row.
 struct MenuBarContentView: View {
     @EnvironmentObject var store: EqualiserStore
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Header
-            HStack {
-                Image(systemName: "slider.vertical.3")
-                    .font(.title3)
-                Text("Equaliser")
-                    .font(.caption)
-                Spacer()
+        VStack(spacing: 0) {
+            headerSection
+            
+            Divider()
+                .padding(.vertical, 12)
+            
+            controlGroupSection
+            
+            Divider()
+                .padding(.vertical, 12)
+            
+            actionButtonsSection
+        }
+        .padding(16)
+    }
+
+    // MARK: - Header
+
+    private var headerSection: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "slider.vertical.3")
+                .font(.title3)
+            Text("Equaliser")
+                .font(.headline)
+            Spacer()
+        }
+    }
+
+    // MARK: - Control Groups (Option 27 style: each control in own row)
+
+    private var controlGroupSection: some View {
+        VStack(spacing: 12) {
+            statusRow
+
+            outputPickerRow
+
+            presetPickerRow
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Status Row
+
+    private var statusRow: some View {
+        HStack {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+                Text(statusText)
+                    .font(.subheadline)
             }
+            Spacer()
+            Toggle("System EQ", isOn: Binding(
+                get: { !store.isBypassed },
+                set: { store.isBypassed = !$0 }
+            ))
+            .controlSize(.small)
+            .toggleStyle(.switch)
+        }
+        .frame(maxWidth: .infinity)
+    }
 
-            Divider()
-                .padding(.vertical, 4)
+    // MARK: - Output Picker Row
 
-                // Control strip - status indicator + controls grouped together
-            HStack(alignment: .top, spacing: 12) {
-                // Status indicator
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(statusColor)
-                        .frame(width: 8, height: 8)
-                    Text(statusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                // Toggle controls (stacked vertically)
-                VStack(alignment: .trailing, spacing: 8) {
-                    Toggle("System EQ", isOn: Binding(
-                        get: { !store.isBypassed },
-                        set: { store.isBypassed = !$0 }
-                    ))
-                    .controlSize(.small)
-                    .toggleStyle(.switch)
-
-                    Toggle("Audio Routing", isOn: Binding(
-                        get: { store.routingStatus.isActive },
-                        set: { newValue in
-                            if newValue {
-                                store.reconfigureRouting()
-                            } else {
-                                store.stopRouting()
-                            }
-                        }
-                    ))
-                    .controlSize(.small)
-                    .toggleStyle(.switch)
-                    .disabled(store.routingStatus == .idle
-                              && (store.selectedInputDeviceID == nil
-                                  || store.selectedOutputDeviceID == nil))
-                    .errorTint({
-                        if case .error = store.routingStatus { return true }
-                        return false
-                    }())
+    private var outputPickerRow: some View {
+        HStack {
+            Text("Output")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Picker("Output", selection: $store.selectedOutputDeviceID) {
+                ForEach(store.outputDevices) { device in
+                    Text(device.displayName).tag(device.uid as String?)
                 }
             }
+            .labelsHidden()
+        }
+    }
 
-            Divider()
-                .padding(.vertical, 4)
+    // MARK: - Preset Picker Row
 
-            // Device Pickers
-            DevicePickerView(layout: .vertical)
-
-            Divider()
-                .padding(.vertical, 4)
-
-            // Preset Picker
+    private var presetPickerRow: some View {
+        HStack {
+            Text("Preset")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
             CompactPresetPicker()
+        }
+    }
 
-            Divider()
-                .padding(.vertical, 4)
+    // MARK: - Action Buttons (each in own section like mockup)
 
-            // Open Equaliser Button
-            Button("Open Equaliser") {
+    private var actionButtonsSection: some View {
+        VStack(spacing: 0) {
+            // Open Equaliser button - full width
+            Button {
                 openWindow(id: "equaliser")
                 NSApp.activate(ignoringOtherApps: true)
+            } label: {
+                Text("Open Equaliser")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(Color.accentColor)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
             }
-            .buttonStyle(.bordered)
-            .frame(maxWidth: .infinity)
-
-            // Footer
+            .buttonStyle(.plain)
+            
+            // Quit button - aligned right
             HStack {
                 Spacer()
                 Button("Quit") {
@@ -96,11 +126,11 @@ struct MenuBarContentView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
             }
+            .padding(.top, 8)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 20)
-        .frame(width: 280, height: 370)
     }
+
+    // MARK: - Status Helpers
 
     private var statusColor: Color {
         switch store.routingStatus {

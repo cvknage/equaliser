@@ -79,10 +79,12 @@ struct EQWindowView: View {
             Divider()
 
             // Preset and band controls toolbar
-            ZStack(alignment: .top) {
+            HStack(alignment: .top) {
                 // Preset controls on left
                 PresetToolbar()
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(minWidth: 280, maxWidth: 280, alignment: .leading)
+                
+                Spacer()
                 
                 // Bands control centered
                 VStack(spacing: 4) {
@@ -91,7 +93,8 @@ struct EQWindowView: View {
                         .foregroundStyle(.secondary)
                     BandCountControl()
                 }
-                .frame(maxWidth: .infinity, alignment: .center)
+                
+                Spacer()
                 
                 // Compare mode + Reset on right
                 HStack(spacing: 12) {
@@ -142,7 +145,7 @@ struct EQWindowView: View {
                         .controlSize(.small)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(minWidth: 280, maxWidth: 280, alignment: .trailing)
             }
             .padding(.vertical, 4)
 
