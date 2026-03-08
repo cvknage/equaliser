@@ -29,7 +29,7 @@ struct EQWindowView: View {
                     // Device pickers
                     DevicePickerView(layout: .horizontal)
 
-                    RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed, compareMode: store.compareMode)
+                    RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed)
                         .frame(width: 376)
 
                     // Routing controls

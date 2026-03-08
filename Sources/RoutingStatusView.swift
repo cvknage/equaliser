@@ -4,12 +4,10 @@ import SwiftUI
 struct RoutingStatusView: View {
     let status: RoutingStatus
     let isBypassed: Bool
-    let compareMode: CompareMode
 
-    init(status: RoutingStatus, isBypassed: Bool = false, compareMode: CompareMode = .eq) {
+    init(status: RoutingStatus, isBypassed: Bool = false) {
         self.status = status
         self.isBypassed = isBypassed
-        self.compareMode = compareMode
     }
 
     var body: some View {
@@ -37,9 +35,6 @@ struct RoutingStatusView: View {
             if isBypassed {
                 Image(systemName: "pause.circle.fill")
                     .foregroundStyle(.yellow)
-            } else if compareMode == .flat {
-                Image(systemName: "arrow.left.arrow.right.circle.fill")
-                    .foregroundStyle(.blue)
             } else {
                 Image(systemName: "waveform.circle.fill")
                     .foregroundStyle(.green)
@@ -63,9 +58,6 @@ struct RoutingStatusView: View {
             if isBypassed {
                 Text("EQ Bypassed")
                     .foregroundStyle(.yellow)
-            } else if compareMode == .flat {
-                Text("Compare: Flat → \(outputName)")
-                    .foregroundStyle(.blue)
             } else {
                 Text("\(inputName) → \(outputName)")
                     .fontWeight(.medium)
@@ -84,8 +76,6 @@ struct RoutingStatusView: View {
         case .active(_, _):
             if isBypassed {
                 return Color.yellow.opacity(0.1)
-            } else if compareMode == .flat {
-                return Color.blue.opacity(0.1)
             }
             return Color.green.opacity(0.1)
         case .error:
