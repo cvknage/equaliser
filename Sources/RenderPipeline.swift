@@ -72,12 +72,6 @@ final class RenderPipeline {
     /// Output callback counter for periodic logging.
     private nonisolated(unsafe) static var outputCallCount: UInt64 = 0
 
-    /// Flag to ensure we only log the first input callback once.
-    private nonisolated(unsafe) static var didLogFirstInputCallback: Bool = false
-
-    /// Flag to ensure we only log the first output callback once.
-    private nonisolated(unsafe) static var didLogFirstOutputCallback: Bool = false
-
     /// Logger for static/audio thread context.
     private static let staticLogger = Logger(subsystem: "net.knage.equaliser", category: "RenderCallback")
 
@@ -107,7 +101,6 @@ final class RenderPipeline {
         inputDeviceID: AudioDeviceID,
         outputDeviceID: AudioDeviceID
     ) -> Result<Void, HALIOError> {
-        print("[RenderPipeline] Configuring pipeline: input=\(inputDeviceID), output=\(outputDeviceID)")
         logger.info("Configuring pipeline: input=\(inputDeviceID), output=\(outputDeviceID)")
 
         // Clean up any existing managers
@@ -121,7 +114,6 @@ final class RenderPipeline {
             return .failure(error)
         }
         inputHALManager = inputManager
-        print("[RenderPipeline] Input HAL configured for device \(inputDeviceID)")
 
         // Create and configure the output HAL manager (output-only mode)
         let outputManager = HALIOManager(mode: .outputOnly)
@@ -131,7 +123,6 @@ final class RenderPipeline {
             return .failure(error)
         }
         outputHALManager = outputManager
-        print("[RenderPipeline] Output HAL configured for device \(outputDeviceID)")
 
         // Validate sample rates match between input and output
         if case .failure(let error) = validateFormats() {
@@ -141,7 +132,6 @@ final class RenderPipeline {
         }
 
         logger.info("Pipeline configured successfully")
-        print("[RenderPipeline] Pipeline configured successfully")
         return .success(())
     }
 
@@ -162,8 +152,8 @@ final class RenderPipeline {
             return .failure(.formatQueryFailed(0))
         }
 
-        print("[RenderPipeline] Input format: \(inputFormat.mSampleRate) Hz, \(inputFormat.mChannelsPerFrame) ch")
-        print("[RenderPipeline] Output format: \(outputFormat.mSampleRate) Hz, \(outputFormat.mChannelsPerFrame) ch")
+        logger.info("Input format: \(inputFormat.mSampleRate) Hz, \(inputFormat.mChannelsPerFrame) ch")
+        logger.info("Output format: \(outputFormat.mSampleRate) Hz, \(outputFormat.mChannelsPerFrame) ch")
 
         // Check sample rates - they must match for our pipeline
         if inputFormat.mSampleRate != outputFormat.mSampleRate {
@@ -202,10 +192,7 @@ final class RenderPipeline {
         // Reset static counters
         Self.inputCallCount = 0
         Self.outputCallCount = 0
-        Self.didLogFirstInputCallback = false
-        Self.didLogFirstOutputCallback = false
 
-        print("[RenderPipeline] Starting render pipeline...")
         logger.info("Starting render pipeline...")
 
         // Get the format from the input HAL manager (this determines our processing format)
@@ -213,7 +200,6 @@ final class RenderPipeline {
             return .failure(.formatQueryFailed(0))
         }
 
-        print("[RenderPipeline] Processing format: \(streamFormat.mSampleRate) Hz, \(streamFormat.mChannelsPerFrame) ch")
         logger.info("Processing format: \(streamFormat.mSampleRate) Hz, \(streamFormat.mChannelsPerFrame) ch")
 
         // Create AVAudioFormat from the stream format
@@ -227,7 +213,6 @@ final class RenderPipeline {
         }
 
         // Create the manual rendering engine with the correct format
-        print("[RenderPipeline] Creating ManualRenderingEngine...")
         let engine: ManualRenderingEngine
         do {
             engine = try ManualRenderingEngine(
@@ -240,7 +225,6 @@ final class RenderPipeline {
             return .failure(.manualRenderingFailed(error.localizedDescription))
         }
         renderingEngine = engine
-        print("[RenderPipeline] ManualRenderingEngine created successfully")
 
         // Create the callback context with ring buffers
         let context = RenderCallbackContext(
@@ -268,7 +252,6 @@ final class RenderPipeline {
             renderingEngine = nil
             return .failure(error)
         }
-        print("[RenderPipeline] Input callback registered")
 
         // Register the OUTPUT callback on the output HAL unit
         if case .failure(let error) = outputManager.setOutputRenderCallback(
@@ -282,7 +265,6 @@ final class RenderPipeline {
             renderingEngine = nil
             return .failure(error)
         }
-        print("[RenderPipeline] Output callback registered")
 
         // Initialize both HAL units
         if case .failure(let error) = inputManager.initialize() {
@@ -318,7 +300,6 @@ final class RenderPipeline {
             renderingEngine = nil
             return .failure(error)
         }
-        print("[RenderPipeline] Input HAL unit started")
 
         // Start the output HAL unit (this drives the output callback)
         if case .failure(let error) = outputManager.start() {
@@ -333,10 +314,8 @@ final class RenderPipeline {
             renderingEngine = nil
             return .failure(error)
         }
-        print("[RenderPipeline] Output HAL unit started")
 
         isRunning = true
-        print("[RenderPipeline] Render pipeline started successfully")
         logger.info("Render pipeline started successfully")
         return .success(())
     }
@@ -374,10 +353,6 @@ final class RenderPipeline {
         // Log ring buffer diagnostics
         if let context = callbackContext {
             let diag = context.getDiagnostics()
-            print("[RenderPipeline] Ring buffer diagnostics:")
-            print("  Available to read: \(diag.availableToRead)")
-            print("  Underruns: \(diag.underruns)")
-            print("  Overflows: \(diag.overflows)")
             logger.info("Ring buffer: available=\(diag.availableToRead), underruns=\(diag.underruns), overflows=\(diag.overflows)")
         }
 
@@ -392,7 +367,6 @@ final class RenderPipeline {
         callbackContext = nil
 
         isRunning = false
-        print("[RenderPipeline] Render pipeline stopped. Input callbacks: \(Self.inputCallCount), Output callbacks: \(Self.outputCallCount)")
         logger.info("Render pipeline stopped")
 
         if let error = lastError {
@@ -487,12 +461,6 @@ final class RenderPipeline {
         ioData
     ) -> OSStatus in
 
-        // One-time logging for first callback invocation
-        if !didLogFirstInputCallback {
-            didLogFirstInputCallback = true
-            print("[INPUT CALLBACK] First input callback invoked! frameCount=\(frameCount), bus=\(inBusNumber)")
-        }
-
         // Recover the callback context
         let context = Unmanaged<RenderCallbackContext>
             .fromOpaque(inRefCon)
@@ -519,9 +487,6 @@ final class RenderPipeline {
         if pullStatus != noErr {
             // Failed to get input audio - log and skip
             inputCallCount &+= 1
-            if inputCallCount == 1 {
-                print("[INPUT CALLBACK] AudioUnitRender FAILED: status=\(pullStatus)")
-            }
             if inputCallCount % 10000 == 1 {
                 staticLogger.error("Input #\(inputCallCount): AudioUnitRender failed with \(pullStatus)")
             }
@@ -541,13 +506,7 @@ final class RenderPipeline {
         // Write captured audio to ring buffers
         context.writeToRingBuffers(frameCount: frameCount)
 
-        // Periodic logging
         inputCallCount &+= 1
-        if inputCallCount % 10000 == 1 {
-            let firstSample = context.inputSampleBuffers.first?.pointee ?? 0.0
-            let available = context.ringBuffers.first?.availableToRead() ?? 0
-            print("[INPUT CALLBACK] Input #\(inputCallCount): frames=\(frameCount), firstSample=\(firstSample), ringAvailable=\(available)")
-        }
 
         return noErr
     }
@@ -565,14 +524,7 @@ final class RenderPipeline {
         ioData
     ) -> OSStatus in
 
-        // One-time logging for first callback invocation
-        if !didLogFirstOutputCallback {
-            didLogFirstOutputCallback = true
-            print("[OUTPUT CALLBACK] First output callback invoked! frameCount=\(frameCount), bus=\(inBusNumber)")
-        }
-
         guard let ioData = ioData else {
-            print("[OUTPUT CALLBACK] ERROR: ioData is nil!")
             return noErr
         }
 
@@ -590,13 +542,7 @@ final class RenderPipeline {
         // 1. Read audio from ring buffers
         let framesRead = context.readFromRingBuffers(frameCount: frameCount)
 
-        // Periodic logging
         outputCallCount &+= 1
-        if outputCallCount % 10000 == 1 {
-            let firstSample = context.outputBufferPointers.first?.pointee ?? 0.0
-            let available = context.ringBuffers.first?.availableToRead() ?? 0
-            print("[OUTPUT CALLBACK] Output #\(outputCallCount): frames=\(frameCount), framesRead=\(framesRead), firstSample=\(firstSample), ringAvailable=\(available)")
-        }
 
         // If we got no samples, output is already zero-filled by readFromRingBuffers
         if framesRead == 0 {

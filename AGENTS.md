@@ -78,9 +78,9 @@ equalizer/
 │   ├── DeviceManager.swift        # Core Audio device enumeration
 │   │
 │   │   # UI Components
+│   ├── DevicePickerView.swift     # Device selection pickers
+│   ├── RoutingStatusView.swift    # Routing status display
 │   ├── Views/
-│   │   ├── DevicePickerView.swift     # Device selection pickers
-│   │   ├── RoutingStatusView.swift    # Routing status display
 │   │   ├── PresetViews.swift          # Preset management views
 │   │   └── SettingsView.swift         # Settings window
 │   │

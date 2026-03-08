@@ -287,11 +287,6 @@ final class RenderCallbackContext: @unchecked Sendable {
         outputReadBuffers.map { UnsafePointer($0) }
     }
 
-    /// Returns mutable pointers to the output read buffers.
-    var outputMutableBufferPointers: [UnsafeMutablePointer<Float>] {
-        outputReadBuffers
-    }
-
     /// Returns the latest per-channel meter snapshots in dBFS.
     func meterSnapshot() -> (input: [Float], output: [Float]) {
         let input = Array(UnsafeBufferPointer(start: inputMeterStorage, count: meterChannelCount))
@@ -335,7 +330,7 @@ final class RenderCallbackContext: @unchecked Sendable {
                 buffers.append(data)
             }
         }
-        guard !buffers.isEmpty else {
+        if buffers.isEmpty {
             currentGain = targetGain
             return
         }

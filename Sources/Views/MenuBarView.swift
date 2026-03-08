@@ -60,12 +60,7 @@ struct MenuBarContentView: View {
                     .font(.subheadline)
             }
             Spacer()
-            Toggle("System EQ", isOn: Binding(
-                get: { !store.isBypassed },
-                set: { store.isBypassed = !$0 }
-            ))
-            .controlSize(.small)
-            .toggleStyle(.switch)
+            SystemEQToggleView(style: SystemEQToggleView.Style.menuBar)
         }
         .frame(maxWidth: .infinity)
     }

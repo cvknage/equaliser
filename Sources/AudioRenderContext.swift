@@ -71,33 +71,6 @@ final class AudioRenderContext: @unchecked Sendable {
         return (inputBufferPointers, inputFrameCount)
     }
 
-    // MARK: - Legacy Single-Buffer API (Deprecated)
-
-    /// Sets the input buffer for the next render call.
-    /// - Note: This is a legacy API. Prefer `setInputBuffers(_:frameCount:)` for deinterleaved audio.
-    /// - Parameters:
-    ///   - buffer: Pointer to interleaved or non-interleaved float samples.
-    ///   - frameCount: Number of samples (total, not per channel) available in the buffer.
-    nonisolated func setInputBuffer(_ buffer: UnsafePointer<Float>, frameCount: Int) {
-        // Legacy: treat as single channel or first channel only
-        inputBufferPointers = [buffer]
-        inputFrameCount = frameCount
-    }
-
-    /// Returns the current input buffer and frame count.
-    /// - Note: This is a legacy API. Prefer `getInputBuffers()` for deinterleaved audio.
-    nonisolated func getInputBuffer() -> (buffer: UnsafePointer<Float>?, frameCount: Int) {
-        return (inputBufferPointers.first, inputFrameCount)
-    }
-
-    // MARK: - Static Logging State
-
-    /// Counter for render calls to enable periodic logging
-    private nonisolated(unsafe) static var renderResultCallCount: UInt64 = 0
-
-    /// Flag to log the first render result
-    private nonisolated(unsafe) static var didLogFirstRender: Bool = false
-
     // MARK: - Rendering
 
     /// Renders audio through the engine's processing chain.
@@ -112,20 +85,6 @@ final class AudioRenderContext: @unchecked Sendable {
     ) -> OSStatus {
         var status: OSStatus = noErr
         let result = engine.manualRenderingBlock(frameCount, outputBuffer, &status)
-
-        // One-time logging for first render
-        if !Self.didLogFirstRender {
-            Self.didLogFirstRender = true
-            print("[AudioRenderContext] First render: result=\(result.rawValue), status=\(status), frameCount=\(frameCount)")
-        }
-
-        // Periodic logging for non-success results
-        Self.renderResultCallCount &+= 1
-        if result != .success {
-            if Self.renderResultCallCount % 10000 == 1 {
-                print("[AudioRenderContext] Render #\(Self.renderResultCallCount): result=\(result.rawValue), status=\(status)")
-            }
-        }
 
         switch result {
         case .success:

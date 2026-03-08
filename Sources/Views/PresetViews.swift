@@ -33,34 +33,58 @@ struct PresetPicker: View {
     var body: some View {
         HStack(spacing: 4) {
             Menu {
-                presetSections
-
-                Divider()
+                PresetMenuContentView()
             } label: {
-
-                HStack(spacing: 4) {
-                    Text(currentPresetLabel)
-                        .lineLimit(1)
-                    if store.presetManager.isModified {
-                        Circle()
-                            .fill(Color.orange)
-                            .frame(width: 6, height: 6)
-                    }
-                }
+                PresetMenuLabelView(dotSize: 6)
             }
             .menuStyle(.borderlessButton)
         }
     }
+}
 
-    private var currentPresetLabel: String {
-        if let name = store.presetManager.selectedPresetName {
-            return name
+// MARK: - Compact Preset Picker (for Menu Bar)
+
+/// A compact preset picker suitable for the menu bar popover.
+struct CompactPresetPicker: View {
+    var body: some View {
+        Menu {
+            PresetMenuContentView()
+        } label: {
+            PresetMenuLabelView(dotSize: 5, spacing: 2)
         }
-        return "Custom"
+        .menuStyle(.borderlessButton)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+
+// MARK: - Preset Menu Helpers
+
+struct PresetMenuLabelView: View {
+    @EnvironmentObject var store: EqualiserStore
+    let dotSize: CGFloat
+    var spacing: CGFloat = 4
+
+    var body: some View {
+        HStack(spacing: spacing) {
+            Text(currentPresetLabel)
+                .lineLimit(1)
+            if store.presetManager.isModified {
+                Circle()
+                    .fill(Color.orange)
+                    .frame(width: dotSize, height: dotSize)
+            }
+        }
     }
 
-    @ViewBuilder
-    private var presetSections: some View {
+    private var currentPresetLabel: String {
+        store.presetManager.selectedPresetName ?? "Custom"
+    }
+}
+
+struct PresetMenuContentView: View {
+    @EnvironmentObject var store: EqualiserStore
+
+    var body: some View {
         if store.presetManager.presets.isEmpty {
             Text("No presets")
                 .foregroundStyle(.secondary)
@@ -73,6 +97,8 @@ struct PresetPicker: View {
                 presetSection(title: "Custom Presets", presets: store.presetManager.userPresets)
             }
         }
+
+        Divider()
     }
 
     @ViewBuilder
@@ -86,68 +112,6 @@ struct PresetPicker: View {
 
     @ViewBuilder
     private func presetRow(for preset: Preset) -> some View {
-        Button {
-            store.loadPreset(preset)
-        } label: {
-            HStack {
-                Text(preset.metadata.name)
-                if preset.metadata.name == store.presetManager.selectedPresetName {
-                    Image(systemName: "checkmark")
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Compact Preset Picker (for Menu Bar)
-
-/// A compact preset picker suitable for the menu bar popover.
-struct CompactPresetPicker: View {
-    @EnvironmentObject var store: EqualiserStore
-
-    var body: some View {
-        Menu {
-            if store.presetManager.presets.isEmpty {
-                Text("No presets")
-                    .foregroundStyle(.secondary)
-            } else {
-                if !store.presetManager.builtInPresets.isEmpty {
-                    Section("Built-in") {
-                        ForEach(store.presetManager.builtInPresets) { preset in
-                            compactPresetRow(for: preset)
-                        }
-                    }
-                }
-
-                if !store.presetManager.userPresets.isEmpty {
-                    Section("Custom") {
-                        ForEach(store.presetManager.userPresets) { preset in
-                            compactPresetRow(for: preset)
-                        }
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 2) {
-                Text(currentPresetLabel)
-                    .lineLimit(1)
-                if store.presetManager.isModified {
-                    Circle()
-                        .fill(Color.orange)
-                        .frame(width: 5, height: 5)
-                }
-            }
-        }
-        .menuStyle(.borderlessButton)
-        .frame(maxWidth: .infinity, alignment: .trailing)
-    }
-
-    private var currentPresetLabel: String {
-        store.presetManager.selectedPresetName ?? "Custom"
-    }
-
-    @ViewBuilder
-    private func compactPresetRow(for preset: Preset) -> some View {
         Button {
             store.loadPreset(preset)
         } label: {
@@ -461,28 +425,3 @@ struct PresetToolbar: View {
     }
 }
 
-// MARK: - Bandwidth Display Mode Picker
-
-/// A picker for selecting between octaves and Q factor display.
-struct BandwidthDisplayModePicker: View {
-    @EnvironmentObject var store: EqualiserStore
-
-    var body: some View {
-        HStack {
-            Text("Display")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Spacer()
-
-            Picker("", selection: $store.bandwidthDisplayMode) {
-                ForEach(BandwidthDisplayMode.allCases, id: \.self) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .fixedSize()
-        }
-    }
-}

@@ -79,18 +79,6 @@ struct EQBandSliderView: View {
         }
     }
 
-    private var bandwidthEditor: some View {
-        InlineEditableValue(
-            value: band.bandwidth,
-            displayFormatter: { String(format: "BW: %.2f", $0) },
-            inputFormatter: { String(format: "%.2f", $0) },
-            width: 70,
-            alignment: .leading,
-            onCommit: bandwidthUpdate
-        )
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private var slider: some View {
         GeometryReader { geo in
             let height = geo.size.height
@@ -146,14 +134,6 @@ struct EQBandSliderView: View {
             .onTapGesture(count: 2) {
                 gain = 0
             }
-        }
-    }
-
-    private var gainString: String {
-        if gain >= 0 {
-            return String(format: "+%.1f dB", gain)
-        } else {
-            return String(format: "%.1f dB", gain)
         }
     }
 

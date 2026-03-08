@@ -44,7 +44,7 @@ struct EQWindowView: View {
                         .onAppear {
                             metersEnabledUI = store.meterStore.metersEnabled
                         }
-                        .onChange(of: metersEnabledUI) { newValue in
+                        .onChange(of: metersEnabledUI) { _, newValue in
                             store.meterStore.metersEnabled = newValue
                         }
                         .onReceive(store.meterStore.$metersEnabled.removeDuplicates()) { value in
@@ -53,16 +53,8 @@ struct EQWindowView: View {
                             }
                         }
 
-                        // System EQ toggle with help
-                        ToggleWithHelp(
-                            label: "System EQ",
-                            isOn: Binding(
-                                get: { !store.isBypassed },
-                                set: { store.isBypassed = !$0 }
-                            ),
-                            helpText: "Enable or disable the equalizer processing. When disabled, audio passes through without EQ applied."
-                        )
-                        .id("system-eq-toggle")
+                        SystemEQToggleView()
+                            .id("system-eq-toggle")
 
                         // Audio Routing toggle with help
                         ToggleWithHelp(
@@ -174,6 +166,38 @@ struct EQWindowView: View {
             WindowAccessor { window in
                 store.setEqualiserWindow(window)
             }
+        )
+    }
+}
+
+struct SystemEQToggleView: View {
+    enum Style {
+        case standard
+        case menuBar
+    }
+
+    @EnvironmentObject var store: EqualiserStore
+    var style: Style = .standard
+
+    var body: some View {
+        switch style {
+        case .standard:
+            ToggleWithHelp(
+                label: "System EQ",
+                isOn: binding,
+                helpText: "Enable or disable the equalizer processing. When disabled, audio passes through without EQ applied."
+            )
+        case .menuBar:
+            Toggle("System EQ", isOn: binding)
+                .controlSize(.small)
+                .toggleStyle(.switch)
+        }
+    }
+
+    private var binding: Binding<Bool> {
+        Binding(
+            get: { !store.isBypassed },
+            set: { store.isBypassed = !$0 }
         )
     }
 }

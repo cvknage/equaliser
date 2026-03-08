@@ -68,7 +68,7 @@ final class DeviceManager: ObservableObject {
         )
 
         if status != noErr {
-            print("DeviceManager: Failed to add device change listener: \(status)")
+            assertionFailure("DeviceManager: Failed to add device change listener: \(status)")
         }
     }
 
@@ -128,20 +128,6 @@ final class DeviceManager: ObservableObject {
 
     func shouldIncludeDevice(name: String) -> Bool {
         !name.hasPrefix("CADefaultDeviceAggregate")
-    }
-
-    private func getTransportType(id: AudioDeviceID) -> UInt32 {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyTransportType,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var transportType: UInt32 = 0
-        var dataSize = UInt32(MemoryLayout<UInt32>.size)
-        guard AudioObjectGetPropertyData(id, &address, 0, nil, &dataSize, &transportType) == noErr else {
-            return 0
-        }
-        return transportType
     }
 
     private func fetchStringProperty(id: AudioDeviceID, selector: AudioObjectPropertySelector) -> String? {

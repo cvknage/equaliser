@@ -96,7 +96,6 @@ final class ManualRenderingEngine {
             throw ManualRenderingError.invalidFormat("Channel count must be positive")
         }
 
-        print("[ManualRenderingEngine] Creating engine: \(format.sampleRate) Hz, \(format.channelCount) ch, max \(maxFrameCount) frames")
         logger.info("Creating engine: \(format.sampleRate) Hz, \(format.channelCount) ch, max \(maxFrameCount) frames")
 
         // 1. Create a fresh engine
@@ -105,14 +104,11 @@ final class ManualRenderingEngine {
 
         // 2. Enable manual rendering mode FIRST - before ANY node access
         //    This prevents the engine from querying hardware devices
-        print("[ManualRenderingEngine] Enabling manual rendering mode BEFORE node setup...")
         do {
             try engine.enableManualRenderingMode(.realtime, format: format, maximumFrameCount: maxFrameCount)
         } catch {
-            print("[ManualRenderingEngine] Failed to enable manual rendering: \(error)")
             throw ManualRenderingError.manualRenderingFailed(error.localizedDescription)
         }
-        print("[ManualRenderingEngine] Manual rendering mode enabled successfully")
 
         // 3. Create EQ units to cover the active band count (max 32 bands per unit)
         let activeBandCount = eqConfiguration.activeBandCount
@@ -139,33 +135,27 @@ final class ManualRenderingEngine {
         self.sourceNode = source
 
         // 6. Attach nodes to the engine
-        print("[ManualRenderingEngine] Attaching nodes...")
         engine.attach(source)
         eqUnits.forEach { engine.attach($0) }
 
         // 7. Connect the graph: source -> EQ units chain -> outputNode
-        print("[ManualRenderingEngine] Connecting nodes to outputNode...")
         var previousNode: AVAudioNode = source
         for unit in eqUnits {
             engine.connect(previousNode, to: unit, format: format)
             previousNode = unit
         }
         engine.connect(previousNode, to: engine.outputNode, format: format)
-        print("[ManualRenderingEngine] Nodes connected successfully")
 
         // 8. Apply EQ configuration
         eqConfiguration.apply(to: eqUnits)
 
         // 9. Start the engine
-        print("[ManualRenderingEngine] Starting engine...")
         do {
             try engine.start()
         } catch {
-            print("[ManualRenderingEngine] Failed to start engine: \(error)")
             throw ManualRenderingError.engineStartFailed(error.localizedDescription)
         }
 
-        print("[ManualRenderingEngine] Engine started in manual rendering mode")
         logger.info("Engine started in manual rendering mode")
     }
 

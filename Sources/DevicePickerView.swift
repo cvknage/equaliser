@@ -6,16 +6,7 @@ enum DevicePickerLayout {
 }
 
 struct DevicePickerView: View {
-    @EnvironmentObject var store: EqualiserStore
     var layout: DevicePickerLayout = .horizontal
-
-    private func binding(for selection: Binding<String?>) -> Binding<String> {
-        Binding {
-            selection.wrappedValue ?? ""
-        } set: { value in
-            selection.wrappedValue = value.isEmpty ? nil : value
-        }
-    }
 
     var body: some View {
         switch layout {
@@ -28,53 +19,121 @@ struct DevicePickerView: View {
 
     private var horizontalLayout: some View {
         HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Input")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
-                    ForEach(store.inputDevices) { device in
-                        Text(device.displayName).tag(device.uid)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 180)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Output")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
-                    ForEach(store.outputDevices) { device in
-                        Text(device.displayName).tag(device.uid)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 180)
-            }
+            InputDevicePickerView(layout: .horizontal)
+            OutputDevicePickerView(layout: .horizontal)
         }
     }
 
     private var verticalLayout: some View {
         VStack(alignment: .leading, spacing: 8) {
-            MenuSection(title: "Input") {
-                Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
-                    ForEach(store.inputDevices) { device in
-                        Text(device.displayName).tag(device.uid)
-                    }
-                }
-                .labelsHidden()
-            }
+            InputDevicePickerView(layout: .vertical)
+            OutputDevicePickerView(layout: .vertical)
+        }
+    }
+}
 
-            MenuSection(title: "Output") {
-                Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
-                    ForEach(store.outputDevices) { device in
-                        Text(device.displayName).tag(device.uid)
-                    }
+struct InputDevicePickerView: View {
+    enum Layout {
+        case horizontal
+        case vertical
+    }
+
+    @EnvironmentObject var store: EqualiserStore
+    var layout: Layout
+
+    var body: some View {
+        switch layout {
+        case .horizontal:
+            horizontalLayout
+        case .vertical:
+            verticalLayout
+        }
+    }
+
+    private var horizontalLayout: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Input")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
+                ForEach(store.inputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
                 }
-                .labelsHidden()
             }
+            .labelsHidden()
+            .frame(width: 180)
+        }
+    }
+
+    private var verticalLayout: some View {
+        MenuSection(title: "Input") {
+            Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
+                ForEach(store.inputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
+                }
+            }
+            .labelsHidden()
+        }
+    }
+
+    private func binding(for selection: Binding<String?>) -> Binding<String> {
+        Binding {
+            selection.wrappedValue ?? ""
+        } set: { value in
+            selection.wrappedValue = value.isEmpty ? nil : value
+        }
+    }
+}
+
+struct OutputDevicePickerView: View {
+    enum Layout {
+        case horizontal
+        case vertical
+    }
+
+    @EnvironmentObject var store: EqualiserStore
+    var layout: Layout
+
+    var body: some View {
+        switch layout {
+        case .horizontal:
+            horizontalLayout
+        case .vertical:
+            verticalLayout
+        }
+    }
+
+    private var horizontalLayout: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Output")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
+                ForEach(store.outputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 180)
+        }
+    }
+
+    private var verticalLayout: some View {
+        MenuSection(title: "Output") {
+            Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
+                ForEach(store.outputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
+                }
+            }
+            .labelsHidden()
+        }
+    }
+
+    private func binding(for selection: Binding<String?>) -> Binding<String> {
+        Binding {
+            selection.wrappedValue ?? ""
+        } set: { value in
+            selection.wrappedValue = value.isEmpty ? nil : value
         }
     }
 }

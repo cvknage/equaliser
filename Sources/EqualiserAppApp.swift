@@ -15,7 +15,7 @@ struct EqualiserAppMain: App {
         // Request microphone access for audio routing
         AVAudioApplication.requestRecordPermission { granted in
             if !granted {
-                print("Microphone access denied. Audio routing will be unavailable.")
+                assertionFailure("Microphone access denied. Audio routing will be unavailable.")
             }
         }
     }
