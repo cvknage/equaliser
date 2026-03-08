@@ -223,6 +223,7 @@ struct PresetToolbar: View {
     @State private var showingSaveSheet = false
     @State private var showingDeleteConfirmation = false
     @State private var showingImportWarning = false
+    @State private var showingEasyEffectsImportWarning = false
     @State private var importWarnings: [String] = []
     @State private var presetToRename: PresetRenameItem?
 
@@ -285,7 +286,7 @@ struct PresetToolbar: View {
                     Divider()
 
                     Button("Import EasyEffects Preset...") {
-                        importEasyEffectsPreset()
+                        showingEasyEffectsImportWarning = true
                     }
 
                     if store.presetManager.selectedPresetName != nil,
@@ -335,6 +336,40 @@ struct PresetToolbar: View {
             Button("OK") {}
         } message: {
             Text(importWarnings.joined(separator: "\n"))
+        }
+        .sheet(isPresented: $showingEasyEffectsImportWarning) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Limited Functionality")
+                    .font(.headline)
+                
+                Text("""
+                Importing from EasyEffects has limitations:
+                
+                • Only the equalizer bands are imported
+                • Filter mode (RLC BT/MT, etc.) and slope (x1, x2, x4) are not supported
+                • Per-channel (split) EQ is not supported - mono EQ is used
+                • Non-EQ plugins (compressor, limiter, reverb) are not imported
+                • Input/output gain and some band settings may differ slightly
+                
+                The imported preset will only contain the equalizer bands.
+                """)
+                
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        showingEasyEffectsImportWarning = false
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    
+                    Button("Continue") {
+                        showingEasyEffectsImportWarning = false
+                        importEasyEffectsPreset()
+                    }
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding()
+            .frame(width: 500)
         }
     }
 
