@@ -221,11 +221,15 @@ struct SavePresetSheet: View {
 struct PresetToolbar: View {
     @EnvironmentObject var store: EqualiserStore
     @State private var showingSaveSheet = false
-    @State private var showingRenameSheet = false
     @State private var showingDeleteConfirmation = false
     @State private var showingImportWarning = false
     @State private var importWarnings: [String] = []
-    @State private var presetToRename: String?
+    @State private var presetToRename: PresetRenameItem?
+
+    struct PresetRenameItem: Identifiable {
+        let id = UUID()
+        let name: String
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -268,8 +272,9 @@ struct PresetToolbar: View {
 
                     if store.presetManager.selectedPresetName != nil {
                         Button("Rename...") {
-                            presetToRename = store.presetManager.selectedPresetName
-                            showingRenameSheet = true
+                            if let name = store.presetManager.selectedPresetName {
+                                presetToRename = PresetRenameItem(name: name)
+                            }
                         }
 
                         Button("Delete", role: .destructive) {
@@ -313,10 +318,8 @@ struct PresetToolbar: View {
         .sheet(isPresented: $showingSaveSheet) {
             SavePresetSheet()
         }
-        .sheet(isPresented: $showingRenameSheet) {
-            if let name = presetToRename {
-                SavePresetSheet(existingName: name)
-            }
+        .sheet(item: $presetToRename) { item in
+            SavePresetSheet(existingName: item.name)
         }
         .alert("Delete Preset?", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
