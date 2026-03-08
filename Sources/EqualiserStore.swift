@@ -46,6 +46,28 @@ final class EqualiserStore: ObservableObject {
         }
     }
 
+    /// Updates the band count and marks the preset as modified.
+    /// Use this method when the user changes band count via UI.
+    func setBandCount(_ count: Int) {
+        let clamped = EQConfiguration.clampBandCount(count)
+        bandCount = clamped
+        presetManager.markAsModified()
+    }
+
+    /// Sets the input gain and marks the preset as modified.
+    /// Use this method when the user changes input gain via UI.
+    func setInputGain(_ gain: Float) {
+        inputGain = gain
+        presetManager.markAsModified()
+    }
+
+    /// Sets the output gain and marks the preset as modified.
+    /// Use this method when the user changes output gain via UI.
+    func setOutputGain(_ gain: Float) {
+        outputGain = gain
+        presetManager.markAsModified()
+    }
+
     @Published var inputGain: Float = 0 {
         didSet {
             let clamped = EqualiserStore.clampGain(inputGain)
@@ -192,7 +214,6 @@ final class EqualiserStore: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
-                self?.presetManager.markAsModified()
             }
             .store(in: &cancellables)
 
@@ -312,6 +333,7 @@ final class EqualiserStore: ObservableObject {
     func updateBandGain(index: Int, gain: Float) {
         eqConfiguration.updateBandGain(index: index, gain: gain)
         renderPipeline?.updateBandGain(index: index)
+        presetManager.markAsModified()
     }
 
     /// Updates the bandwidth for a specific EQ band.
@@ -321,6 +343,7 @@ final class EqualiserStore: ObservableObject {
     func updateBandBandwidth(index: Int, bandwidth: Float) {
         eqConfiguration.updateBandBandwidth(index: index, bandwidth: bandwidth)
         renderPipeline?.updateBandBandwidth(index: index)
+        presetManager.markAsModified()
     }
 
     /// Updates the frequency for a specific EQ band.
@@ -330,6 +353,7 @@ final class EqualiserStore: ObservableObject {
     func updateBandFrequency(index: Int, frequency: Float) {
         eqConfiguration.updateBandFrequency(index: index, frequency: frequency)
         renderPipeline?.updateBandFrequency(index: index)
+        presetManager.markAsModified()
     }
 
     /// Updates the filter type for a specific EQ band.
@@ -339,6 +363,7 @@ final class EqualiserStore: ObservableObject {
     func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
         eqConfiguration.updateBandFilterType(index: index, filterType: filterType)
         renderPipeline?.updateBandFilterType(index: index)
+        presetManager.markAsModified()
     }
 
     /// Updates the bypass state for a specific EQ band.
@@ -348,6 +373,7 @@ final class EqualiserStore: ObservableObject {
     func updateBandBypass(index: Int, bypass: Bool) {
         eqConfiguration.updateBandBypass(index: index, bypass: bypass)
         renderPipeline?.updateBandBypass(index: index)
+        presetManager.markAsModified()
     }
 
     /// Sets the window reference for visibility checking.

@@ -283,6 +283,7 @@ final class EQConfiguration: ObservableObject {
         guard isValidIndex(index) else { return }
         bands[index].gain = gain
         persistSnapshot()
+        objectWillChange.send()
     }
 
     /// Updates the bandwidth for a specific band.
@@ -290,6 +291,7 @@ final class EQConfiguration: ObservableObject {
         guard isValidIndex(index) else { return }
         bands[index].bandwidth = bandwidth
         persistSnapshot()
+        objectWillChange.send()
     }
 
     /// Updates the frequency for a specific band.
@@ -297,6 +299,7 @@ final class EQConfiguration: ObservableObject {
         guard isValidIndex(index) else { return }
         bands[index].frequency = frequency
         persistSnapshot()
+        objectWillChange.send()
     }
 
     /// Updates the bypass state for a specific band.
@@ -304,6 +307,7 @@ final class EQConfiguration: ObservableObject {
         guard isValidIndex(index) else { return }
         bands[index].bypass = bypass
         persistSnapshot()
+        objectWillChange.send()
     }
 
     /// Updates the filter type for a specific band.
@@ -311,6 +315,7 @@ final class EQConfiguration: ObservableObject {
         guard isValidIndex(index) else { return }
         bands[index].filterType = filterType
         persistSnapshot()
+        objectWillChange.send()
     }
 
     // MARK: - EQ Application Helpers

@@ -18,8 +18,10 @@ struct EQWindowView: View {
                 Spacer(minLength: 64)
 
                 GainControlsView(
-                    inputGain: $store.inputGain,
-                    outputGain: $store.outputGain
+                    inputGain: store.inputGain,
+                    outputGain: store.outputGain,
+                    onInputGainChange: { store.setInputGain($0) },
+                    onOutputGainChange: { store.setOutputGain($0) }
                 )
 
                 Spacer()

@@ -15,8 +15,10 @@ struct LevelMetersView: View {
 }
 
 struct GainControlsView: View {
-    @Binding var inputGain: Float
-    @Binding var outputGain: Float
+    let inputGain: Float
+    let outputGain: Float
+    let onInputGainChange: (Float) -> Void
+    let onOutputGainChange: (Float) -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
@@ -26,7 +28,10 @@ struct GainControlsView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                GainStepperControl(gain: $inputGain)
+                GainStepperControl(
+                    gain: inputGain,
+                    onGainChange: onInputGainChange
+                )
             }
 
             VStack(spacing: 6) {
@@ -35,7 +40,10 @@ struct GainControlsView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                GainStepperControl(gain: $outputGain)
+                GainStepperControl(
+                    gain: outputGain,
+                    onGainChange: onOutputGainChange
+                )
             }
         }
     }

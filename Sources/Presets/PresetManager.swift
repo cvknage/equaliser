@@ -300,6 +300,7 @@ final class PresetManager: ObservableObject {
     func selectPreset(named name: String?) {
         selectedPresetName = name
         isModified = false
+        objectWillChange.send()
         if let name = name {
             storage.set(name, forKey: Keys.selectedPreset)
         } else {
@@ -311,6 +312,7 @@ final class PresetManager: ObservableObject {
     func markAsModified() {
         if selectedPresetName != nil {
             isModified = true
+            objectWillChange.send()
         }
     }
 

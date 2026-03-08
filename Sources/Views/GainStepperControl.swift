@@ -1,7 +1,8 @@
 import SwiftUI
 
 struct GainStepperControl: View {
-    @Binding var gain: Float
+    let gain: Float
+    let onGainChange: (Float) -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -14,11 +15,11 @@ struct GainStepperControl: View {
                 width: 54,
                 alignment: .center,
                 onCommit: { newValue in
-                    gain = Self.roundToStep(EqualiserStore.clampGain(newValue))
+                    onGainChange(Self.roundToStep(EqualiserStore.clampGain(newValue)))
                 }
             )
             .onTapGesture(count: 2) {
-                gain = 0
+                onGainChange(0)
             }
 
             StepperButton(symbol: "-", action: { adjustGain(by: -0.5) })
@@ -27,7 +28,7 @@ struct GainStepperControl: View {
 
     private func adjustGain(by delta: Float) {
         let newValue = EqualiserStore.clampGain(gain + delta)
-        gain = Self.roundToStep(newValue)
+        onGainChange(Self.roundToStep(newValue))
     }
 
     private static func roundToStep(_ value: Float) -> Float {

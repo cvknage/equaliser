@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 // MARK: - Menu Section Helper
@@ -35,9 +36,10 @@ struct PresetPicker: View {
             Menu {
                 PresetMenuContentView()
             } label: {
-                PresetMenuLabelView(dotSize: 6)
+                PresetMenuLabelView()
             }
             .menuStyle(.borderlessButton)
+            ModifiedIndicator()
         }
     }
 }
@@ -47,13 +49,31 @@ struct PresetPicker: View {
 /// A compact preset picker suitable for the menu bar popover.
 struct CompactPresetPicker: View {
     var body: some View {
-        Menu {
-            PresetMenuContentView()
-        } label: {
-            PresetMenuLabelView(dotSize: 5, spacing: 2)
+        HStack(spacing: 4) {
+            Menu {
+                PresetMenuContentView()
+            } label: {
+                PresetMenuLabelView()
+            }
+            .menuStyle(.borderlessButton)
+            ModifiedIndicator()
         }
-        .menuStyle(.borderlessButton)
         .frame(maxWidth: .infinity, alignment: .trailing)
+    }
+}
+
+// MARK: - Modified Indicator
+
+/// A small indicator showing that the current preset has been modified.
+struct ModifiedIndicator: View {
+    @EnvironmentObject var store: EqualiserStore
+
+    var body: some View {
+        if store.presetManager.isModified {
+            Circle()
+                .fill(Color.orange)
+                .frame(width: 8, height: 8)
+        }
     }
 }
 
@@ -61,19 +81,10 @@ struct CompactPresetPicker: View {
 
 struct PresetMenuLabelView: View {
     @EnvironmentObject var store: EqualiserStore
-    let dotSize: CGFloat
-    var spacing: CGFloat = 4
 
     var body: some View {
-        HStack(spacing: spacing) {
-            Text(currentPresetLabel)
-                .lineLimit(1)
-            if store.presetManager.isModified {
-                Circle()
-                    .fill(Color.orange)
-                    .frame(width: dotSize, height: dotSize)
-            }
-        }
+        Text(currentPresetLabel)
+            .lineLimit(1)
     }
 
     private var currentPresetLabel: String {
