@@ -321,6 +321,45 @@ final class PresetManager: ObservableObject {
         }
     }
 
+    /// Compares current settings to the selected preset to determine if modified.
+    /// Returns true if no preset is selected (nothing to be modified from).
+    func settingsMatchSelectedPreset(
+        activeBandCount: Int,
+        bands: [EQBandConfiguration],
+        inputGain: Float,
+        outputGain: Float,
+        globalBypass: Bool
+    ) -> Bool {
+        guard let presetName = selectedPresetName,
+              let preset = preset(named: presetName) else {
+            return true
+        }
+
+        let settings = preset.settings
+
+        guard settings.activeBandCount == activeBandCount,
+              settings.inputGain == inputGain,
+              settings.outputGain == outputGain,
+              settings.globalBypass == globalBypass else {
+            return false
+        }
+
+        for i in 0..<activeBandCount {
+            let currentBand = bands[i]
+            let presetBand = settings.bands[i]
+
+            guard currentBand.frequency == presetBand.frequency,
+                  currentBand.gain == presetBand.gain,
+                  currentBand.bandwidth == presetBand.bandwidth,
+                  currentBand.filterType == presetBand.filterType,
+                  currentBand.bypass == presetBand.bypass else {
+                return false
+            }
+        }
+
+        return true
+    }
+
     // MARK: - Import/Export
 
     /// Imports a preset from a file URL.

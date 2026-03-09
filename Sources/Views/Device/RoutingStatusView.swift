@@ -56,10 +56,10 @@ struct RoutingStatusView: View {
                 .foregroundStyle(.secondary)
         case .active(let inputName, let outputName):
             if isBypassed {
-                Text("EQ Bypassed")
+                Text("\(inputName) → \(outputName)")
                     .foregroundStyle(.yellow)
             } else {
-                Text("\(inputName) → \(outputName)")
+                Text("\(inputName) → EQ → \(outputName)")
                     .fontWeight(.medium)
             }
         case .error(let message):

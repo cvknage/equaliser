@@ -141,18 +141,19 @@ struct EQWindowView: View {
                     }
 
                     VStack(spacing: 4) {
-                        Text("Reset")
+                        Text("Flatten")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .opacity(0)
                         Button {
-                            store.resetToDefaults()
+                            store.flattenBands()
                         } label: {
-                            Text("Reset")
+                            Text("Flatten")
                                 .frame(width: 50, height: 16)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
+                        .help("Reset all gains to 0 dB while keeping current band configuration")
                     }
                 }
                 .frame(minWidth: 280, maxWidth: 280, alignment: .trailing)

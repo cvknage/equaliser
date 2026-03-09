@@ -42,7 +42,6 @@ struct PresetMetadata: Codable, Sendable {
 /// Settings snapshot for a preset, mirrors EQConfiguration state.
 struct PresetSettings: Codable, Sendable {
     var globalBypass: Bool
-    var globalGain: Float
     var inputGain: Float
     var outputGain: Float
     var activeBandCount: Int
@@ -50,14 +49,12 @@ struct PresetSettings: Codable, Sendable {
 
     init(
         globalBypass: Bool = false,
-        globalGain: Float = 0,
         inputGain: Float = 0,
         outputGain: Float = 0,
         activeBandCount: Int = EQConfiguration.defaultBandCount,
         bands: [PresetBand] = []
     ) {
         self.globalBypass = globalBypass
-        self.globalGain = globalGain
         self.inputGain = inputGain
         self.outputGain = outputGain
         self.activeBandCount = activeBandCount

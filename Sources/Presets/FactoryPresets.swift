@@ -20,7 +20,6 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Flat", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: 0,
                 outputGain: 0,
                 activeBandCount: 10,
@@ -43,7 +42,6 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Bass Boost", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: -2.0,  // Compensate for increased gain
                 outputGain: 0,
                 activeBandCount: 10,
@@ -66,7 +64,6 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Treble Boost", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: -2.0,  // Compensate for increased gain
                 outputGain: 0,
                 activeBandCount: 10,
@@ -90,7 +87,6 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Vocal Presence", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: -1.5,
                 outputGain: 0,
                 activeBandCount: 10,
@@ -116,7 +112,6 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Loudness", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: -2.5,
                 outputGain: 0,
                 activeBandCount: 10,
@@ -143,7 +138,6 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Acoustic", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: -1.0,
                 outputGain: 0,
                 activeBandCount: 10,

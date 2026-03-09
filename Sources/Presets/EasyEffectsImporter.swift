@@ -204,7 +204,6 @@ enum EasyEffectsImporter {
 
         let settings = PresetSettings(
             globalBypass: false,
-            globalGain: 0,
             inputGain: inputGain,
             outputGain: outputGain,
             activeBandCount: bands.count,

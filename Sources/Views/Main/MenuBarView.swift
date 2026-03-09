@@ -171,7 +171,7 @@ struct MenuBarContentView: View {
         case .starting:
             return "Starting..."
         case .active:
-            return store.isBypassed ? "Bypassed" : "Running"
+            return store.isBypassed ? "Bypassed" : "Active"
         case .error(let message):
             return "Error: \(message)"
         }

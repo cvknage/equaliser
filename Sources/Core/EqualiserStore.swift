@@ -199,6 +199,20 @@ final class EqualiserStore: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+
+        // After all state is restored, check if settings differ from selected preset
+        if presetManager.selectedPresetName != nil {
+            let matches = presetManager.settingsMatchSelectedPreset(
+                activeBandCount: eqConfiguration.activeBandCount,
+                bands: eqConfiguration.bands,
+                inputGain: eqConfiguration.inputGain,
+                outputGain: eqConfiguration.outputGain,
+                globalBypass: eqConfiguration.globalBypass
+            )
+            if !matches {
+                presetManager.isModified = true
+            }
+        }
     }
 
     // MARK: - Routing Control
@@ -451,8 +465,8 @@ final class EqualiserStore: ObservableObject {
         loadPreset(preset)
     }
 
-    /// Resets to default EQ settings (flat response).
-    func resetToDefaults() {
+    /// Flattens all band gains to 0 dB while preserving current band configuration.
+    func flattenBands() {
         // Reset all bands to flat
         for i in 0..<eqConfiguration.activeBandCount {
             eqConfiguration.updateBandGain(index: i, gain: 0)
@@ -466,8 +480,8 @@ final class EqualiserStore: ObservableObject {
         // Reapply to audio engine if active
         renderPipeline?.reapplyConfiguration()
 
-        // Clear preset selection
-        presetManager.selectPreset(named: nil)
+        // Mark preset as modified
+        presetManager.markAsModified()
     }
 
     /// Creates a new preset with 10 bands spread across the frequency spectrum.
