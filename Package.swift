@@ -10,7 +10,7 @@ let package = Package(
         .executableTarget(
             name: "EqualiserApp",
             path: "Sources",
-            exclude: ["Info.plist"]
+            exclude: ["App/Info.plist"]
         ),
         .testTarget(
             name: "EqualiserAppTests",

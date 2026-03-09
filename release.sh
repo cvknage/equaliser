@@ -11,7 +11,7 @@ set -euo pipefail
 # - gh must be authenticated (gh auth login)
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLIST_PATH="$ROOT_DIR/Sources/Info.plist"
+PLIST_PATH="$ROOT_DIR/Sources/App/Info.plist"
 APP_NAME="Equaliser"
 APP_BUNDLE="$ROOT_DIR/$APP_NAME.app"
 

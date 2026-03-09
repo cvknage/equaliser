@@ -24,43 +24,44 @@ swift test --filter TestClassName
 
 ## Project Structure
 
-| Category | File | Purpose |
-|----------|------|---------|
-| **Core** | `EqualiserAppApp.swift` | @main entry, MenuBarExtra, Window definitions |
-| | `EqualiserStore.swift` | Central state coordinator, computed properties |
+| Directory | File | Purpose |
+|-----------|------|---------|
+| **App/** | `EqualiserAppApp.swift` | @main entry, MenuBarExtra, Window definitions |
 | | `AppStateSnapshot.swift` | Persistence model + AppStatePersistence class |
+| | `Info.plist` | App metadata and configuration |
+| **Core/** | `EqualiserStore.swift` | Central state coordinator, computed properties |
 | | `EQConfiguration.swift` | EQ band data (storage-free, up to 64 bands) |
 | | `MeterStore.swift` | Isolated 30 FPS meter state |
 | | `MeterState.swift` | ChannelMeterState, StereoMeterState structs |
 | | `RoutingStatus.swift` | Routing status enum (.idle, .starting, .active, .error) |
-| **Audio Pipeline** | `RenderPipeline.swift` | Orchestrates dual HAL + EQ processing |
-| | `HALIOManager.swift` | HAL audio unit (input/output modes) |
+| **Audio/HAL/** | `HALIOManager.swift` | HAL audio unit (input/output modes) |
 | | `HALIOError.swift` | HAL error types |
-| | `AudioRingBuffer.swift` | Lock-free SPSC ring buffer |
-| | `ManualRenderingEngine.swift` | AVAudioEngine manual rendering |
+| **Audio/Rendering/** | `RenderPipeline.swift` | Orchestrates dual HAL + EQ processing |
 | | `RenderCallbackContext.swift` | Pre-allocated callback buffers |
 | | `AudioRenderContext.swift` | Wraps manualRenderingBlock |
+| | `ManualRenderingEngine.swift` | AVAudioEngine manual rendering |
+| **Audio/DSP/** | `AudioRingBuffer.swift` | Lock-free SPSC ring buffer |
 | | `ParameterSmoother.swift` | Smooth parameter ramping (actor) |
-| **Device** | `DeviceManager.swift` | Core Audio device enumeration |
-| **Presets** | `PresetModel.swift` | Preset, PresetMetadata, PresetBand types |
+| **Device/** | `DeviceManager.swift` | Core Audio device enumeration |
+| **Presets/** | `PresetModel.swift` | Preset, PresetMetadata, PresetBand types |
 | | `PresetManager.swift` | Load/save/delete presets |
 | | `FactoryPresets.swift` | Built-in presets (Flat, Bass Boost, etc.) |
 | | `EasyEffectsImporter.swift` | Import EasyEffects (Linux) presets |
 | | `EasyEffectsExporter.swift` | Export to EasyEffects format |
 | | `BandwidthConverter.swift` | Q ↔ bandwidth conversion + BandwidthDisplayMode |
-| **Views** | `EQWindowView.swift` | Main EQ window content |
+| **Views/Main/** | `EQWindowView.swift` | Main EQ window content |
 | | `MenuBarView.swift` | Menu bar popover content |
-| | `EQBandGridView.swift` | Grid of EQ band sliders |
-| | `EQBandSliderView.swift` | Individual band slider with controls |
-| | `LevelMetersView.swift` | Input/output level meters |
-| | `MeterScaleView.swift` | Meter scale visualization |
-| | `PresetViews.swift` | Preset management UI |
 | | `SettingsView.swift` | Settings window (Cmd+,) |
-| | `DevicePickerView.swift` | Device selection UI |
-| | `RoutingStatusView.swift` | Routing status display |
+| **Views/EQ/** | `EQBandGridView.swift` | Grid of EQ band sliders |
+| | `EQBandSliderView.swift` | Individual band slider with controls |
 | | `BandCountControl.swift` | Band count selector |
 | | `GainStepperControl.swift` | Input/output gain controls |
-| | `StepperButton.swift` | Reusable stepper button |
+| **Views/Meters/** | `LevelMetersView.swift` | Input/output level meters |
+| | `MeterScaleView.swift` | Meter scale visualization |
+| **Views/Presets/** | `PresetViews.swift` | Preset management UI |
+| **Views/Device/** | `DevicePickerView.swift` | Device selection UI |
+| | `RoutingStatusView.swift` | Routing status display |
+| **Views/Shared/** | `StepperButton.swift` | Reusable stepper button |
 | | `ToggleWithHelp.swift` | Toggle with help text |
 | | `InlineEditableValue.swift` | Inline editable value field |
 | | `WindowAccessor.swift` | NSWindow access for SwiftUI |
