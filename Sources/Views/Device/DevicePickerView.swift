@@ -60,8 +60,10 @@ struct InputDevicePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Menu {
-                Section {
-                    Text("Select Input")
+                if store.selectedInputDeviceID == nil {
+                    Section {
+                        Text("Select Input")
+                    }
                 }
                 Section {
                     ForEach(store.inputDevices) { device in
@@ -90,8 +92,10 @@ struct InputDevicePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Menu {
-                Section {
-                    Text("Select Input")
+                if store.selectedInputDeviceID == nil {
+                    Section {
+                        Text("Select Input")
+                    }
                 }
                 Section {
                     ForEach(store.inputDevices) { device in
@@ -147,8 +151,10 @@ struct OutputDevicePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Menu {
-                Section {
-                    Text("Select Output")
+                if store.selectedOutputDeviceID == nil {
+                    Section {
+                        Text("Select Output")
+                    }
                 }
                 Section {
                     ForEach(store.outputDevices) { device in
@@ -177,8 +183,10 @@ struct OutputDevicePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Menu {
-                Section {
-                    Text("Select Output")
+                if store.selectedOutputDeviceID == nil {
+                    Section {
+                        Text("Select Output")
+                    }
                 }
                 Section {
                     ForEach(store.outputDevices) { device in
