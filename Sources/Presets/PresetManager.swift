@@ -280,7 +280,6 @@ final class PresetManager: ObservableObject {
     func applyPreset(_ preset: Preset, to config: EQConfiguration) {
         // Apply global settings
         config.globalBypass = preset.settings.globalBypass
-        config.globalGain = preset.settings.globalGain
 
         // Apply band count
         config.setActiveBandCount(preset.settings.activeBandCount)

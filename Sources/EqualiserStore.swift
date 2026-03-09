@@ -12,15 +12,47 @@ enum CompareMode: Int, Codable, Sendable {
 
 @MainActor
 final class EqualiserStore: ObservableObject {
-    // MARK: - Published Properties
+    // MARK: - Computed Properties (delegate to EQConfiguration)
 
-    @Published var isBypassed: Bool = false {
-        didSet {
-            persist()
-            eqConfiguration.globalBypass = isBypassed
-            renderPipeline?.updateProcessingMode(systemEQOff: isBypassed, compareMode: compareMode)
+    /// Global bypass state - delegates to eqConfiguration.globalBypass.
+    var isBypassed: Bool {
+        get { eqConfiguration.globalBypass }
+        set {
+            eqConfiguration.globalBypass = newValue
+            renderPipeline?.updateProcessingMode(systemEQOff: newValue, compareMode: compareMode)
         }
     }
+
+    /// Band count - delegates to eqConfiguration.activeBandCount.
+    var bandCount: Int {
+        get { eqConfiguration.activeBandCount }
+        set {
+            eqConfiguration.setActiveBandCount(newValue)
+            reconfigureRouting()
+        }
+    }
+
+    /// Input gain (dB) - delegates to eqConfiguration.inputGain.
+    var inputGain: Float {
+        get { eqConfiguration.inputGain }
+        set {
+            let clamped = Self.clampGain(newValue)
+            eqConfiguration.inputGain = clamped
+            renderPipeline?.updateInputGain(linear: Self.dbToLinear(clamped))
+        }
+    }
+
+    /// Output gain (dB) - delegates to eqConfiguration.outputGain.
+    var outputGain: Float {
+        get { eqConfiguration.outputGain }
+        set {
+            let clamped = Self.clampGain(newValue)
+            eqConfiguration.outputGain = clamped
+            renderPipeline?.updateOutputGain(linear: Self.dbToLinear(clamped))
+        }
+    }
+
+    // MARK: - Published Properties
 
     @Published var compareMode: CompareMode = .eq {
         didSet {
@@ -34,69 +66,8 @@ final class EqualiserStore: ObservableObject {
         }
     }
 
-    @Published var bandCount: Int = EQConfiguration.defaultBandCount {
-        didSet {
-            let clamped = eqConfiguration.setActiveBandCount(bandCount)
-            if clamped != bandCount {
-                bandCount = clamped
-                return
-            }
-            persist()
-            reconfigureRouting()
-        }
-    }
-
-    /// Updates the band count and marks the preset as modified.
-    /// Use this method when the user changes band count via UI.
-    func setBandCount(_ count: Int) {
-        let clamped = EQConfiguration.clampBandCount(count)
-        bandCount = clamped
-        presetManager.markAsModified()
-    }
-
-    /// Sets the input gain and marks the preset as modified.
-    /// Use this method when the user changes input gain via UI.
-    func setInputGain(_ gain: Float) {
-        inputGain = gain
-        presetManager.markAsModified()
-    }
-
-    /// Sets the output gain and marks the preset as modified.
-    /// Use this method when the user changes output gain via UI.
-    func setOutputGain(_ gain: Float) {
-        outputGain = gain
-        presetManager.markAsModified()
-    }
-
-    @Published var inputGain: Float = 0 {
-        didSet {
-            let clamped = EqualiserStore.clampGain(inputGain)
-            if clamped != inputGain {
-                inputGain = clamped
-                return
-            }
-            persist()
-            eqConfiguration.inputGain = inputGain
-            renderPipeline?.updateInputGain(linear: EqualiserStore.dbToLinear(inputGain))
-        }
-    }
-
-    @Published var outputGain: Float = 0 {
-        didSet {
-            let clamped = EqualiserStore.clampGain(outputGain)
-            if clamped != outputGain {
-                outputGain = clamped
-                return
-            }
-            persist()
-            eqConfiguration.outputGain = outputGain
-            renderPipeline?.updateOutputGain(linear: EqualiserStore.dbToLinear(outputGain))
-        }
-    }
-
     @Published var selectedInputDeviceID: String? {
         didSet {
-            persist()
             if selectedInputDeviceID != oldValue {
                 reconfigureRouting()
             }
@@ -105,7 +76,6 @@ final class EqualiserStore: ObservableObject {
 
     @Published var selectedOutputDeviceID: String? {
         didSet {
-            persist()
             if selectedOutputDeviceID != oldValue {
                 reconfigureRouting()
             }
@@ -115,11 +85,7 @@ final class EqualiserStore: ObservableObject {
     @Published private(set) var routingStatus: RoutingStatus = .idle
 
     /// User preference for displaying bandwidth as octaves or Q factor.
-    @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves {
-        didSet {
-            storage.set(bandwidthDisplayMode.rawValue, forKey: Keys.bandwidthDisplayMode)
-        }
-    }
+    @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves
 
     // MARK: - Audio Components
 
@@ -141,20 +107,25 @@ final class EqualiserStore: ObservableObject {
     private var compareModeRevertTimer: AnyCancellable?
     private static let compareModeRevertInterval: TimeInterval = 300 // 5 minutes
 
-    private enum Keys {
-        static let bypass = "equalizer.bypass"
-        static let inputDevice = "equalizer.input"
-        static let outputDevice = "equalizer.output"
-        static let bandCount = "equalizer.bandCount"
-        static let inputGain = "equalizer.inputGain"
-        static let outputGain = "equalizer.outputGain"
-        static let bandwidthDisplayMode = "equalizer.bandwidthDisplayMode"
-    }
-
-    private let storage: UserDefaults
+    let persistence: AppStatePersistence
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "EqualiserStore")
     private var cancellables = Set<AnyCancellable>()
     private static let gainRange: ClosedRange<Float> = -24...24
+
+    /// Current app state snapshot for persistence.
+    var currentSnapshot: AppStateSnapshot {
+        AppStateSnapshot(
+            globalBypass: eqConfiguration.globalBypass,
+            inputGain: eqConfiguration.inputGain,
+            outputGain: eqConfiguration.outputGain,
+            activeBandCount: eqConfiguration.activeBandCount,
+            bands: eqConfiguration.bands,
+            inputDeviceID: selectedInputDeviceID,
+            outputDeviceID: selectedOutputDeviceID,
+            bandwidthDisplayMode: bandwidthDisplayMode.rawValue,
+            metersEnabled: meterStore.metersEnabled
+        )
+    }
 
     // MARK: - Convenience Accessors
 
@@ -170,40 +141,35 @@ final class EqualiserStore: ObservableObject {
 
     // MARK: - Initialization
 
-    init(storage: UserDefaults = .standard) {
-        self.storage = storage
-        self.eqConfiguration = EQConfiguration(storage: storage)
-        self.presetManager = PresetManager(storage: storage)
-        self.meterStore = MeterStore(storage: storage)
+    init(persistence: AppStatePersistence = AppStatePersistence()) {
+        self.persistence = persistence
 
-        // Restore persisted state (no audio engine is created here)
-        let storedBypass = storage.bool(forKey: Keys.bypass)
-        let storedInput = storage.string(forKey: Keys.inputDevice)
-        let storedOutput = storage.string(forKey: Keys.outputDevice)
-        let storedBands = storage.object(forKey: Keys.bandCount) as? Int ?? eqConfiguration.activeBandCount
-        let storedInputGain = EqualiserStore.clampGain(storage.float(forKey: Keys.inputGain))
-        let storedOutputGain = EqualiserStore.clampGain(storage.float(forKey: Keys.outputGain))
-        let storedBandwidthMode = storage.string(forKey: Keys.bandwidthDisplayMode)
-            .flatMap { BandwidthDisplayMode(rawValue: $0) } ?? .octaves
+        // Load snapshot if exists
+        let snapshot = persistence.load()
 
-        // Apply to EQ configuration first
-        eqConfiguration.globalBypass = storedBypass
-        eqConfiguration.setActiveBandCount(storedBands)
-        eqConfiguration.inputGain = storedInputGain
-        eqConfiguration.outputGain = storedOutputGain
-        storage.set(eqConfiguration.activeBandCount, forKey: Keys.bandCount)
+        // Initialize EQ configuration
+        if let snapshot = snapshot {
+            self.eqConfiguration = EQConfiguration(from: snapshot)
+        } else {
+            self.eqConfiguration = EQConfiguration()
+        }
 
-        // Then set published properties (without triggering didSet side effects)
-        _isBypassed = Published(initialValue: storedBypass)
-        _bandCount = Published(initialValue: eqConfiguration.activeBandCount)
-        _inputGain = Published(initialValue: storedInputGain)
-        _outputGain = Published(initialValue: storedOutputGain)
-        _selectedInputDeviceID = Published(initialValue: storedInput)
-        _selectedOutputDeviceID = Published(initialValue: storedOutput)
-        _bandwidthDisplayMode = Published(initialValue: storedBandwidthMode)
+        // Initialize other components
+        self.presetManager = PresetManager()
+        self.meterStore = MeterStore(metersEnabled: snapshot?.metersEnabled ?? true)
+
+        // Wire up persistence
+        persistence.setStore(self)
+
+        // Restore app-level state
+        if let snapshot = snapshot {
+            _selectedInputDeviceID = Published(initialValue: snapshot.inputDeviceID)
+            _selectedOutputDeviceID = Published(initialValue: snapshot.outputDeviceID)
+            _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .octaves)
+        }
 
         // Auto-start routing if both devices are already selected
-        if storedInput != nil && storedOutput != nil {
+        if selectedInputDeviceID != nil && selectedOutputDeviceID != nil {
             // Defer to next run loop to allow UI to initialize
             Task { @MainActor in
                 self.reconfigureRouting()
@@ -223,19 +189,6 @@ final class EqualiserStore: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
-
-        bandCount = eqConfiguration.activeBandCount
-    }
-
-    // MARK: - Persistence
-
-    private func persist() {
-        storage.set(isBypassed, forKey: Keys.bypass)
-        storage.set(selectedInputDeviceID, forKey: Keys.inputDevice)
-        storage.set(selectedOutputDeviceID, forKey: Keys.outputDevice)
-        storage.set(bandCount, forKey: Keys.bandCount)
-        storage.set(inputGain, forKey: Keys.inputGain)
-        storage.set(outputGain, forKey: Keys.outputGain)
     }
 
     // MARK: - Routing Control
@@ -326,6 +279,8 @@ final class EqualiserStore: ObservableObject {
 
     // MARK: - EQ Control
 
+    // MARK: Per-Band Updates
+
     /// Updates the gain for a specific EQ band.
     /// - Parameters:
     ///   - index: The band index (0-31).
@@ -373,6 +328,30 @@ final class EqualiserStore: ObservableObject {
     func updateBandBypass(index: Int, bypass: Bool) {
         eqConfiguration.updateBandBypass(index: index, bypass: bypass)
         renderPipeline?.updateBandBypass(index: index)
+        presetManager.markAsModified()
+    }
+
+    // MARK: Global Updates
+
+    /// Updates the band count and marks the preset as modified.
+    /// Use this method when the user changes band count via UI.
+    func updateBandCount(_ count: Int) {
+        let clamped = EQConfiguration.clampBandCount(count)
+        bandCount = clamped
+        presetManager.markAsModified()
+    }
+
+    /// Updates the input gain and marks the preset as modified.
+    /// Use this method when the user changes input gain via UI.
+    func updateInputGain(_ gain: Float) {
+        inputGain = gain
+        presetManager.markAsModified()
+    }
+
+    /// Updates the output gain and marks the preset as modified.
+    /// Use this method when the user changes output gain via UI.
+    func updateOutputGain(_ gain: Float) {
+        outputGain = gain
         presetManager.markAsModified()
     }
 

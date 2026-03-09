@@ -12,7 +12,6 @@ final class MeterStore: ObservableObject {
 
     @Published var metersEnabled: Bool = true {
         didSet {
-            storage.set(metersEnabled, forKey: Keys.metersEnabled)
             if !metersEnabled {
                 inputMeterLevel = .silent
                 outputMeterLevel = .silent
@@ -25,7 +24,6 @@ final class MeterStore: ObservableObject {
 
     private weak var renderPipeline: RenderPipeline?
     private weak var equaliserWindow: NSWindow?
-    private let storage: UserDefaults
 
     private var meterTimer: AnyCancellable?
     private var metersAtRest = false
@@ -41,14 +39,8 @@ final class MeterStore: ObservableObject {
     private static let meterRange: ClosedRange<Float> = Float(-36)...Float(0)
     private static let gamma: Float = 0.5
 
-    private enum Keys {
-        static let metersEnabled = "equalizer.metersEnabled"
-    }
-
-    init(storage: UserDefaults = .standard) {
-        self.storage = storage
-        let storedMetersEnabled = storage.object(forKey: Keys.metersEnabled) as? Bool ?? true
-        _metersEnabled = Published(initialValue: storedMetersEnabled)
+    init(metersEnabled: Bool = true) {
+        _metersEnabled = Published(initialValue: metersEnabled)
     }
 
     func setRenderPipeline(_ pipeline: RenderPipeline?) {

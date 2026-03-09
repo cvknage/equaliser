@@ -21,15 +21,8 @@ final class MeterStoreTests: XCTestCase {
         XCTAssertTrue(store.metersEnabled)
     }
 
-    func testInit_restoresPersistedEnabledState() {
-        guard let testDefaults = UserDefaults(suiteName: #function) else {
-            XCTFail("Failed to create test UserDefaults")
-            return
-        }
-        testDefaults.set(false, forKey: "equalizer.metersEnabled")
-
-        let store = MeterStore(storage: testDefaults)
-
+    func testInit_withMetersEnabledFalse() {
+        let store = MeterStore(metersEnabled: false)
         XCTAssertFalse(store.metersEnabled)
     }
 
@@ -67,20 +60,6 @@ final class MeterStoreTests: XCTestCase {
         store.metersEnabled = true
 
         XCTAssertEqual(store.inputMeterLevel, testState)
-    }
-
-    func testMetersEnabled_persistsToStorage() {
-        guard let testDefaults = UserDefaults(suiteName: #function) else {
-            XCTFail("Failed to create test UserDefaults")
-            return
-        }
-        let store = MeterStore(storage: testDefaults)
-
-        store.metersEnabled = false
-        XCTAssertFalse(testDefaults.bool(forKey: "equalizer.metersEnabled"))
-
-        store.metersEnabled = true
-        XCTAssertTrue(testDefaults.bool(forKey: "equalizer.metersEnabled"))
     }
 
     // MARK: - Timer Lifecycle Tests

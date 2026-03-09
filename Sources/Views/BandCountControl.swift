@@ -71,7 +71,7 @@ struct BandCountControl: View {
 
     private func applyBandCount(_ count: Int) {
         let clamped = EQConfiguration.clampBandCount(count)
-        store.setBandCount(clamped)
+        store.updateBandCount(clamped)
         text = "\(clamped)"
     }
 }

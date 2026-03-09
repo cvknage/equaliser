@@ -121,8 +121,7 @@ final class EQConfigurationTests: XCTestCase {
 
     @MainActor
     func testInit_withDefaultBandCount() {
-        let storage = UserDefaults(suiteName: "TestSuite-\(UUID().uuidString)")!
-        let config = EQConfiguration(storage: storage)
+        let config = EQConfiguration()
 
         XCTAssertEqual(config.activeBandCount, EQConfiguration.defaultBandCount)
         XCTAssertEqual(config.bands.count, EQConfiguration.maxBandCount)
@@ -130,29 +129,25 @@ final class EQConfigurationTests: XCTestCase {
 
     @MainActor
     func testInit_withCustomBandCount() {
-        let storage = UserDefaults(suiteName: "TestSuite-\(UUID().uuidString)")!
-        let config = EQConfiguration(initialBandCount: 16, storage: storage)
+        let config = EQConfiguration(initialBandCount: 16)
 
         XCTAssertEqual(config.activeBandCount, 16)
     }
 
     @MainActor
     func testInit_clampsInvalidBandCount() {
-        let storage = UserDefaults(suiteName: "TestSuite-\(UUID().uuidString)")!
-
         // Band count too high
-        let configHigh = EQConfiguration(initialBandCount: 100, storage: storage)
+        let configHigh = EQConfiguration(initialBandCount: 100)
         XCTAssertEqual(configHigh.activeBandCount, 64)
 
         // Band count too low
-        let configLow = EQConfiguration(initialBandCount: 0, storage: storage)
+        let configLow = EQConfiguration(initialBandCount: 0)
         XCTAssertEqual(configLow.activeBandCount, 1)
     }
 
     @MainActor
     func testSetActiveBandCount_clampsValue() {
-        let storage = UserDefaults(suiteName: "TestSuite-\(UUID().uuidString)")!
-        let config = EQConfiguration(storage: storage)
+        let config = EQConfiguration()
 
         let result = config.setActiveBandCount(100)
         XCTAssertEqual(result, 64)

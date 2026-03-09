@@ -162,7 +162,6 @@ struct Preset: Codable, Sendable, Identifiable {
         self.metadata = PresetMetadata(name: name)
         self.settings = PresetSettings(
             globalBypass: config.globalBypass,
-            globalGain: config.globalGain,
             inputGain: inputGain,
             outputGain: outputGain,
             activeBandCount: config.activeBandCount,
