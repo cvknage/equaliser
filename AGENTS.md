@@ -13,486 +13,307 @@ A macOS menu bar equalizer application built with Swift 6 and SwiftUI.
 | Platform     | macOS 15+ (Sequoia), Apple Silicon only           |
 | Build System | Swift Package Manager                             |
 
-## Build Commands
+## Build & Test
 
 ```bash
-# Build (debug)
-swift build
-
-# Build (release)
-swift build -c release
-
-# Run the app
-swift run
-
-# Clean build artifacts
-swift package clean
+swift build              # Debug build
+swift build -c release   # Release build
+swift test               # Run all tests
+swift test --filter TestClassName
 ```
-
-Or open `Package.swift` directly in Xcode 16+ (File > Open Package).
-
-## Test Commands
-
-```bash
-# Run all tests
-swift test
-
-# Run a single test class
-swift test --filter EqualiserAppTests
-
-# Run a single test method
-swift test --filter EqualiserAppTests.testExample
-
-# Run tests with verbose output
-swift test --verbose
-```
-
-Test files are located in `Tests/`.
 
 ## Project Structure
 
-```
-equalizer/
-├── Package.swift              # SPM manifest
-├── EqualiserApp.entitlements
-├── bundle.sh                  # Build app bundle
-├── AGENTS.md                  # This file
-├── ToDo.md                    # Project roadmap
-├── Sources/
-│   ├── EqualiserAppApp.swift      # @main entry, MenuBarExtra, Window, EQ UI
-│   ├── EqualiserStore.swift       # Global state (ObservableObject)
-│   ├── MeterStore.swift           # Isolated meter state for rendering performance
-│   │
-│   │   # Audio Pipeline (HAL + AVAudioEngine)
-│   ├── HALIOManager.swift         # HAL audio unit management (input/output modes)
-│   ├── HALIOError.swift           # Error types for HAL operations
-│   ├── RenderPipeline.swift       # Orchestrates dual HAL + EQ processing
-│   ├── RenderCallbackContext.swift # Pre-allocated buffers for audio callbacks
-│   ├── AudioRingBuffer.swift      # Lock-free SPSC ring buffer
-│   ├── ManualRenderingEngine.swift # AVAudioEngine in manual rendering mode
-│   ├── AudioRenderContext.swift   # Wraps AVAudioEngine's manualRenderingBlock
-│   ├── EQConfiguration.swift      # EQ band settings storage (up to 64 bands)
-│   ├── ParameterSmoother.swift    # Smooth parameter ramping (actor)
-│   │
-│   │   # Device Management
-│   ├── DeviceManager.swift        # Core Audio device enumeration
-│   │
-│   │   # UI Components
-│   ├── DevicePickerView.swift     # Device selection pickers
-│   ├── RoutingStatusView.swift    # Routing status display
-│   ├── Views/
-│   │   ├── PresetViews.swift          # Preset management views
-│   │   └── SettingsView.swift         # Settings window
-│   │
-│   └── Presets/
-│       └── PresetManager.swift        # Preset loading/saving
-│
-└── Tests/
-    ├── EqualiserAppTests.swift        # Test suite entry point
-    ├── AudioRingBufferTests.swift     # Ring buffer tests
-    ├── BandwidthConverterTests.swift  # Bandwidth/Q conversion tests
-    ├── DeviceManagerTests.swift       # Device enumeration tests
-    ├── EasyEffectsImportExportTests.swift # Import/export tests
-    ├── EQConfigurationTests.swift     # EQ configuration tests
-    ├── MeterCalculationTests.swift    # Meter math tests
-    ├── MeterStoreTests.swift          # Meter state management tests
-    └── PresetCodableTests.swift       # Preset serialization tests
-```
+| Category | File | Purpose |
+|----------|------|---------|
+| **Core** | `EqualiserAppApp.swift` | @main entry, MenuBarExtra, Window definitions |
+| | `EqualiserStore.swift` | Central state coordinator, computed properties |
+| | `AppStateSnapshot.swift` | Persistence model + AppStatePersistence class |
+| | `EQConfiguration.swift` | EQ band data (storage-free, up to 64 bands) |
+| | `MeterStore.swift` | Isolated 30 FPS meter state |
+| | `MeterState.swift` | ChannelMeterState, StereoMeterState structs |
+| | `RoutingStatus.swift` | Routing status enum (.idle, .starting, .active, .error) |
+| **Audio Pipeline** | `RenderPipeline.swift` | Orchestrates dual HAL + EQ processing |
+| | `HALIOManager.swift` | HAL audio unit (input/output modes) |
+| | `HALIOError.swift` | HAL error types |
+| | `AudioRingBuffer.swift` | Lock-free SPSC ring buffer |
+| | `ManualRenderingEngine.swift` | AVAudioEngine manual rendering |
+| | `RenderCallbackContext.swift` | Pre-allocated callback buffers |
+| | `AudioRenderContext.swift` | Wraps manualRenderingBlock |
+| | `ParameterSmoother.swift` | Smooth parameter ramping (actor) |
+| **Device** | `DeviceManager.swift` | Core Audio device enumeration |
+| **Presets** | `PresetModel.swift` | Preset, PresetMetadata, PresetBand types |
+| | `PresetManager.swift` | Load/save/delete presets |
+| | `FactoryPresets.swift` | Built-in presets (Flat, Bass Boost, etc.) |
+| | `EasyEffectsImporter.swift` | Import EasyEffects (Linux) presets |
+| | `EasyEffectsExporter.swift` | Export to EasyEffects format |
+| | `BandwidthConverter.swift` | Q ↔ bandwidth conversion + BandwidthDisplayMode |
+| **Views** | `EQWindowView.swift` | Main EQ window content |
+| | `MenuBarView.swift` | Menu bar popover content |
+| | `EQBandGridView.swift` | Grid of EQ band sliders |
+| | `EQBandSliderView.swift` | Individual band slider with controls |
+| | `LevelMetersView.swift` | Input/output level meters |
+| | `MeterScaleView.swift` | Meter scale visualization |
+| | `PresetViews.swift` | Preset management UI |
+| | `SettingsView.swift` | Settings window (Cmd+,) |
+| | `DevicePickerView.swift` | Device selection UI |
+| | `RoutingStatusView.swift` | Routing status display |
+| | `BandCountControl.swift` | Band count selector |
+| | `GainStepperControl.swift` | Input/output gain controls |
+| | `StepperButton.swift` | Reusable stepper button |
+| | `ToggleWithHelp.swift` | Toggle with help text |
+| | `InlineEditableValue.swift` | Inline editable value field |
+| | `WindowAccessor.swift` | NSWindow access for SwiftUI |
+| | `ViewExtensions.swift` | SwiftUI view extensions |
+| | `AVAudioUnitEQFilterTypeExtension.swift` | Filter type display names |
 
-## Code Style Guidelines
+### Tests
 
-### Formatting
+| File | Purpose |
+|------|---------|
+| `AudioRingBufferTests.swift` | Ring buffer tests |
+| `BandwidthConverterTests.swift` | Q/bandwidth conversion tests |
+| `DeviceManagerTests.swift` | Device enumeration tests |
+| `EasyEffectsImportExportTests.swift` | Import/export tests |
+| `EQConfigurationTests.swift` | EQ configuration tests |
+| `MeterCalculationTests.swift` | Meter math tests |
+| `MeterStoreTests.swift` | Meter state management tests |
+| `PresetCodableTests.swift` | Preset serialization tests |
 
-- **Indentation**: 4 spaces (Swift standard)
-- **Line length**: Keep reasonable (~120 chars soft limit)
-- **Braces**: Opening brace on same line as declaration
-- **Trailing commas**: Use in multi-line collections/enums
-
-### Imports
-
-Order imports alphabetically, system frameworks first:
-
-```swift
-import AVFoundation
-import Combine
-import CoreAudio
-import Foundation
-import SwiftUI
-import os.log
-```
-
-### Naming Conventions
-
-| Element           | Convention                    | Example                          |
-|-------------------|-------------------------------|----------------------------------|
-| Types/Protocols   | UpperCamelCase                | `AudioDevice`, `EqualiserStore`  |
-| Functions/Methods | lowerCamelCase                | `refreshDevices()`, `start()`    |
-| Variables         | lowerCamelCase                | `isRunning`, `inputDevices`      |
-| Constants         | lowerCamelCase                | `let smoothingInterval`          |
-| Enum cases        | lowerCamelCase                | `.parametric`, `.bypass`         |
-| Private members   | No underscore prefix          | `private var task`               |
-| UserDefaults keys | Nested enum with static props | `Keys.bypass`, `Keys.inputDevice`|
-
-### Type Annotations
-
-- Omit when type is obvious from initialization
-- Include for public API and when clarity helps
-- Use `@MainActor` on classes that touch UI or must be main-thread-bound
-
-```swift
-// Good
-private let engine = AVAudioEngine()
-@Published private(set) var inputDevices: [AudioDevice] = []
-
-// When type matters
-func bandMapping(for index: Int) -> (AVAudioUnitEQ, Int)
-```
-
-### Concurrency
-
-This project uses Swift 6 strict concurrency:
-
-- **Main Actor**: Use `@MainActor` on UI-bound classes (`EqualiserStore`, `DeviceManager`, `EQConfiguration`)
-- **Actors**: Use `actor` for thread-safe isolated state (`ParameterSmoother`)
-- **Sendable**: Ensure types crossing actor boundaries are `Sendable`
-- **Task**: Use structured concurrency with `Task` and `async/await`
-
-```swift
-@MainActor
-final class EqualiserStore: ObservableObject { ... }
-
-actor ParameterSmoother { ... }
-```
-
-### Error Handling
-
-- Use `do-catch` for recoverable errors with logging
-- Use `guard` for early returns on precondition failures
-- Log errors with `os.log` (`Logger`)
-
-```swift
-do {
-    try engine.start()
-    isRunning = true
-    logger.info("Audio engine started")
-} catch {
-    logger.error("Failed to start engine: \(error.localizedDescription)")
-}
-```
-
-### SwiftUI Patterns
-
-- Use `@StateObject` for owned state in views
-- Use `@EnvironmentObject` for shared dependency injection
-- Use `@Published` in `ObservableObject` classes
-- Prefer computed properties for derived state
-
-```swift
-@StateObject private var store = EqualiserStore()
-@EnvironmentObject var store: EqualiserStore
-```
-
-### Testing
-
-- **Tests are required** for all new code - writing tests must be an included part of writing code
-- Focus on testing **correct behavior**, not the current implementation:
-  - If `add(2, 2)` returns `3`, write a test expecting `4`, then fix the code
-  - Don't write tests that validate existing bugs as "correct"
-- Test critical paths, calculations, and invariants - not necessarily 100% coverage
-- **Testing pattern** (established convention):
-  - Test through **public API only** - never expose internals for testing
-  - Create **real instances** - no mocking frameworks
-  - Test **behavior/output** - not implementation details
-  - Use `@MainActor` on test classes for UI-bound code
-  - Use isolated `UserDefaults(suiteName:)` for persistence tests
-- Follow existing test patterns in `Tests/` directory:
-  - `EQConfigurationTests.swift` - tests static methods and state
-  - `DeviceManagerTests.swift` - tests public methods
-  - `MeterStoreTests.swift` - tests state management through public API
-  - `MeterCalculationTests.swift` - tests mathematical calculations
-- Run tests before marking work complete: `swift test`
-
-### Core Audio Conventions
-
-- Use `AudioObjectPropertyAddress` for property queries
-- Always check `noErr` return status
-- Use `defer` for cleanup of allocated buffers
-- Wrap low-level APIs in descriptive helper methods
-
-## Architecture Notes
+## Architecture
 
 ### State Management
 
-- `EqualiserStore`: Central `ObservableObject` for app state
-  - Persists preferences via `UserDefaults`
-  - Owns references to `RenderPipeline` and `MeterStore`
-  - Handles routing, presets, EQ configuration, and bypass modes
-  
-- `MeterStore`: Isolated `ObservableObject` for meter state
-  - Owns all meter level state (`inputMeterLevel`, `outputMeterLevel`, etc.)
-  - Manages 30 FPS meter timer independently
-  - SwiftUI's diffing isolates re-renders to only meter views
-  - Pattern: Extract high-frequency update state into separate `ObservableObject`
+| Component | Role | Persistence |
+|-----------|------|-------------|
+| `EqualiserStore` | Coordinator: routing, presets, computed properties | No (delegates to EQConfiguration) |
+| `EQConfiguration` | Pure data model: bands, gains, bypass | No (storage-free) |
+| `MeterStore` | Isolated 30 FPS meter state | No (storage-free) |
+| `AppStatePersistence` | Saves on app quit | Yes (single JSON blob) |
 
-**Why separate stores?** Meter updates at 30 FPS would trigger SwiftUI re-renders of the entire view hierarchy if stored in `EqualiserStore`. By extracting to `MeterStore`, only views observing that specific store re-render.
+**Key pattern:** Models are storage-free. Persistence happens at app quit via `AppStateSnapshot`:
 
-### Compare Mode Pattern
-
-Compare Mode (EQ vs Flat) uses an auto-revert timer to protect users from accidentally leaving Flat mode:
-
-```swift
-@Published var compareMode: CompareMode = .eq {
-    didSet {
-        renderPipeline?.updateProcessingMode(...)
-        
-        if compareMode == .flat {
-            startCompareModeRevertTimer()  // 5-minute timer
-        } else {
-            cancelCompareModeRevertTimer()
-        }
-    }
-}
+```
+┌──────────────────────────────────────────────────────────────┐
+│                     App Lifecycle                            │
+│  Launch: Load snapshot → Initialize components               │
+│  Quit:   Collect snapshot → Save to UserDefaults             │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    EqualiserStore                            │
+│  - Coordinates EQConfiguration, MeterStore, PresetManager    │
+│  - Provides computed properties (isBypassed, bandCount, etc) │
+│  - currentSnapshot: AppStateSnapshot (computed property)     │
+└──────────────────────────────────────────────────────────────┘
+         │ owns                    │ owns                    │ owns
+         ▼                         ▼                         ▼
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│ EQConfiguration │      │   MeterStore    │      │  PresetManager  │
+│ (pure data)     │      │ (runtime state) │      │ (file-based)    │
+│ - bands, gains  │      │ - meter levels  │      │ - presets dir   │
+└─────────────────┘      └─────────────────┘      └─────────────────┘
 ```
 
-**Key points:**
-- Compare Mode works independently of System EQ toggle
-- Auto-reverts to EQ after 5 minutes
-- Timer is cancelled on manual switch or routing stop
-
-### Audio Pipeline Architecture
+### Audio Pipeline
 
 The app routes audio from an input device (e.g., BlackHole) through an EQ chain to an output device (e.g., speakers). This requires **two separate HAL audio units** because a single HAL unit can only connect to one physical device.
 
 ```
-[Input Device] → [Input HAL Unit] → [Input Callback] → [Ring Buffer]
-                                                             ↓
-[Output Callback] ← reads ← [Ring Buffer]
-        ↓
-[AVAudioEngine Manual Rendering]
-        ↓
-[AUNBandEQ chain (up to 64 bands across multiple units)]
-        ↓
-[Output HAL Unit] → [Output Device]
+┌──────────────┐     ┌──────────────┐     ┌───────────────┐
+│ Input Device │ ──▶ │  Input HAL   │ ──▶ │ Input Callback│
+└──────────────┘     └──────────────┘     └───────────────┘
+                                                 │
+                                                 ▼
+                                         ┌──────────────┐
+                                         │  Ring Buffer │
+                                         └──────────────┘
+                                                 │
+                                                 ▼
+┌──────────────┐     ┌──────────────┐     ┌────────────────────┐
+│ Output Device│ ◀── │  Output HAL  │ ◀── │ Output Callback    │
+└──────────────┘     └──────────────┘     │ + Manual Rendering │
+                                          │ + EQ (64 bands)    │
+                                          └────────────────────┘
 ```
 
-**Key Components:**
+| Component | Purpose |
+|-----------|---------|
+| `HALIOManager` | Manages a single HAL audio unit in `.inputOnly` or `.outputOnly` mode |
+| `RenderPipeline` | Orchestrates two HAL managers + AVAudioEngine |
+| `AudioRingBuffer` | Lock-free SPSC buffer for inter-callback audio transfer, handles clock drift |
+| `ManualRenderingEngine` | AVAudioEngine configured for offline/manual rendering |
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| `HALIOManager` | `HALIOManager.swift` | Manages a single HAL audio unit in `.inputOnly` or `.outputOnly` mode |
-| `RenderPipeline` | `RenderPipeline.swift` | Orchestrates two HAL managers + AVAudioEngine |
-| `AudioRingBuffer` | `AudioRingBuffer.swift` | Lock-free SPSC buffer for inter-callback audio transfer |
-| `ManualRenderingEngine` | `ManualRenderingEngine.swift` | AVAudioEngine configured for offline/manual rendering |
-| `RenderCallbackContext` | `RenderCallbackContext.swift` | Pre-allocated buffers passed to audio callbacks |
+### Compare Mode
 
-### Menu Bar App
+Compare Mode (EQ vs Flat) uses an auto-revert timer to protect users from accidentally leaving Flat mode:
 
-The app uses SwiftUI's native `MenuBarExtra` for the menu bar interface:
+- Segmented control in UI: `[EQ | Flat]`
+- Auto-reverts to EQ after 5 minutes
+- Works independently of System EQ toggle
+- Processing modes: 0=System EQ OFF, 1=Normal EQ, 2=Flat mode
 
-- **`MenuBarExtra`**: Provides the menu bar icon and popover window
-- **`Window(id:)`**: Separate window for detailed EQ controls, opened on demand
-- **No `AppDelegate`**: Pure SwiftUI app lifecycle with `@main` struct
+### Audio Thread Safety
+
+`RenderPipeline` is `@MainActor` isolated, but audio callbacks run on the audio thread. Use `nonisolated(unsafe)` for shared state:
 
 ```swift
-@main
-struct EqualiserAppMain: App {
-    var body: some Scene {
-        Window("Equaliser", id: "equaliser") { ... }
-        MenuBarExtra("Equaliser", systemImage: "slider.vertical.3") { ... }
-            .menuBarExtraStyle(.window)
+@MainActor
+final class RenderPipeline {
+    private nonisolated(unsafe) var isRunning: Bool = false
+    private nonisolated(unsafe) var callbackContext: RenderCallbackContext?
+    
+    // Required to pass AudioUnit to callback context
+    var unsafeAudioUnit: AudioUnit? { audioUnit }
+}
+```
+
+**HAL Cleanup** must be synchronous in deinit:
+
+```swift
+deinit {
+    if let unit = audioUnit {
+        if isRunning { AudioOutputUnitStop(unit) }
+        if isInitialized { AudioUnitUninitialize(unit) }
+        AudioComponentInstanceDispose(unit)
     }
 }
 ```
 
-### SwiftUI Rendering Performance
+## Critical Learnings
 
-When a component updates at high frequency (e.g., meters at 30 FPS), isolate it to prevent re-rendering the entire view tree:
+### NSApp Timing
 
-**Problem:** Storing meter state in `EqualiserStore` causes all views observing that store to re-render 30 times per second.
-
-**Solution:** Extract high-frequency state into a separate `ObservableObject`:
+`NSApp` is **nil** during the `@main` struct's `init()`. Defer NSApp access:
 
 ```swift
-// Bad - entire app re-renders on meter updates
-final class EqualiserStore: ObservableObject {
-    @Published var inputMeterLevel: StereoMeterState  // 30 FPS
-    @Published var eqBands: [EQBand]  // UI also re-renders!
-}
-
-// Good - only meter views re-render
-final class EqualiserStore: ObservableObject {
-    let meterStore: MeterStore  // Separate ObservableObject
-    @Published var eqBands: [EQBand]  // Unaffected by meter updates
-}
-
-final class MeterStore: ObservableObject {
-    @Published var inputMeterLevel: StereoMeterState  // 30 FPS
-}
-
-// In view
-LevelMetersView(meterStore: store.meterStore)  // Only this re-renders
-```
-
-SwiftUI's diffing automatically isolates changes to only views observing the modified store.
-
-### Feature Implementation Patterns
-
-#### Compare Mode (A/B Testing)
-
-Compare Mode allows switching between EQ and flat response while preserving volume matching:
-
-```swift
-enum CompareMode: Int, Codable, Sendable {
-    case eq = 0
-    case flat = 1
-}
-```
-
-**Implementation:**
-1. Segmented control in UI: `[EQ | Flat]`
-2. Auto-revert timer (5 minutes) when Flat selected
-3. Works independently of System EQ toggle
-4. Processing mode updated via `RenderPipeline.updateProcessingMode()`
-
-**Processing modes:**
-- Mode 0: System EQ OFF (complete bypass)
-- Mode 1: Normal EQ processing
-- Mode 2: Flat mode (EQ bypassed, gains applied)
-
-## SwiftUI App Lifecycle Learnings
-
-Critical knowledge for menu bar apps using SwiftUI's `@main` lifecycle.
-
-### NSApp Availability
-
-`NSApp` (aka `NSApplication.shared`) is **nil** during the `@main` struct's `init()`. Any code that accesses `NSApp` must be deferred:
-
-```swift
-// WRONG - crashes with nil unwrap
+// WRONG - crashes
 init() {
-    NSApp.setActivationPolicy(.accessory)  // NSApp is nil here!
+    NSApp.setActivationPolicy(.accessory)  // NSApp is nil!
 }
 
 // CORRECT - defer to next run loop
 init() {
     DispatchQueue.main.async {
-        NSApp.setActivationPolicy(.accessory)  // NSApp exists now
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 ```
 
-### Hiding the Dock Icon
-
-For a menu-bar-only app, use `.accessory` activation policy:
-
-```swift
-DispatchQueue.main.async {
-    NSApp.setActivationPolicy(.accessory)
-}
-```
-
-This hides the dock icon while keeping the menu bar extra visible.
-
-### Opening Windows Programmatically
-
-Use `@Environment(\.openWindow)` with a window ID:
-
-```swift
-@Environment(\.openWindow) private var openWindow
-
-Button("Open Equaliser") {
-    openWindow(id: "equaliser")
-    NSApp.activate(ignoringOtherApps: true)  // Bring to front
-}
-```
-
-## Core Audio Learnings
-
-Critical knowledge for working with HAL audio units in this codebase.
-
-### What Works
-
-| Pattern | Description |
-|---------|-------------|
-| Dual HAL units | Use separate `HALIOManager` instances for input and output devices |
-| Ring buffer | `AudioRingBuffer` decouples input/output device clocks safely |
-| Input callback | Register via `kAudioOutputUnitProperty_SetInputCallback` on input-only HAL |
-| Non-interleaved format | Use `kAudioFormatFlagIsNonInterleaved` Float32 for AVAudioEngine compatibility |
-| Manual rendering | `AVAudioEngine.enableManualRenderingMode()` for offline processing in callbacks |
-
-### What Does NOT Work
-
-| Approach | Problem | Error |
-|----------|---------|-------|
-| Single HAL for input+output | `kAudioOutputUnitProperty_CurrentDevice` is global; setting input device overwrites output | -10851 |
-| AudioUnitRender on input-only HAL from output callback | Input HAL captures asynchronously via its own IOProc; cannot be pulled on-demand | -10863 |
-| Synchronous cross-device pull | Different device clocks cause drift and glitches | Audio artifacts |
-
-### Error Codes Reference
-
-| Code | Constant | Meaning |
-|------|----------|---------|
-| 0 | `noErr` | Success |
-| -50 | `paramErr` | Buffer format mismatch or invalid parameter |
-| -10851 | `kAudioUnitErr_InvalidPropertyValue` | Device/property not valid for this scope |
-| -10863 | `kAudioUnitErr_NoConnection` | No input connected to pull from (wrong architecture) |
-
-### HAL Audio Unit Scopes and Elements
-
-Understanding scopes and elements is critical for HAL configuration:
+### HAL Audio Unit Scopes
 
 ```
-                    ┌─────────────────────────────────────┐
-                    │         HAL Audio Unit              │
-                    │                                     │
-[Hardware Input] ──▶│ Element 1 (Input)                   │
-                    │   - Input Scope: hardware format    │
-                    │   - Output Scope: client format ────┼──▶ [Your Callback]
-                    │                                     │
-[Your Callback] ───▶│ Element 0 (Output)                  │
-                    │   - Input Scope: client format      │
-                    │   - Output Scope: hardware format ──┼──▶ [Hardware Output]
-                    └─────────────────────────────────────┘
+                ┌─────────────────────────────────────┐
+                │         HAL Audio Unit              │
+                │                                     │
+[Hardware] ────▶│ Element 1 (Input)                   │
+                │   - Input Scope: hardware format    │
+                │   - Output Scope: client format ────┼──▶ [Your Callback]
+                │                                     │
+[Callback] ────▶│ Element 0 (Output)                  │
+                │   - Input Scope: client format      │
+                │   - Output Scope: hardware format ──┼──▶ [Hardware]
+                └─────────────────────────────────────┘
 ```
 
-**Key Points:**
 - **Element 1** = Input path (microphone/capture)
 - **Element 0** = Output path (speakers/playback)
 - For input-only: enable Element 1, disable Element 0
 - For output-only: enable Element 0 (default), Element 1 stays disabled
 - Set client format on the "opposite" scope (Output scope of Element 1 for input, Input scope of Element 0 for output)
 
-## Entitlements
+### What Works / What Doesn't
 
-The app requires:
-- `com.apple.security.app-sandbox` (enabled)
-- `com.apple.security.device.audio-input` (microphone/audio routing)
+| Pattern | Status | Notes |
+|---------|--------|-------|
+| Dual HAL units | ✓ Works | Separate `HALIOManager` instances for input and output |
+| Ring buffer | ✓ Works | Decouples input/output device clocks safely |
+| Input callback | ✓ Works | Register via `kAudioOutputUnitProperty_SetInputCallback` |
+| Non-interleaved format | ✓ Works | `kAudioFormatFlagIsNonInterleaved` Float32 |
+| Manual rendering | ✓ Works | `AVAudioEngine.enableManualRenderingMode()` |
+| Single HAL for I/O | ✗ Fails | Device property is global; setting input overwrites output (-10851) |
+| AudioUnitRender on input HAL | ✗ Fails | Input HAL captures asynchronously; cannot be pulled (-10863) |
+| Synchronous cross-device pull | ✗ Fails | Different clocks cause drift and glitches |
 
-## Development Notes
+### Error Codes
 
-- **BlackHole 2ch**: Optional loopback driver for system audio routing
-- **Roadmap**: See `ToDo.md` for current development phase (HAL-based routing)
-- **Permissions**: App will prompt for microphone access on first launch
+| Code | Constant | Meaning |
+|------|----------|---------|
+| 0 | `noErr` | Success |
+| -50 | `paramErr` | Buffer format mismatch or invalid parameter |
+| -10851 | `kAudioUnitErr_InvalidPropertyValue` | Device/property not valid for this scope |
+| -10863 | `kAudioUnitErr_NoConnection` | No input connected to pull from |
+
+## Code Guidelines
+
+### Naming Conventions
+
+| Element | Convention | Example |
+|---------|------------|---------|
+| Types/Protocols | UpperCamelCase | `AudioDevice`, `EqualiserStore` |
+| Functions/Methods | lowerCamelCase | `refreshDevices()`, `start()` |
+| Variables | lowerCamelCase | `isRunning`, `inputDevices` |
+| Constants | lowerCamelCase | `let smoothingInterval` |
+| Enum cases | lowerCamelCase | `.parametric`, `.bypass` |
+| Private members | No underscore prefix | `private var task` |
+| User-initiated updates | `update*` prefix | `updateBandGain()`, `updateInputGain()` |
+
+### Concurrency
+
+- **@MainActor**: UI-bound classes (`EqualiserStore`, `EQConfiguration`, `MeterStore`, `DeviceManager`, `PresetManager`, `RenderPipeline`, `HALIOManager`, `ManualRenderingEngine`, `AppStatePersistence`)
+- **actor**: Thread-safe isolated state (`ParameterSmoother`)
+- **nonisolated(unsafe)**: Audio thread access from `@MainActor` classes
+
+### Testing
+
+- Test through **public API only** - never expose internals
+- Create **real instances** - no mocking
+- Use `@MainActor` on test classes for UI-bound code
+- Models are storage-free: `EQConfiguration()` instead of `EQConfiguration(storage: ...))`
+- Test naming: `test<MethodName>_<scenario>_<expectedResult>()`
 
 ## Common Tasks
 
-### Adding a New Source File
+### Modifying EQ Settings
 
-1. Create `.swift` file in `Sources/`
-2. No need to modify `Package.swift` (auto-discovered)
+Update settings via `EqualiserStore` methods (marks presets as modified):
 
-### Adding a Test
+**Per-Band Updates:**
+```swift
+store.updateBandGain(index: 0, gain: 6.0)
+store.updateBandFrequency(index: 0, frequency: 1000)
+store.updateBandBandwidth(index: 0, bandwidth: 1.0)
+store.updateBandFilterType(index: 0, filterType: .parametric)
+store.updateBandBypass(index: 0, bypass: false)
+```
 
+**Global Updates:**
+```swift
+store.updateBandCount(15)
+store.updateInputGain(6.0)
+store.updateOutputGain(-2.0)
+```
+
+**Direct property access** (no preset modification):
+```swift
+store.isBypassed = true
+store.bandCount = 10
+store.inputGain = 0
+```
+
+### Adding Files
+
+**Source file:**
+1. Create `.swift` file in `Sources/` or subdirectory
+2. SPM auto-discovers (no `Package.swift` edit)
+
+**Test file:**
 1. Create test class in `Tests/`
-2. Import with `@testable import EqualiserApp`
-3. Run with `swift test --filter YourTestClass`
+2. Import: `@testable import EqualiserApp`
+3. Run: `swift test --filter YourTestClass`
 
-### Modifying EQ Bands
+## Entitlements
 
-Update band settings via `EQConfiguration` methods:
-- `updateBandGain(index:gain:)` - runtime gain adjustment
-- `updateBandFrequency(index:frequency:)` - change center frequency
-- `updateBandBandwidth(index:bandwidth:)` - change Q/bandwidth
-- `updateBandFilterType(index:filterType:)` - change filter type
-
-Call `ManualRenderingEngine.reapplyConfiguration()` to reapply all settings at once.
+- `com.apple.security.app-sandbox` (enabled)
+- `com.apple.security.device.audio-input` (microphone/audio routing)
