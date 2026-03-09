@@ -102,6 +102,12 @@ final class PresetManager: ObservableObject {
         ensureDirectoryExists()
         installFactoryPresetsIfNeeded()
         loadAllPresets()
+
+        // Select Flat preset by default if none selected
+        if selectedPresetName == nil && presetExists(named: "Flat") {
+            selectPreset(named: "Flat")
+            logger.debug("Auto-selected Flat preset as default")
+        }
     }
 
     // MARK: - Directory Management

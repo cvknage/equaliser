@@ -193,4 +193,39 @@ final class DeviceManager: ObservableObject {
         }
         return nil
     }
+
+    // MARK: - Default Device Detection
+
+    /// Finds a BlackHole virtual audio device among input devices.
+    /// - Returns: The BlackHole device if found, nil otherwise.
+    func findBlackHoleDevice() -> AudioDevice? {
+        inputDevices.first { $0.name.contains("BlackHole") }
+    }
+
+    /// Returns the system default output device, excluding BlackHole.
+    /// Uses kAudioHardwarePropertyDefaultOutputDevice.
+    /// - Returns: The default output device if available and not BlackHole, nil otherwise.
+    func defaultOutputDevice() -> AudioDevice? {
+        var deviceID: AudioDeviceID = 0
+        var propertySize = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        guard AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &address, 0, nil, &propertySize, &deviceID
+        ) == noErr, deviceID != 0 else { return nil }
+
+        // Get the system default but exclude BlackHole
+        let systemDefault = outputDevices.first { $0.id == deviceID }
+        if let device = systemDefault, !device.name.contains("BlackHole") {
+            return device
+        }
+
+        // Fall back to first non-BlackHole output device
+        return outputDevices.first { !$0.name.contains("BlackHole") }
+    }
 }

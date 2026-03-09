@@ -166,6 +166,16 @@ final class EqualiserStore: ObservableObject {
             _selectedInputDeviceID = Published(initialValue: snapshot.inputDeviceID)
             _selectedOutputDeviceID = Published(initialValue: snapshot.outputDeviceID)
             _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .octaves)
+        } else {
+            // First launch: apply smart defaults
+            if let blackHole = deviceManager.findBlackHoleDevice() {
+                _selectedInputDeviceID = Published(initialValue: blackHole.uid)
+                logger.info("First launch: Auto-selected BlackHole as input device")
+            }
+            if let defaultOutput = deviceManager.defaultOutputDevice() {
+                _selectedOutputDeviceID = Published(initialValue: defaultOutput.uid)
+                logger.info("First launch: Auto-selected default output device: \(defaultOutput.name)")
+            }
         }
 
         // Auto-start routing if both devices are already selected

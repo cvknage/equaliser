@@ -38,7 +38,6 @@ struct PresetPicker: View {
             } label: {
                 PresetMenuLabelView()
             }
-            .menuStyle(.borderlessButton)
             ModifiedIndicator()
         }
     }
@@ -55,7 +54,6 @@ struct CompactPresetPicker: View {
             } label: {
                 PresetMenuLabelView()
             }
-            .menuStyle(.borderlessButton)
             ModifiedIndicator()
         }
         .frame(maxWidth: .infinity, alignment: .trailing)

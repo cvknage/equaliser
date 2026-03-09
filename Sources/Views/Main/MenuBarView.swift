@@ -73,13 +73,37 @@ struct MenuBarContentView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
-            Picker("Output", selection: $store.selectedOutputDeviceID) {
-                ForEach(store.outputDevices) { device in
-                    Text(device.displayName).tag(device.uid as String?)
+            Menu {
+                Section {
+                    Text("Select Output")
                 }
+                Section {
+                    ForEach(store.outputDevices) { device in
+                        Button {
+                            store.selectedOutputDeviceID = device.uid
+                        } label: {
+                            HStack {
+                                Text(device.displayName)
+                                if store.selectedOutputDeviceID == device.uid {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Text(displayOutputText)
             }
-            .labelsHidden()
         }
+    }
+
+    private var displayOutputText: String {
+        if let uid = store.selectedOutputDeviceID,
+           let device = store.outputDevices.first(where: { $0.uid == uid }) {
+            return device.displayName
+        }
+        return "Select Output"
     }
 
     // MARK: - Preset Picker Row
