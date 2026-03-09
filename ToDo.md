@@ -22,7 +22,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Allow users to pick input/output from the menu UI and reconfigure the engine safely.
 - [x] Remember the last-used devices and auto-reconnect on launch.
 
-## 5. HAL-Based Routing (Completed)
+## 5. HAL-Based Routing
 ### HALIOManager foundation
 - [x] Create `HALIOManager` owning a `kAudioUnitSubType_HALOutput` Audio Unit.
 - [x] Enable input/output scopes and expose `setInputDevice(id:)` / `setOutputDevice(id:)` helpers.
@@ -89,78 +89,37 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 
 ## 9. Testing & Release Prep
 - [x] Add unit tests for band-mapping logic and preset serialization.
-- [ ] Build an integration harness that feeds sample audio through both EQ units for verification.
+- [x] Add release script to bundle and package application as a .dmg.
 - [ ] Prepare signed/notarized builds and optionally integrate Sparkle or TestFlight for updates.
 
 ## 10. Bypass & Compare Mode
 
-### Bypass Behavior Requirements
+- [x] System EQ toggle (master bypass) — complete bypass of EQ and gains when OFF
+- [x] Compare mode segmented control ([EQ|Flat]) — A/B comparison with gains still applied in Flat mode
+- [x] Auto-revert timer (5 minutes) to switch back to EQ from Flat
+- [x] Thread-safe bypass flag access using atomic operations
+- [x] Help button (?) with popover explaining Compare Mode
 
-**System EQ Toggle** (master on/off):
-- Located in top-right control panel, stacked with Audio Routing toggle
-- When OFF: Complete bypass - no EQ processing, no input/output gain application
-- Result: Audio passes through completely unprocessed (sounds identical to Flat preset)
-- Use case: "Disable everything without closing the app"
+## 11. GPU-Rendered Meters
+- [ ] Replace SwiftUI shape-based meters with `Canvas` or `NSView` + Core Animation
+- [ ] Leverage GPU-accelerated rendering without Metal complexity
+- [ ] Target 60 FPS smooth animations with minimal CPU overhead
+- [ ] Consider `CAGradientLayer` or `Canvas` with `GraphicsContext` for smooth fills
 
-**Compare Mode** (EQ/Flat segmented control):
-- Located in bottom toolbar, to the left of Reset button
-- Segmented control with two options: `[ EQ | Flat ]`
-- Works even when System EQ is OFF (Compare mode state persists)
-- Includes help button (?) with popover explaining the feature
-- Auto-reverts to EQ after 5 minutes when Flat is selected
-- When set to **EQ**: Normal operation - EQ bands active, gains applied
-- When set to **Flat**: EQ bands bypassed, but input/output gains still applied
-- Use case: A/B comparison at matched volume level (compare EQ curve to flat without volume bias)
+## 12. Built-in Virtual Audio Device
+- [ ] Bundle a custom Core Audio kernel extension or AudioServerPlugIn
+- [ ] Eliminate dependency on third-party tools like BlackHole or Loopback
+- [ ] Provide one-click setup: app creates its own virtual input/output endpoints
 
-### UI Layout
+## 13. Application-Specific Routing
+- [ ] Allow users to select which applications route through the EQ (e.g., Spotify, Safari)
+- [ ] Build app picker UI showing all audio-producing processes with icons
+- [ ] Handle apps that launch/quit dynamically (add/remove from routing list)
+- [ ] Support excluding specific apps from processing while others pass through
 
-**Top-Right Control Panel:**
-```
-┌─────────────────────────┐
-│ Input:  [Device Picker] │
-│ Output: [Device Picker] │
-│                         │
-│ [Routing Status]        │
-│                         │
-│ System EQ     [===○]    │  <- Toggle switch
-│ Audio Routing [===●]    │  <- Toggle switch
-└─────────────────────────┘
-```
-
-**Bottom Toolbar:**
-```
-┌────────────────────────────────────────────────────────┐
-│ Preset: [Flat ▼] [+] [...]  Bands: [-] 32 [+]  [EQ|Flat] [Reset] │
-│  ^Left^                          ^Center^          ^Right^         │
-└────────────────────────────────────────────────────────┘
-```
-
-### Logic Matrix
-
-| System EQ | Compare Mode | EQ Bands | Input Gain | Output Gain | Result |
-|-----------|--------------|----------|------------|-------------|--------|
-| OFF | EQ | Bypassed | Skipped | Skipped | Complete bypass (Flat) |
-| OFF | Flat | Bypassed | Skipped | Skipped | Complete bypass (Flat) |
-| ON | EQ | Active | Applied | Applied | Normal EQ processing |
-| ON | Flat | Bypassed | Applied | Applied | A/B comparison mode |
-
-### Implementation Notes
-
-**Audio Thread Safety:**
-- The bypass flag (`isBypassed`) is accessed from both main thread (UI updates) and audio thread (44,100+ reads/sec)
-- Need thread-safe solution to avoid cache line contention
-- Current issue: CPU usage increased from 68% to 102% after adding bypass checks
-- Consider: atomic operations, lock-free data structures, or architectural changes
-
-**Todo:**
-- [x] Add System EQ toggle (master bypass)
-- [x] Add Compare mode segmented control ([EQ|Flat])
-- [x] Implement bypass logic for EQ units
-- [x] Implement bypass logic for input/output gains (skip when System EQ OFF)
-- [x] Fix CPU usage issue caused by cross-thread bypass flag access (used Int32 atomic approach)
-- [x] Test all bypass combinations for correct behavior
-- [x] Verify meters remain responsive in all modes
-- [x] Make Compare Mode work independently of System EQ toggle
-- [x] Add help button (?) with popover explaining Compare Mode
-- [x] Add auto-revert timer (5 minutes) to switch back to EQ from Flat
+## 14. Multiple EQ Chains
+- [ ] Support parallel or serial EQ configurations (e.g., one for music, one for voice)
+- [ ] Allow chaining multiple EQ presets with different band counts
+- [ ] Design UI for managing EQ chain slots (add/remove/reorder)
+- [ ] Consider latency implications of serial processing
 
