@@ -5,3 +5,4 @@ EqualizerApp.xcodeproj/
 *.xcworkspace/
 DerivedData/
 Equaliser.app/
+Release/

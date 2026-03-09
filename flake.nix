@@ -17,6 +17,7 @@
         packages = with pkgs; [
           librsvg # SVG to PNG conversion (rsvg-convert)
           gh # GitHub CLI for releases
+          create-dmg # DMG creation for app distribution
         ];
 
         shellHook = ''

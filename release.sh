@@ -13,7 +13,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLIST_PATH="$ROOT_DIR/Sources/App/Info.plist"
 APP_NAME="Equaliser"
-APP_BUNDLE="$ROOT_DIR/$APP_NAME.app"
+RELEASE_DIR="$ROOT_DIR/Release"
+APP_BUNDLE="$RELEASE_DIR/$APP_NAME.app"
 
 # Colors for output
 RED='\033[0;31m'
@@ -67,13 +68,19 @@ if ! command -v rsvg-convert &> /dev/null; then
     error "rsvg-convert not found. Run 'nix develop' or 'direnv allow' first."
 fi
 
-if ! command -v gh &> /dev/null; then
-    error "gh (GitHub CLI) not found. Run 'nix develop' or 'direnv allow' first."
+if ! command -v create-dmg &> /dev/null; then
+    error "create-dmg not found. Run 'nix develop' or 'direnv allow' first."
 fi
 
-# Check gh is authenticated
-if ! gh auth status &> /dev/null; then
-    error "gh is not authenticated. Run 'gh auth login' first."
+# gh auth only required for non-dry-run
+if [[ "$DRY_RUN" != true ]]; then
+    if ! command -v gh &> /dev/null; then
+        error "gh (GitHub CLI) not found. Run 'nix develop' or 'direnv allow' first."
+    fi
+
+    if ! gh auth status &> /dev/null; then
+        error "gh is not authenticated. Run 'gh auth login' first."
+    fi
 fi
 
 # Get current values from Info.plist
@@ -94,11 +101,10 @@ if [[ "$DRY_RUN" == true ]]; then
     echo ""
     dry "Would commit: \"chore: bump version to $VERSION\""
     dry "Would run: ./bundle.sh"
-    dry "Would create: $APP_NAME-$VERSION.zip"
+    dry "Would create: $APP_NAME-$VERSION.dmg"
     dry "Would create GitHub draft release: v$VERSION"
     echo ""
-    info "DRY RUN complete. No changes made."
-    exit 0
+    info "DRY RUN: Proceeding with build but skipping GitHub release..."
 fi
 
 info "Releasing $APP_NAME v$VERSION"
@@ -107,30 +113,32 @@ info "Releasing $APP_NAME v$VERSION"
 info "Build version (git SHA): $GIT_SHA"
 
 # Update Info.plist
-info "Updating Info.plist..."
+if [[ "$DRY_RUN" != true ]]; then
+    info "Updating Info.plist..."
 
-# Update CFBundleShortVersionString
-sed -i '' "s|<key>CFBundleShortVersionString</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleShortVersionString</key>\n\t<string>$VERSION</string>|" "$PLIST_PATH"
+    # Update CFBundleShortVersionString
+    sed -i '' "s|<key>CFBundleShortVersionString</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleShortVersionString</key>\n\t<string>$VERSION</string>|" "$PLIST_PATH"
 
-# Update CFBundleVersion
-sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key>\n\t<string>$GIT_SHA</string>|" "$PLIST_PATH"
+    # Update CFBundleVersion
+    sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key>\n\t<string>$GIT_SHA</string>|" "$PLIST_PATH"
 
-# Commit the plist change
-info "Committing version bump..."
-git add "$PLIST_PATH"
-git commit -m "chore: bump version to $VERSION"
+    # Commit the plist change
+    info "Committing version bump..."
+    git add "$PLIST_PATH"
+    git commit -m "chore: bump version to $VERSION"
 
-# Get new SHA after commit (this is what will be in the release)
-GIT_SHA_NEW=$(git rev-parse --short HEAD)
+    # Get new SHA after commit (this is what will be in the release)
+    GIT_SHA_NEW=$(git rev-parse --short HEAD)
 
-# Update CFBundleVersion again with the new commit SHA
-sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key>\n\t<string>$GIT_SHA_NEW</string>|" "$PLIST_PATH"
+    # Update CFBundleVersion again with the new commit SHA
+    sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key>\n\t<string>$GIT_SHA_NEW</string>|" "$PLIST_PATH"
 
-# Amend the commit to include the updated SHA
-git add "$PLIST_PATH"
-git commit --amend --no-edit
+    # Amend the commit to include the updated SHA
+    git add "$PLIST_PATH"
+    git commit --amend --no-edit
 
-info "Final build version: $GIT_SHA_NEW"
+    info "Final build version: $GIT_SHA_NEW"
+fi
 
 # Build the app bundle
 info "Building app bundle..."
@@ -141,33 +149,45 @@ if [[ ! -d "$APP_BUNDLE" ]]; then
     error "Build failed: $APP_BUNDLE not found"
 fi
 
-# Create ZIP
-ZIP_NAME="$APP_NAME-$VERSION.zip"
-info "Creating $ZIP_NAME..."
-ditto -c -k "$APP_BUNDLE" "$ZIP_NAME"
+# Create DMG
+DMG_NAME="$RELEASE_DIR/$APP_NAME-$VERSION.dmg"
+info "Creating $DMG_NAME..."
+create-dmg \
+    --volname "$APP_NAME" \
+    --app-drop-link 140 120 \
+    --icon "$APP_NAME.app" 420 120 \
+    --window-size 560 400 \
+    --icon-size 80 \
+    "$DMG_NAME" \
+    "$APP_BUNDLE"
 
-# Create GitHub release (as draft)
-info "Creating GitHub release draft v$VERSION..."
-gh release create "v$VERSION" \
-    --title "v$VERSION" \
-    --generate-notes \
-    --draft \
-    "$ZIP_NAME"
+if [[ "$DRY_RUN" == true ]]; then
+    info "DRY RUN complete. DMG created at: $DMG_NAME"
+    info "Skipped: GitHub release creation, git commit"
+else
+    # Create GitHub release (as draft)
+    info "Creating GitHub release draft v$VERSION..."
+    gh release create "v$VERSION" \
+        --title "v$VERSION" \
+        --generate-notes \
+        --draft \
+        "$DMG_NAME"
 
-# Clean up
-rm "$ZIP_NAME"
+    # Clean up
+    rm "$DMG_NAME"
 
-# Get release URL
-RELEASE_URL=$(gh release view "v$VERSION" --json url --jq '.url')
+    # Get release URL
+    RELEASE_URL=$(gh release view "v$VERSION" --json url --jq '.url')
 
-info "Release draft created!"
-echo ""
-echo "Draft URL: $RELEASE_URL"
-echo ""
-echo "Next steps:"
-echo "  1. Open the URL above"
-echo "  2. Edit the release notes"
-echo "  3. Click 'Publish release'"
-echo ""
-echo "Note: Since this app is not notarized, users will need to"
-echo "right-click -> Open to bypass Gatekeeper on first launch."
+    info "Release draft created!"
+    echo ""
+    echo "Draft URL: $RELEASE_URL"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Open the URL above"
+    echo "  2. Edit the release notes"
+    echo "  3. Click 'Publish release'"
+    echo ""
+    echo "Note: Since this app is not notarized, users will need to"
+    echo "right-click -> Open to bypass Gatekeeper on first launch."
+fi
