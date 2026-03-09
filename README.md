@@ -68,7 +68,7 @@ brew install blackhole-2ch
 
 ### Get Equaliser
 
-Download the latest version from **Releases**, or build from source:
+Download the latest version from [**Releases**](https://github.com/cvknage/equaliser/releases), or build from source:
 
 ```bash
 swift build -c release
@@ -87,20 +87,47 @@ swift build -c release
 
 Audio from all applications will now pass through Equaliser.
 
+## Uninstall
+
+To remove Equaliser from your Mac:
+
+1. **Quit the app** — Click the menu bar icon and choose **Quit**
+2. **Restore system audio** — Open **System Settings → Sound** and change the output from **BlackHole 2ch** back to your speakers or headphones
+3. **Delete the app** — Drag Equaliser from your Applications folder to the Trash
+4. **Uninstall BlackHole** (optional) — See [uninstall instructions](https://github.com/ExistentialAudio/BlackHole/wiki/Uninstallation)
+
+**Optional cleanup:**
+
+Equaliser stores data in your user Library:
+
+- Presets: `~/Library/Application Support/Equaliser/`
+- Settings: `~/Library/Containers/net.knage.equaliser/`
+
+These files are small and harmless — remove them only if you do not plan to reinstall Equaliser.
+
+No other system changes are made.
+
+
 ## Requirements
 
 * macOS 15 (Sequoia) or later
 * Apple Silicon Mac
 * BlackHole 2ch
 
-## Permissions
+## Privacy & Permissions
 
 Equaliser requires **Microphone access** on macOS.
 
-This is necessary because macOS treats virtual audio devices (such as **BlackHole**) as microphone inputs.  
+This is necessary because macOS treats virtual audio devices (such as **BlackHole**) as microphone inputs. 
 Granting this permission allows Equaliser to receive system audio from BlackHole so it can apply the equaliser.
 
-Equaliser **does not record, store, or transmit microphone audio** — the permission is only used to process system sound locally.
+All audio processing happens **locally on your Mac**.
+
+Equaliser:
+- does **not record audio**
+- does **not store audio**
+- does **not transmit audio**
+- does **not include analytics or telemetry**
 
 ## Alternatives
 
