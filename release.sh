@@ -116,11 +116,9 @@ info "Build version (git SHA): $GIT_SHA"
 if [[ "$DRY_RUN" != true ]]; then
     info "Updating Info.plist..."
 
-    # Update CFBundleShortVersionString
-    sed -i '' "s|<key>CFBundleShortVersionString</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleShortVersionString</key>\n\t<string>$VERSION</string>|" "$PLIST_PATH"
-
-    # Update CFBundleVersion
-    sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key>\n\t<string>$GIT_SHA</string>|" "$PLIST_PATH"
+    # Update CFBundleShortVersionString and CFBundleVersion using PlistBuddy
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST_PATH"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GIT_SHA" "$PLIST_PATH"
 
     # Commit the plist change
     info "Committing version bump..."
@@ -130,8 +128,8 @@ if [[ "$DRY_RUN" != true ]]; then
     # Get new SHA after commit (this is what will be in the release)
     GIT_SHA_NEW=$(git rev-parse --short HEAD)
 
-    # Update CFBundleVersion again with the new commit SHA
-    sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key>\n\t<string>$GIT_SHA_NEW</string>|" "$PLIST_PATH"
+    # Update CFBundleVersion with the new commit SHA
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GIT_SHA_NEW" "$PLIST_PATH"
 
     # Amend the commit to include the updated SHA
     git add "$PLIST_PATH"
