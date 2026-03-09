@@ -106,19 +106,20 @@ Equaliser **does not record, store, or transmit microphone audio** — the permi
 
 Some other macOS system audio tools you might consider:
 
-* **[SoundMax](https://snap-sites.github.io/SoundMax/)** — Free, Open Source
-* **[eqMac (older version without Pro Features)](https://github.com/bitgapp/eqMac)** — Free, Open Source
-* **[Vizzdom Analyzer with EQ](https://www.krisdigital.com/en/blog/2018/08/23/vizzdom-mac-system-audio-spectrum-level-analyzer/)** — Gratis, Proprietary
-* **[Hosting AU](https://ju-x.com/hostingau.html)** — Gratis, Proprietary
-* **[AU Lab](https://www.apple.com/apple-music/apple-digital-masters/)** — Gratis, Proprietary
-* **[eqMac (latest version)](https://eqmac.app/)** — Paid, Proprietary
-* **[Sound Control 3](https://staticz.com/soundcontrol/)** — Paid, Proprietary
-* **[Airfoil](https://rogueamoeba.com/airfoil/)** — Paid, Proprietary
-* **[SoundSource](https://rogueamoeba.com/soundsource/)** — Paid, Proprietary
+* **[SoundMax](https://snap-sites.github.io/SoundMax/)** — Free, Open Source, Gratis
+* **[eqMac (older version without Pro Features)](https://github.com/bitgapp/eqMac)** — Free, Open Source, Gratis
+* **[Vizzdom Analyzer with EQ](https://www.krisdigital.com/en/blog/2018/08/23/vizzdom-mac-system-audio-spectrum-level-analyzer/)** — Proprietary, Gratis
+* **[Hosting AU](https://ju-x.com/hostingau.html)** — Proprietary, Gratis
+* **[AU Lab](https://www.apple.com/apple-music/apple-digital-masters/)** — Proprietary, Gratis
+* **[eqMac (latest version)](https://eqmac.app/)** — Proprietary, Paid
+* **[Sound Control 3](https://staticz.com/soundcontrol/)** — Proprietary, Paid
+* **[Airfoil](https://rogueamoeba.com/airfoil/)** — Proprietary, Paid
+* **[SoundSource](https://rogueamoeba.com/soundsource/)** — Proprietary, Paid
 
 **Legend:**  
 **Free** [as in Freedom](https://www.gnu.org/philosophy/free-sw.html) = FOSS; you can run, study, modify, and redistribute it  
-**Gratis** = free-of-charge, but without user freedoms; source is closed  
+**Gratis** = software is free-of-charge, regardless of license  
+**Open Source** = source code is available for review and modification  
 **Paid** = software that requires purchase, regardless of license  
 **Proprietary** = source is closed; you cannot modify or redistribute it  
 
