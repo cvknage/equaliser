@@ -83,21 +83,26 @@ final class RMSMeterLayer: NSView, MeterObserver {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
+        // Reset transform before frame calculations to avoid interaction issues
+        fillMaskLayer.transform = CATransform3DIdentity
+
         // Background fills entire bounds
         backgroundLayer.frame = bounds
 
         // Fill layer fills entire bounds
         fillLayer.frame = bounds
         
-        // Fill mask layer - set to full size, we'll scale it
-        fillMaskLayer.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        // Fill mask layer - use bounds + position with explicit anchor point
+        // This prevents issues when appearance changes trigger re-layout
+        fillMaskLayer.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        fillMaskLayer.position = CGPoint(x: bounds.midX, y: 0)
 
         // Border path
         let borderPath = CGPath(roundedRect: bounds.insetBy(dx: 0.5, dy: 0.5), cornerWidth: 4, cornerHeight: 4, transform: nil)
         borderLayer.path = borderPath
         borderLayer.frame = bounds
         
-        // Re-apply current state
+        // Re-apply current state - must be done after all frame/bounds operations
         updateFillTransform()
         
         CATransaction.commit()

@@ -108,14 +108,19 @@ final class PeakMeterLayer: NSView, MeterObserver {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
+        // Reset transform before frame calculations to avoid interaction issues
+        fillMaskLayer.transform = CATransform3DIdentity
+
         // Background fills entire bounds
         backgroundLayer.frame = bounds
 
         // Fill layer fills entire bounds
         fillLayer.frame = bounds
         
-        // Fill mask layer - set to full size, we'll scale it
-        fillMaskLayer.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        // Fill mask layer - use bounds + position with explicit anchor point
+        // This prevents issues when appearance changes trigger re-layout
+        fillMaskLayer.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
+        fillMaskLayer.position = CGPoint(x: bounds.midX, y: 0)
 
         // Peak hold line (width of meter, 2pt height)
         peakHoldLayer.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 2)
@@ -136,7 +141,7 @@ final class PeakMeterLayer: NSView, MeterObserver {
         borderLayer.path = borderPath
         borderLayer.frame = bounds
         
-        // Re-apply current state
+        // Re-apply current state - must be done after all frame/bounds operations
         updateFillTransform()
         updatePeakHoldPosition()
         
