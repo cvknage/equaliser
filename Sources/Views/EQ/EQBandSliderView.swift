@@ -82,11 +82,6 @@ struct EQBandSliderView: View {
     private var slider: some View {
         GeometryReader { geo in
             let height = geo.size.height
-            let halfHeight = height / 2
-            let positiveRatio = min(max(gain / maxGain, 0), 1)
-            let negativeRatio = min(max(abs(gain) / abs(minGain), 0), 1)
-            let positiveHeight = CGFloat(positiveRatio) * halfHeight
-            let negativeHeight = gain < 0 ? CGFloat(negativeRatio) * halfHeight : 0
             let normalizedGain = CGFloat((gain - minGain) / (maxGain - minGain))
             let thumbOffset = (0.5 - normalizedGain) * height
 
@@ -96,24 +91,27 @@ struct EQBandSliderView: View {
                     .frame(width: 8, height: height)
 
                 Rectangle()
-                    .fill(Color.gray.opacity(0.6))
-                    .frame(width: 14, height: 1)
+                    .fill(Color.gray.opacity(0.8))
+                    .frame(width: 12, height: 1)
+                    .offset(x: -15)
 
-                if gain > 0 {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(fillColor)
-                        .frame(width: 8, height: positiveHeight)
-                        .offset(y: -positiveHeight / 2)
-                        .animation(.easeOut(duration: 0.08), value: gain)
+                // Tick marks every 6 dB from -30 to +30 (excluding 0 and edges)
+                ForEach([-30, -24, -18, -12, -6, 6, 12, 18, 24, 30], id: \.self) { db in
+                    Rectangle()
+                        .fill(Color.gray.opacity(0.35))
+                        .frame(width: 10, height: 1)
+                        .offset(x: -15, y: (0.5 - CGFloat((Float(db) - minGain) / (maxGain - minGain))) * height)
                 }
 
-                if gain < 0 {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(fillColor)
-                        .frame(width: 8, height: negativeHeight)
-                        .offset(y: negativeHeight / 2)
-                        .animation(.easeOut(duration: 0.08), value: gain)
-                }
+                // Single fill from bottom to thumb (always green, gray when near zero)
+                let fillHeight = CGFloat((gain - minGain) / (maxGain - minGain)) * height
+                let fillOffset = height - fillHeight / 2
+
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(fillColor)
+                    .frame(width: 8, height: fillHeight)
+                    .offset(y: fillOffset - height / 2)
+                    .animation(.easeOut(duration: 0.08), value: gain)
 
                 Circle()
                     .fill(Color.white)
@@ -138,13 +136,7 @@ struct EQBandSliderView: View {
     }
 
     private var fillColor: Color {
-        if abs(gain) < 1 {
-            return .gray
-        } else if gain > 0 {
-            return .green
-        } else {
-            return .orange
-        }
+        .blue
     }
 }
 
