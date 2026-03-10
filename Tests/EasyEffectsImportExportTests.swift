@@ -213,7 +213,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
             metadata: PresetMetadata(name: "Export Test"),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: 0,
                 outputGain: 0,
                 activeBandCount: 1,
@@ -345,7 +344,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
             metadata: PresetMetadata(name: "Round Trip Test"),
             settings: PresetSettings(
                 globalBypass: false,
-                globalGain: 0,
                 inputGain: -1.5,
                 outputGain: 2.0,
                 activeBandCount: 5,

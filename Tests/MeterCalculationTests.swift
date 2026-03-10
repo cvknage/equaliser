@@ -208,35 +208,5 @@ final class MeterCalculationTests: XCTestCase {
         XCTAssertEqual(rms, amplitude, accuracy: 0.001)
     }
 
-    // MARK: - ChannelMeterState Tests
 
-    func testChannelMeterState_silentConstant() {
-        let silent = ChannelMeterState.silent
-
-        XCTAssertEqual(silent.peak, 0)
-        XCTAssertEqual(silent.peakHold, 0)
-        XCTAssertEqual(silent.peakHoldTimeRemaining, 0)
-        XCTAssertEqual(silent.clipHold, 0)
-        XCTAssertEqual(silent.rms, 0)
-        XCTAssertFalse(silent.isClipping)
-    }
-
-    func testChannelMeterState_isClipping() {
-        // Not clipping when clipHold is 0
-        var state = ChannelMeterState(peak: 1.0, peakHold: 1.0, peakHoldTimeRemaining: 0, clipHold: 0, rms: 0.5)
-        XCTAssertFalse(state.isClipping)
-
-        // Clipping when clipHold > 0
-        state.clipHold = 0.5
-        XCTAssertTrue(state.isClipping)
-    }
-
-    // MARK: - StereoMeterState Tests
-
-    func testStereoMeterState_silentConstant() {
-        let silent = StereoMeterState.silent
-
-        XCTAssertEqual(silent.left, ChannelMeterState.silent)
-        XCTAssertEqual(silent.right, ChannelMeterState.silent)
-    }
 }

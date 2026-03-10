@@ -234,7 +234,6 @@ final class PresetCodableTests: XCTestCase {
 
         let original = PresetSettings(
             globalBypass: true,
-            globalGain: 2.0,
             inputGain: -3.0,
             outputGain: 1.5,
             activeBandCount: 3,
@@ -245,7 +244,6 @@ final class PresetCodableTests: XCTestCase {
         let decoded = try decoder.decode(PresetSettings.self, from: data)
 
         XCTAssertEqual(decoded.globalBypass, original.globalBypass)
-        XCTAssertEqual(decoded.globalGain, original.globalGain)
         XCTAssertEqual(decoded.inputGain, original.inputGain)
         XCTAssertEqual(decoded.outputGain, original.outputGain)
         XCTAssertEqual(decoded.activeBandCount, original.activeBandCount)
@@ -256,7 +254,6 @@ final class PresetCodableTests: XCTestCase {
         let settings = PresetSettings()
 
         XCTAssertFalse(settings.globalBypass)
-        XCTAssertEqual(settings.globalGain, 0)
         XCTAssertEqual(settings.inputGain, 0)
         XCTAssertEqual(settings.outputGain, 0)
         XCTAssertEqual(settings.activeBandCount, EQConfiguration.defaultBandCount)
@@ -276,7 +273,6 @@ final class PresetCodableTests: XCTestCase {
 
         let settings = PresetSettings(
             globalBypass: false,
-            globalGain: 0,
             inputGain: -2.0,
             outputGain: 1.0,
             activeBandCount: 5,
@@ -295,7 +291,6 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.version, original.version)
         XCTAssertEqual(decoded.metadata.name, original.metadata.name)
         XCTAssertEqual(decoded.settings.globalBypass, original.settings.globalBypass)
-        XCTAssertEqual(decoded.settings.globalGain, original.settings.globalGain)
         XCTAssertEqual(decoded.settings.inputGain, original.settings.inputGain)
         XCTAssertEqual(decoded.settings.outputGain, original.settings.outputGain)
         XCTAssertEqual(decoded.settings.activeBandCount, original.settings.activeBandCount)
