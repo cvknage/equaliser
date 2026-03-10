@@ -2,27 +2,27 @@
 
 A sequential plan so we can ship the menu-bar equalizer step by step.
 
-## 1. Bootstrap the Project
+## 1. Bootstrap the Project (Completed)
 - [x] Create a new SwiftUI macOS app targeting macOS 15+ on Apple Silicon.
 - [x] Configure signing, hardened runtime, and microphone/audio entitlements.
 - [x] Add basic README notes on installing BlackHole 2ch for loopback use.
 
-## 2. Core Application Shell
+## 2. Core Application Shell (Completed)
 - [x] Implement the menu-bar status item with a SwiftUI popover host view.
 - [x] Set up a shared `EqualiserStore` (ObservableObject) for global state.
 - [x] Persist minimal preferences (selected devices, bypass state) via UserDefaults.
 
-## 3. Audio Engine Foundation
+## 3. Audio Engine Foundation (Completed)
 - [x] Build `AudioEngineManager` around `AVAudioEngine` with input/output nodes.
 - [x] Insert two `AUNBandEQ` units (bands 1–16 and 17–32) plus optional limiter node.
 - [x] Add smooth parameter ramping utilities to avoid zipper noise.
 
-## 4. Device Selection Flow
+## 4. Device Selection Flow (Completed)
 - [x] Implement `DeviceManager` to list Core Audio input/output devices (including BlackHole).
 - [x] Allow users to pick input/output from the menu UI and reconfigure the engine safely.
 - [x] Remember the last-used devices and auto-reconnect on launch.
 
-## 5. HAL-Based Routing
+## 5. HAL-Based Routing (Completed)
 ### HALIOManager foundation
 - [x] Create `HALIOManager` owning a `kAudioUnitSubType_HALOutput` Audio Unit.
 - [x] Enable input/output scopes and expose `setInputDevice(id:)` / `setOutputDevice(id:)` helpers.
@@ -92,7 +92,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Add release script to bundle and package application as a .dmg.
 - [ ] Prepare signed/notarized builds and optionally integrate Sparkle or TestFlight for updates.
 
-## 10. Bypass & Compare Mode
+## 10. Bypass & Compare Mode (Completed)
 
 - [x] System EQ toggle (master bypass) — complete bypass of EQ and gains when OFF
 - [x] Compare mode segmented control ([EQ|Flat]) — A/B comparison with gains still applied in Flat mode
@@ -100,11 +100,11 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Thread-safe bypass flag access using atomic operations
 - [x] Help button (?) with popover explaining Compare Mode
 
-## 11. GPU-Rendered Meters
-- [ ] Replace SwiftUI shape-based meters with `Canvas` or `NSView` + Core Animation
-- [ ] Leverage GPU-accelerated rendering without Metal complexity
-- [ ] Target 60 FPS smooth animations with minimal CPU overhead
-- [ ] Consider `CAGradientLayer` or `Canvas` with `GraphicsContext` for smooth fills
+## 11. GPU-Rendered Meters (Completed)
+- [x] Replace SwiftUI shape-based meters with `NSView` + Core Animation (CALayer/CAGradientLayer)
+- [x] Leverage GPU-accelerated rendering without Metal complexity
+- [x] Target 30 FPS smooth animations with minimal CPU overhead
+- [x] Use observer pattern for direct meter updates bypassing SwiftUI re-rendering
 
 ## 12. Built-in Virtual Audio Device
 - [ ] Bundle a custom Core Audio kernel extension or AudioServerPlugIn

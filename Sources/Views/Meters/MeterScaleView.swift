@@ -1,10 +1,29 @@
 import SwiftUI
 
+/// Shared constants for meter visualization.
+enum MeterConstants {
+    static let meterRange: ClosedRange<Float> = -36...0
+    static let gamma: Float = 0.5
+    static let meterHeight: CGFloat = 126
+    static let standardTickValues: [Float] = [0, -6, -12, -18, -24, -30, -36]
+
+    /// Converts a dB value to a normalized position (0-1) matching the meter visual.
+    static func normalizedPosition(for db: Float) -> Float {
+        if db <= meterRange.lowerBound { return 0 }
+        if db >= meterRange.upperBound { return 1 }
+        let amp = powf(10.0, 0.05 * db)
+        let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
+        let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
+        let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
+        return powf(normalizedAmp, gamma)
+    }
+}
+
 struct MeterScaleView: View {
     let height: CGFloat
 
     var body: some View {
-        // Match DualPeakMeterView structure: VStack(spacing: 4) with content + label
+        // Match PeakMeter structure: VStack(spacing: 4) with content + label
         VStack(spacing: 4) {
             Canvas { context, size in
                 for db in MeterConstants.standardTickValues {
@@ -46,7 +65,7 @@ struct MeterScaleView: View {
             }
             .frame(width: 32, height: height)
 
-            // Match channel label height from DualPeakMeterView
+            // Match channel label height from PeakMeter
             Text(" ")
                 .font(.caption2)
                 .foregroundStyle(.clear)

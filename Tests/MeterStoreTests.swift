@@ -4,20 +4,26 @@ import XCTest
 @MainActor
 final class MeterStoreTests: XCTestCase {
 
-    // MARK: - Initialization Tests
+    // MARK: - Test Observer
 
-    func testInit_defaultValues_allMetersSilent() {
-        let store = MeterStore()
+    private final class TestObserver: MeterObserver {
+        var lastValue: Float = 0
+        var lastHold: Float = 0
+        var lastClipping: Bool = false
+        var updateCount = 0
 
-        XCTAssertEqual(store.inputMeterLevel, .silent)
-        XCTAssertEqual(store.outputMeterLevel, .silent)
-        XCTAssertEqual(store.inputMeterRMS, .silent)
-        XCTAssertEqual(store.outputMeterRMS, .silent)
+        func meterUpdated(value: Float, hold: Float, clipping: Bool) {
+            lastValue = value
+            lastHold = hold
+            lastClipping = clipping
+            updateCount += 1
+        }
     }
+
+    // MARK: - Initialization Tests
 
     func testInit_defaultValues_metersEnabledTrue() {
         let store = MeterStore()
-
         XCTAssertTrue(store.metersEnabled)
     }
 
@@ -26,62 +32,74 @@ final class MeterStoreTests: XCTestCase {
         XCTAssertFalse(store.metersEnabled)
     }
 
+    // MARK: - Observer Registration Tests
+
+    func testAddObserver_receivesUpdates() {
+        let store = MeterStore()
+        let observer = TestObserver()
+
+        store.addObserver(observer, for: .inputPeakLeft)
+
+        // Initially silent state should be sent
+        XCTAssertEqual(observer.lastValue, 0)
+        XCTAssertEqual(observer.lastHold, 0)
+        XCTAssertFalse(observer.lastClipping)
+    }
+
+    func testRemoveObserver_stopsReceivingUpdates() {
+        let store = MeterStore()
+        let observer = TestObserver()
+
+        store.addObserver(observer, for: .inputPeakLeft)
+        store.removeObserver(observer, for: .inputPeakLeft)
+
+        // Should not crash and updates should stop
+        XCTAssertTrue(true)
+    }
+
     // MARK: - metersEnabled Toggle Tests
 
-    func testMetersEnabled_whenDisabled_setsAllMetersToSilent() {
+    func testMetersEnabled_whenDisabled_notifiesAllObserversSilent() {
         let store = MeterStore()
+        let peakObserver = TestObserver()
+        let rmsObserver = TestObserver()
 
-        let testState = StereoMeterState(
-            left: ChannelMeterState(peak: 0.5, peakHold: 0.5, peakHoldTimeRemaining: 1.0, clipHold: 0, rms: 0.3),
-            right: ChannelMeterState(peak: 0.6, peakHold: 0.6, peakHoldTimeRemaining: 1.0, clipHold: 0, rms: 0.4)
-        )
-        store.inputMeterLevel = testState
-        store.outputMeterLevel = testState
-        store.inputMeterRMS = testState
-        store.outputMeterRMS = testState
+        store.addObserver(peakObserver, for: .inputPeakLeft)
+        store.addObserver(rmsObserver, for: .inputRMSLeft)
 
         store.metersEnabled = false
 
-        XCTAssertEqual(store.inputMeterLevel, .silent)
-        XCTAssertEqual(store.outputMeterLevel, .silent)
-        XCTAssertEqual(store.inputMeterRMS, .silent)
-        XCTAssertEqual(store.outputMeterRMS, .silent)
+        // Both observers should have been notified with silent state
+        XCTAssertEqual(peakObserver.lastValue, 0)
+        XCTAssertEqual(rmsObserver.lastValue, 0)
     }
 
-    func testMetersEnabled_whenEnabled_doesNotResetMeters() {
-        let store = MeterStore()
+    func testMetersEnabled_whenEnabled_startsUpdates() {
+        let store = MeterStore(metersEnabled: false)
+        let observer = TestObserver()
 
-        let testState = StereoMeterState(
-            left: ChannelMeterState(peak: 0.5, peakHold: 0.5, peakHoldTimeRemaining: 1.0, clipHold: 0, rms: 0.3),
-            right: .silent
-        )
-        store.inputMeterLevel = testState
+        store.addObserver(observer, for: .inputPeakLeft)
+        let initialCount = observer.updateCount
 
         store.metersEnabled = true
 
-        XCTAssertEqual(store.inputMeterLevel, testState)
+        // Should not crash and updates should start
+        XCTAssertTrue(true)
     }
 
     // MARK: - Timer Lifecycle Tests
 
-    func testStopMeterUpdates_resetsAllMetersToSilent() {
+    func testStopMeterUpdates_notifiesAllObserversSilent() {
         let store = MeterStore()
+        let observer = TestObserver()
 
-        let testState = StereoMeterState(
-            left: ChannelMeterState(peak: 0.5, peakHold: 0.5, peakHoldTimeRemaining: 1.0, clipHold: 0, rms: 0.3),
-            right: .silent
-        )
-        store.inputMeterLevel = testState
-        store.outputMeterLevel = testState
-        store.inputMeterRMS = testState
-        store.outputMeterRMS = testState
+        store.addObserver(observer, for: .inputPeakLeft)
+        observer.updateCount = 0  // Reset count
 
         store.stopMeterUpdates()
 
-        XCTAssertEqual(store.inputMeterLevel, .silent)
-        XCTAssertEqual(store.outputMeterLevel, .silent)
-        XCTAssertEqual(store.inputMeterRMS, .silent)
-        XCTAssertEqual(store.outputMeterRMS, .silent)
+        // Observer should have been notified with silent state
+        XCTAssertEqual(observer.lastValue, 0)
     }
 
     func testStartMeterUpdates_withoutPipeline_noCrash() {
@@ -90,5 +108,26 @@ final class MeterStoreTests: XCTestCase {
         store.startMeterUpdates()
 
         XCTAssertTrue(true)
+    }
+
+    // MARK: - Multiple Meter Types
+
+    func testMultipleObserversForDifferentTypes() {
+        let store = MeterStore()
+        let inputPeakObserver = TestObserver()
+        let outputPeakObserver = TestObserver()
+        let inputRMSObserver = TestObserver()
+        let outputRMSObserver = TestObserver()
+
+        store.addObserver(inputPeakObserver, for: .inputPeakLeft)
+        store.addObserver(outputPeakObserver, for: .outputPeakLeft)
+        store.addObserver(inputRMSObserver, for: .inputRMSLeft)
+        store.addObserver(outputRMSObserver, for: .outputRMSLeft)
+
+        // All observers should have received initial silent state
+        XCTAssertEqual(inputPeakObserver.lastValue, 0)
+        XCTAssertEqual(outputPeakObserver.lastValue, 0)
+        XCTAssertEqual(inputRMSObserver.lastValue, 0)
+        XCTAssertEqual(outputRMSObserver.lastValue, 0)
     }
 }

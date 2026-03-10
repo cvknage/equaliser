@@ -40,7 +40,7 @@ struct EQWindowView: View {
                         ToggleWithHelp(
                             label: "Meters",
                             isOn: $metersEnabledUI,
-                            helpText: "Level meters update at 30 FPS and can increase CPU usage. When this window is closed or minimized, meters stop rendering. Disable to reduce CPU while the window is open."
+                            helpText: "Level meters add slight CPU overhead. They pause automatically when the window is closed or minimized. Disable here to reduce CPU while the window is open."
                         )
                         .id("meters-toggle")
                         .onAppear {
@@ -170,6 +170,12 @@ struct EQWindowView: View {
                 store.setEqualiserWindow(window)
             }
         )
+        .onAppear {
+            store.meterStore.windowBecameVisible()
+        }
+        .onDisappear {
+            store.meterStore.windowBecameHidden()
+        }
     }
 }
 

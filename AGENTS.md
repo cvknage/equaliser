@@ -31,8 +31,8 @@ swift test --filter TestClassName
 | | `Info.plist` | App metadata and configuration |
 | **Core/** | `EqualiserStore.swift` | Central state coordinator, computed properties |
 | | `EQConfiguration.swift` | EQ band data (storage-free, up to 64 bands) |
-| | `MeterStore.swift` | Isolated 30 FPS meter state |
-| | `MeterState.swift` | ChannelMeterState, StereoMeterState structs |
+| | `MeterStore.swift` | Isolated 30 FPS meter state (observer pattern) |
+| | `MeterObserver.swift` | MeterType enum, MeterObserver protocol for direct UI updates |
 | | `RoutingStatus.swift` | Routing status enum (.idle, .starting, .active, .error) |
 | **Audio/HAL/** | `HALIOManager.swift` | HAL audio unit (input/output modes) |
 | | `HALIOError.swift` | HAL error types |
@@ -56,8 +56,12 @@ swift test --filter TestClassName
 | | `EQBandSliderView.swift` | Individual band slider with controls |
 | | `BandCountControl.swift` | Band count selector |
 | | `GainStepperControl.swift` | Input/output gain controls |
-| **Views/Meters/** | `LevelMetersView.swift` | Input/output level meters |
-| | `MeterScaleView.swift` | Meter scale visualization |
+| **Views/Meters/** | `LevelMetersView.swift` | Input/output level meters (SwiftUI wrapper) |
+| | `PeakMeterLayer.swift` | GPU-accelerated peak meter (CALayer) |
+| | `PeakMeterNSView.swift` | SwiftUI wrapper for PeakMeterLayer |
+| | `RMSMeterLayer.swift` | GPU-accelerated RMS meter (CALayer) |
+| | `RMSMeterNSView.swift` | SwiftUI wrapper for RMSMeterLayer |
+| | `MeterScaleView.swift` | Meter scale visualization + MeterConstants |
 | **Views/Presets/** | `PresetViews.swift` | Preset management UI |
 | **Views/Device/** | `DevicePickerView.swift` | Device selection UI |
 | | `RoutingStatusView.swift` | Routing status display |

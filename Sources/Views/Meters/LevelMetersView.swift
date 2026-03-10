@@ -1,15 +1,39 @@
 import SwiftUI
 
 struct LevelMetersView: View {
-    @ObservedObject var meterStore: MeterStore
-
+    let meterStore: MeterStore
+    
     var body: some View {
         HStack(alignment: .top, spacing: 20) {
-            StereoMeterGroup(title: "Peak In", state: meterStore.inputMeterLevel, showScale: true)
-            StereoMeterGroup(title: "Peak Out", state: meterStore.outputMeterLevel, showScale: true)
-
-            StereoMeterGroupRMS(title: "RMS In", rmsState: meterStore.inputMeterRMS, showScale: true)
-            StereoMeterGroupRMS(title: "RMS Out", rmsState: meterStore.outputMeterRMS, showScale: true)
+            StereoMeterGroup(
+                title: "Peak In",
+                meterStore: meterStore,
+                leftType: .inputPeakLeft,
+                rightType: .inputPeakRight,
+                showScale: true
+            )
+            StereoMeterGroup(
+                title: "Peak Out",
+                meterStore: meterStore,
+                leftType: .outputPeakLeft,
+                rightType: .outputPeakRight,
+                showScale: true
+            )
+            
+            StereoMeterGroupRMS(
+                title: "RMS In",
+                meterStore: meterStore,
+                leftType: .inputRMSLeft,
+                rightType: .inputRMSRight,
+                showScale: true
+            )
+            StereoMeterGroupRMS(
+                title: "RMS Out",
+                meterStore: meterStore,
+                leftType: .outputRMSLeft,
+                rightType: .outputRMSRight,
+                showScale: true
+            )
         }
     }
 }
@@ -19,7 +43,7 @@ struct GainControlsView: View {
     let outputGain: Float
     let onInputGainChange: (Float) -> Void
     let onOutputGainChange: (Float) -> Void
-
+    
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 6) {
@@ -33,7 +57,7 @@ struct GainControlsView: View {
                     onGainChange: onInputGainChange
                 )
             }
-
+            
             VStack(spacing: 6) {
                 Text("Gain Out")
                     .font(.caption)
@@ -51,9 +75,11 @@ struct GainControlsView: View {
 
 struct StereoMeterGroup: View {
     let title: String
-    let state: StereoMeterState
+    let meterStore: MeterStore
+    let leftType: MeterType
+    let rightType: MeterType
     var showScale: Bool = false
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -64,137 +90,48 @@ struct StereoMeterGroup: View {
                 if showScale {
                     MeterScaleView(height: MeterConstants.meterHeight)
                 }
-                DualPeakMeterView(channelLabel: "L", state: state.left)
-                DualPeakMeterView(channelLabel: "R", state: state.right)
+                PeakMeter(
+                    channelLabel: "L",
+                    meterStore: meterStore,
+                    meterType: leftType
+                )
+                PeakMeter(
+                    channelLabel: "R",
+                    meterStore: meterStore,
+                    meterType: rightType
+                )
             }
         }
     }
 }
 
-struct DualPeakMeterView: View {
+struct PeakMeter: View {
     let channelLabel: String
-    let state: ChannelMeterState
-
-    private let gradientStops: [Gradient.Stop] = [
-        .init(color: Color(red: 0.0, green: 0.45, blue: 0.95), location: 0.0),
-        .init(color: .green, location: 0.4),
-        .init(color: .yellow, location: 0.7),
-        .init(color: .orange, location: 0.9),
-        .init(color: .red, location: 1.0)
-    ]
-
+    let meterStore: MeterStore
+    let meterType: MeterType
+    
     var body: some View {
         VStack(spacing: 4) {
-            GeometryReader { proxy in
-                ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.18))
-
-                    if state.peak > 0 {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(fillColor(for: state))
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .mask(
-                                Rectangle()
-                                    .frame(width: proxy.size.width, height: proxy.size.height * CGFloat(state.peak))
-                                    .frame(maxHeight: .infinity, alignment: .bottom)
-                            )
-                            .animation(.easeOut(duration: 0.03), value: state.peak)
-                    }
-
-                    Rectangle()
-                        .fill(Color.white.opacity(0.9))
-                        .frame(height: 2)
-                        .frame(maxHeight: .infinity, alignment: .bottom)
-                        .offset(y: -proxy.size.height * CGFloat(state.peakHold))
-
-                    if state.isClipping {
-                        ClipIndicator()
-                            .frame(height: 10)
-                            .frame(maxWidth: .infinity)
-                            .frame(maxHeight: .infinity, alignment: .top)
-                            .padding(.top, 2)
-                    }
-                }
-            }
-            .frame(width: 18, height: 126)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
-            )
-
+            PeakMeterNSView(meterStore: meterStore, meterType: meterType)
+                .frame(width: 18, height: 126)
+            
             Text(channelLabel)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }
-
-    private func fillColor(for state: ChannelMeterState) -> LinearGradient {
-        if state.isClipping {
-            return LinearGradient(colors: [.red, .red], startPoint: .bottom, endPoint: .top)
-        }
-        return LinearGradient(
-            gradient: Gradient(stops: gradientStops),
-            startPoint: .bottom,
-            endPoint: .top
-        )
-    }
 }
 
-struct ClipIndicator: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: 2)
-            .fill(Color.red)
-            .overlay(
-                Text("CLIP")
-                    .font(.system(size: 6, weight: .bold))
-                    .foregroundStyle(.white)
-            )
-    }
-}
-
-struct DualPeakRMSMeterView: View {
+struct RMSMeter: View {
     let channelLabel: String
-    let rmsState: ChannelMeterState
-
-    private let rmsGradientStops: [Gradient.Stop] = [
-        .init(color: Color(red: 0.0, green: 0.35, blue: 0.4), location: 0.0),
-        .init(color: Color(red: 0.0, green: 0.5, blue: 0.5), location: 0.4),
-        .init(color: Color(red: 0.5, green: 0.6, blue: 0.2), location: 0.7),
-        .init(color: Color(red: 0.7, green: 0.5, blue: 0.2), location: 0.9),
-        .init(color: Color(red: 0.6, green: 0.2, blue: 0.2), location: 1.0)
-    ]
-
+    let meterStore: MeterStore
+    let meterType: MeterType
+    
     var body: some View {
         VStack(spacing: 4) {
-            GeometryReader { proxy in
-                ZStack(alignment: .bottom) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.18))
-
-                    if rmsState.rms > 0 {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(LinearGradient(
-                                gradient: Gradient(stops: rmsGradientStops),
-                                startPoint: .bottom,
-                                endPoint: .top
-                            ))
-                            .frame(width: proxy.size.width, height: proxy.size.height)
-                            .mask(
-                                Rectangle()
-                                    .frame(width: proxy.size.width, height: proxy.size.height * CGFloat(rmsState.rms))
-                                    .frame(maxHeight: .infinity, alignment: .bottom)
-                            )
-                            .animation(.easeOut(duration: 0.03), value: rmsState.rms)
-                    }
-                }
-            }
-            .frame(width: 14, height: 126)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .strokeBorder(Color.gray.opacity(0.4), lineWidth: 1)
-            )
-
+            RMSMeterNSView(meterStore: meterStore, meterType: meterType)
+                .frame(width: 14, height: 126)
+            
             Text(channelLabel)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
@@ -204,9 +141,11 @@ struct DualPeakRMSMeterView: View {
 
 struct StereoMeterGroupRMS: View {
     let title: String
-    let rmsState: StereoMeterState
+    let meterStore: MeterStore
+    let leftType: MeterType
+    let rightType: MeterType
     var showScale: Bool = false
-
+    
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
@@ -217,8 +156,16 @@ struct StereoMeterGroupRMS: View {
                 if showScale {
                     MeterScaleView(height: MeterConstants.meterHeight)
                 }
-                DualPeakRMSMeterView(channelLabel: "L", rmsState: rmsState.left)
-                DualPeakRMSMeterView(channelLabel: "R", rmsState: rmsState.right)
+                RMSMeter(
+                    channelLabel: "L",
+                    meterStore: meterStore,
+                    meterType: leftType
+                )
+                RMSMeter(
+                    channelLabel: "R",
+                    meterStore: meterStore,
+                    meterType: rightType
+                )
             }
         }
     }
