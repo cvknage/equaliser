@@ -20,11 +20,10 @@ final class PeakMeterLayer: NSView, MeterObserver {
         NSColor(red: 0.0, green: 0.45, blue: 0.95, alpha: 1.0).cgColor,  // Blue
         NSColor(red: 0.0, green: 0.8, blue: 0.0, alpha: 1.0).cgColor,   // Green
         NSColor(red: 1.0, green: 1.0, blue: 0.0, alpha: 1.0).cgColor,   // Yellow
-        NSColor(red: 1.0, green: 0.6, blue: 0.0, alpha: 1.0).cgColor,   // Orange
         NSColor(red: 1.0, green: 0.0, blue: 0.0, alpha: 1.0).cgColor,   // Red
     ]
 
-    private let gradientLocations: [NSNumber] = [0.0, 0.4, 0.7, 0.9, 1.0]
+    private let gradientLocations: [NSNumber] = [0.0, 0.3, 0.6, 1.0]
 
     // MARK: - State
 

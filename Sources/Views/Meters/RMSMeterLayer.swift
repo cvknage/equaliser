@@ -17,11 +17,10 @@ final class RMSMeterLayer: NSView, MeterObserver {
         NSColor(red: 0.0, green: 0.35, blue: 0.4, alpha: 1.0).cgColor,   // Dark teal
         NSColor(red: 0.0, green: 0.5, blue: 0.5, alpha: 1.0).cgColor,   // Teal
         NSColor(red: 0.5, green: 0.6, blue: 0.2, alpha: 1.0).cgColor,   // Yellow-green
-        NSColor(red: 0.7, green: 0.5, blue: 0.2, alpha: 1.0).cgColor,   // Orange
         NSColor(red: 0.6, green: 0.2, blue: 0.2, alpha: 1.0).cgColor,   // Red-brown
     ]
 
-    private let gradientLocations: [NSNumber] = [0.0, 0.4, 0.7, 0.9, 1.0]
+    private let gradientLocations: [NSNumber] = [0.0, 0.3, 0.6, 1.0]
 
     // MARK: - State
 

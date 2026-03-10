@@ -48,7 +48,7 @@ final class MeterStore: ObservableObject {
     
     private static let peakHoldHoldDuration: TimeInterval = 1.0
     private static let peakHoldDecayPerTick: Float = 0.02
-    private static let peakAttackSmoothing: Float = 0.8
+    private static let peakAttackSmoothing: Float = 1.0
     private static let peakReleaseSmoothing: Float = 0.33
     private static let rmsSmoothing: Float = 0.12
     private static let clipHoldDuration: TimeInterval = 0.5
