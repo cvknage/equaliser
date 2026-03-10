@@ -110,7 +110,7 @@ final class EqualiserStore: ObservableObject {
     let persistence: AppStatePersistence
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "EqualiserStore")
     private var cancellables = Set<AnyCancellable>()
-    private static let gainRange: ClosedRange<Float> = -24...24
+    public static let gainRange: ClosedRange<Float> = -36...36
 
     /// Current app state snapshot for persistence.
     var currentSnapshot: AppStateSnapshot {

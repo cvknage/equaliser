@@ -11,9 +11,9 @@ struct EQBandSliderView: View {
     let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
-    /// Gain range in dB.
-    private let minGain: Float = -12
-    private let maxGain: Float = 12
+    /// Gain range in dB - references centralized range from EqualiserStore.
+    private var minGain: Float { EqualiserStore.gainRange.lowerBound }
+    private var maxGain: Float { EqualiserStore.gainRange.upperBound }
 
     @State private var isShowingDetail = false
 
@@ -204,7 +204,7 @@ struct EQBandDetailPopover: View {
                     .multilineTextAlignment(.trailing)
                     .onSubmit {
                         if let value = Float(gainText) {
-                            let clamped = min(max(value, -12), 12)
+                            let clamped = min(max(value, EqualiserStore.gainRange.lowerBound), EqualiserStore.gainRange.upperBound)
                             gain = clamped
                             gainText = String(format: "%.1f", clamped)
                             gainUpdate(clamped)
