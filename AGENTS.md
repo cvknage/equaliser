@@ -264,6 +264,22 @@ init() {
 | Private members | No underscore prefix | `private var task` |
 | User-initiated updates | `update*` prefix | `updateBandGain()`, `updateInputGain()` |
 
+### Spelling
+
+Use British English spelling throughout the codebase and documentation:
+
+| American | British |
+|----------|---------|
+| color | colour |
+| center | centre |
+| optimized | optimised |
+| behavior | behaviour |
+| equalize | equalise |
+| equalizer | equaliser |
+| equalization | equalisation |
+
+**Note:** In this codebase, "meter" refers to audio level meters (peak/RMS displays), not the length unit. Use "meter" (not "metre") to match the audio industry convention.
+
 ### Concurrency
 
 - **@MainActor**: UI-bound classes (`EqualiserStore`, `EQConfiguration`, `MeterStore`, `DeviceManager`, `PresetManager`, `RenderPipeline`, `HALIOManager`, `ManualRenderingEngine`, `AppStatePersistence`)

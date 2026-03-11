@@ -19,7 +19,7 @@ Whether you're a casual user looking for the right sound or someone who wants to
 | **Rock** | 12 | Aggressive, scooped mids | Rock, metal, alternative | Jazz, classical |
 | **Electronic** | 13 | Tight bass, bright highs | EDM, techno, house | Acoustic, jazz |
 | **Jazz** | 10 | Warm, smooth sound | Jazz, blues, soul | Electronic, metal |
-| **Podcast** | 12 | Optimized for speech | Podcasts, audiobooks, voice | Music |
+| **Podcast** | 12 | Optimised for speech | Podcasts, audiobooks, voice | Music |
 | **Classical** | 9 | Neutral, refined | Orchestral, chamber music | Bass-heavy genres |
 
 ---
@@ -28,7 +28,7 @@ Whether you're a casual user looking for the right sound or someone who wants to
 
 ### What is EQ?
 
-EQ (equalization) lets you adjust the volume of different frequency ranges in your audio. Think of it like a sophisticated tone control that can target specific parts of the sound spectrum.
+EQ (equalisation) lets you adjust the volume of different frequency ranges in your audio. Think of it like a sophisticated tone control that can target specific parts of the sound spectrum.
 
 ### Filter Types
 
@@ -47,9 +47,9 @@ EQ (equalization) lets you adjust the volume of different frequency ranges in yo
 <summary>🔧 Technical Details: Filter Types (click to expand)</summary>
 
 **Parametric EQ** provides surgical control with three parameters:
-- **Frequency (Hz)**: The center point of the adjustment
+- **Frequency (Hz)**: The centre point of the adjustment
 - **Gain (dB)**: The amount of boost (+) or cut (-)
-- **Bandwidth (octaves)**: The range of frequencies affected. Also expressed as Q factor, where Q = center frequency / bandwidth. Higher Q = narrower bandwidth.
+- **Bandwidth (octaves)**: The range of frequencies affected. Also expressed as Q factor, where Q = centre frequency / bandwidth. Higher Q = narrower bandwidth.
 
 **Shelf EQ** creates gradual transitions:
 - **Low Shelf**: All frequencies below the shelf frequency are boosted/cut by the specified amount, with a gradual transition around the shelf frequency
@@ -77,7 +77,7 @@ EQ (equalization) lets you adjust the volume of different frequency ranges in yo
 **Bandwidth** is measured in octaves. One octave = doubling of frequency (e.g., 100 Hz to 200 Hz is one octave).
 
 **Q Factor** (Quality Factor) is the inverse relationship:
-- Q = Center Frequency / Bandwidth (in Hz)
+- Q = Centre Frequency / Bandwidth (in Hz)
 - Higher Q = Narrower bandwidth
 - Lower Q = Wider bandwidth
 
@@ -164,7 +164,7 @@ EQ (equalization) lets you adjust the volume of different frequency ranges in yo
 
 ## 1. Flat
 
-**Purpose:** Neutral baseline with no coloration
+**Purpose:** Neutral baseline with no colouration
 
 **Best for:**
 - Reference listening
@@ -176,7 +176,7 @@ EQ (equalization) lets you adjust the volume of different frequency ranges in yo
 
 ### What It Does
 
-The Flat preset leaves all frequencies untouched at 0 dB. This gives you the most accurate representation of your audio source without any coloration or enhancement.
+The Flat preset leaves all frequencies untouched at 0 dB. This gives you the most accurate representation of your audio source without any colouration or enhancement.
 
 Use this when you want to hear music or content exactly as it was recorded and mixed, or when you need a neutral starting point for creating your own custom EQ curve.
 
@@ -209,7 +209,7 @@ xychart-beta
 
 The Flat preset is intentionally neutral. All bands are set to 0 dB gain with standard parametric filters and medium bandwidth (1.0 octaves). This provides:
 
-1. **Accurate monitoring**: Hear the source material without coloration
+1. **Accurate monitoring**: Hear the source material without colouration
 2. **Reference point**: Compare other presets against this baseline
 3. **Clean slate**: Start here when building custom curves
 
@@ -1032,7 +1032,7 @@ xychart-beta
 
 ## 10. Podcast
 
-**Purpose:** Optimized for spoken word content
+**Purpose:** Optimised for spoken word content
 
 **Best for:**
 - Podcasts
@@ -1046,7 +1046,7 @@ xychart-beta
 
 The Podcast preset is specifically designed for spoken word content. It uses an aggressive high-pass filter to remove rumble, surgical cuts in the low-mids to reduce boominess, precise boosts in the presence frequencies for clarity, and a subtle cut in the sibilance range to reduce harsh "s" sounds.
 
-This is the most speech-optimized preset, focusing entirely on intelligibility and clarity.
+This is the most speech-optimised preset, focusing entirely on intelligibility and clarity.
 
 <details>
 <summary>🔧 Technical Breakdown (click to expand)</summary>
@@ -1144,7 +1144,7 @@ xychart-beta
 
 ### What It Does
 
-The Classical preset provides a very neutral, refined response that's perfect for classical music. It makes only the subtlest adjustments—a touch of warmth in the lows and a gentle smoothness in the highs—to enhance the natural beauty of acoustic instruments without coloring the sound.
+The Classical preset provides a very neutral, refined response that's perfect for classical music. It makes only the subtlest adjustments—a touch of warmth in the lows and a gentle smoothness in the highs—to enhance the natural beauty of acoustic instruments without colouring the sound.
 
 This is the most neutral preset after Flat, designed to preserve the authentic character of classical recordings.
 
@@ -1185,9 +1185,9 @@ xychart-beta
 
 1. **Minimal adjustments**: All adjustments are ±1 dB or less, preserving the natural character of classical recordings.
 
-2. **Slight warmth (50-125 Hz)**: The +1 dB low shelf adds subtle warmth and fullness without coloring the sound. This enhances the natural resonance of acoustic instruments.
+2. **Slight warmth (50-125 Hz)**: The +1 dB low shelf adds subtle warmth and fullness without colouring the sound. This enhances the natural resonance of acoustic instruments.
 
-3. **Neutral mids**: The midrange (315-2000 Hz) is left completely untouched. This is where most classical instruments have their fundamental frequencies, and any adjustment would color the sound.
+3. **Neutral mids**: The midrange (315-2000 Hz) is left completely untouched. This is where most classical instruments have their fundamental frequencies, and any adjustment would colour the sound.
 
 4. **Gentle air (5-8 kHz)**: The +1 dB boosts add subtle air and presence without making the sound bright or harsh.
 
@@ -1199,7 +1199,7 @@ xychart-beta
 
 **Audio Engineering Principles:**
 - **Minimal intervention**: Preserve natural character
-- **Subtle warmth**: Enhance without coloring
+- **Subtle warmth**: Enhance without colouring
 - **Neutral mids**: Don't alter fundamental frequencies
 - **Smooth highs**: Refined, not bright
 - **Wide bandwidths**: Natural transitions
@@ -1299,7 +1299,7 @@ xychart-beta
 
 **Presence**: The quality that makes sounds "cut through" a mix. Typically associated with frequencies around 2-4 kHz for vocals.
 
-**Q Factor**: Technical measure of bandwidth. Higher Q = narrower bandwidth. Q = center frequency ÷ bandwidth (in Hz).
+**Q Factor**: Technical measure of bandwidth. Higher Q = narrower bandwidth. Q = centre frequency ÷ bandwidth (in Hz).
 
 **Resonance**: A peak in frequency response, often unwanted. Can cause harshness or "ringing" in audio.
 
