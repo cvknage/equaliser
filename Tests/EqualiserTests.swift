@@ -1,7 +1,7 @@
 import XCTest
-@testable import EqualiserApp
+@testable import Equaliser
 
-// Main test file for EqualiserApp.
+// Main test file for Equaliser.
 // Individual test suites are in their own files:
 // - AudioRingBufferTests.swift
 // - BandwidthConverterTests.swift

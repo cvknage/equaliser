@@ -2,7 +2,7 @@ import AVFoundation
 import SwiftUI
 
 @main
-struct EqualiserAppMain: App {
+struct EqualiserMain: App {
     @StateObject private var store = EqualiserStore()
 
     init() {

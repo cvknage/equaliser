@@ -1,5 +1,5 @@
 import XCTest
-@testable import EqualiserApp
+@testable import Equaliser
 
 final class MeterCalculationTests: XCTestCase {
     // MARK: - dB to Linear Conversion Tests

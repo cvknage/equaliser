@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "EqualiserApp",
+    name: "Equaliser",
     platforms: [
         .macOS(.v15)
     ],
     targets: [
         .executableTarget(
-            name: "EqualiserApp",
+            name: "Equaliser",
             path: "Sources",
             exclude: ["App/Info.plist"]
         ),
         .testTarget(
-            name: "EqualiserAppTests",
-            dependencies: ["EqualiserApp"],
+            name: "EqualiserTests",
+            dependencies: ["Equaliser"],
             path: "Tests"
         )
     ]

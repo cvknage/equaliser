@@ -1,4 +1,4 @@
-# Equaliser App Roadmap
+# Equaliser Roadmap
 
 A sequential plan so we can ship the menu-bar equalizer step by step.
 

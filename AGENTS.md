@@ -1,4 +1,4 @@
-# AGENTS.md - Equaliser App
+# AGENTS.md - Equaliser
 
 Guidelines for AI coding agents working in this repository.
 
@@ -26,7 +26,7 @@ swift test --filter TestClassName
 
 | Directory | File | Purpose |
 |-----------|------|---------|
-| **App/** | `EqualiserAppApp.swift` | @main entry, MenuBarExtra, Window definitions |
+| **App/** | `EqualiserApp.swift` | @main entry, MenuBarExtra, Window definitions |
 | | `AppStateSnapshot.swift` | Persistence model + AppStatePersistence class |
 | | `Info.plist` | App metadata and configuration |
 | **Core/** | `EqualiserStore.swift` | Central state coordinator, computed properties |
@@ -315,7 +315,7 @@ store.inputGain = 0
 
 **Test file:**
 1. Create test class in `Tests/`
-2. Import: `@testable import EqualiserApp`
+2. Import: `@testable import Equaliser`
 3. Run: `swift test --filter YourTestClass`
 
 ## Entitlements

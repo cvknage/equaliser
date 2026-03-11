@@ -1,6 +1,6 @@
 # EQ Presets Guide: Understanding Your Audio
 
-Welcome to the Equaliser App presets guide. This document explains each factory preset in detail, helping you understand when and how to use them for the best audio experience.
+Welcome to the Equaliser presets guide. This document explains each factory preset in detail, helping you understand when and how to use them for the best audio experience.
 
 Whether you're a casual user looking for the right sound or someone who wants to understand the technical reasoning behind each curve, this guide has you covered.
 
@@ -1373,7 +1373,7 @@ xychart-beta
 
 ## Conclusion
 
-The 11 factory presets in Equaliser App are designed to cover a wide range of listening scenarios and musical genres. Each preset is carefully crafted using audio engineering principles to achieve its specific goal.
+The 11 factory presets in Equaliser are designed to cover a wide range of listening scenarios and musical genres. Each preset is carefully crafted using audio engineering principles to achieve its specific goal.
 
 Remember:
 - **Flat** is your neutral reference point

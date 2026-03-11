@@ -3,12 +3,12 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/release"
-EXECUTABLE_NAME="EqualiserApp"
+EXECUTABLE_NAME="Equaliser"
 APP_NAME="Equaliser"
 RELEASE_DIR="$ROOT_DIR/Release"
 APP_BUNDLE="$RELEASE_DIR/${APP_NAME}.app"
 INFO_PLIST_SRC="$ROOT_DIR/Sources/App/Info.plist"
-ENTITLEMENTS="$ROOT_DIR/EqualiserApp.entitlements"
+ENTITLEMENTS="$ROOT_DIR/Equaliser.entitlements"
 ICON_SVG="$ROOT_DIR/Resources/AppIcon.svg"
 ICONSET_DIR="$ROOT_DIR/.build/AppIcon.iconset"
 

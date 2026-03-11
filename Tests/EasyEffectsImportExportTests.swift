@@ -1,6 +1,6 @@
 import AVFoundation
 import XCTest
-@testable import EqualiserApp
+@testable import Equaliser
 
 final class EasyEffectsImportExportTests: XCTestCase {
     // MARK: - Import Basic Tests

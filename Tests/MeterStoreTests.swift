@@ -1,5 +1,5 @@
 import XCTest
-@testable import EqualiserApp
+@testable import Equaliser
 
 @MainActor
 final class MeterStoreTests: XCTestCase {

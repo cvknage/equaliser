@@ -1,6 +1,6 @@
 import AVFoundation
 import XCTest
-@testable import EqualiserApp
+@testable import Equaliser
 
 final class PresetCodableTests: XCTestCase {
     let encoder = JSONEncoder()
