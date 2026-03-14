@@ -17,6 +17,7 @@ struct AppStateSnapshot: Codable, Sendable {
     var inputDeviceID: String?
     var outputDeviceID: String?
     var bandwidthDisplayMode: String
+    var manualModeEnabled: Bool
     
     // MARK: - Meter State
     
@@ -34,6 +35,7 @@ struct AppStateSnapshot: Codable, Sendable {
             inputDeviceID: nil,
             outputDeviceID: nil,
             bandwidthDisplayMode: BandwidthDisplayMode.octaves.rawValue,
+            manualModeEnabled: false,
             metersEnabled: true
         )
     }

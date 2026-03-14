@@ -5,6 +5,7 @@ enum RoutingStatus: Equatable {
     case idle
     case starting
     case active(inputName: String, outputName: String)
+    case driverNotInstalled
     case error(String)
 
     var isActive: Bool {

@@ -101,7 +101,6 @@ final class PresetManager: ObservableObject {
         // Ensure directory exists and load presets
         ensureDirectoryExists()
         installFactoryPresetsIfNeeded()
-        loadAllPresets()
 
         // Select Flat preset by default if none selected
         if selectedPresetName == nil && presetExists(named: "Flat") {
@@ -178,6 +177,12 @@ final class PresetManager: ObservableObject {
 
     /// Saves a preset to disk.
     func savePreset(_ preset: Preset) throws {
+        try savePresetWithoutReload(preset)
+        loadAllPresets()
+    }
+    
+    /// Saves a preset without reloading the list (for batch operations).
+    internal func savePresetWithoutReload(_ preset: Preset) throws {
         guard !preset.metadata.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw PresetError.invalidPresetName
         }
@@ -187,15 +192,12 @@ final class PresetManager: ObservableObject {
         do {
             let data = try encoder.encode(preset)
             try data.write(to: fileURL, options: .atomic)
-            logger.info("Saved preset: \(preset.metadata.name)")
+            logger.debug("Saved preset: \(preset.metadata.name)")
         } catch let error as EncodingError {
             throw PresetError.encodingFailed(error)
         } catch {
             throw PresetError.writeFailed(error)
         }
-
-        // Reload to update the list
-        loadAllPresets()
     }
 
     /// Deletes a preset by name.

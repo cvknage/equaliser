@@ -1,0 +1,329 @@
+import Foundation
+import CoreAudio
+import OSLog
+
+/// Manages volume synchronization between driver and output device.
+/// Uses device-level kAudioDevicePropertyVolumeScalar for both devices.
+///
+/// Architecture:
+/// - Output device (speakers/headphones) is source of truth for volume
+/// - Driver volume syncs to output device (user's preferred volume stored by macOS)
+/// - Both devices receive same scalar value (0-1 range)
+/// - Boost = 1.0 / linear_gain (brings signal back to unity for EQ processing)
+/// - Mute state synced from output to driver
+///
+/// Signal Flow:
+/// ```
+/// App Start/Device Change:
+///   Output Device (50%) → Driver (50%) → [boost calculated]
+///
+/// User moves macOS slider:
+///   Driver (30%) → Output Device (30%) → [boost recalculated]
+///
+/// Result: Driver (30% scalar) → audio at 0.57% (linear) → [Boost 175x] → EQ at 100% → Output (30%)
+/// ```
+@MainActor
+final class VolumeManager: ObservableObject {
+    
+    // MARK: - Published State
+    
+    /// Current volume from driver (0.0 - 1.0). Used to calculate boost.
+    @Published private(set) var gain: Float = 1.0
+    
+    /// Whether volume boost is enabled. When false, boost is always 1.0.
+    @Published private(set) var boostEnabled: Bool = true
+    
+    /// Whether audio is muted.
+    @Published private(set) var muted: Bool = false
+    
+    // MARK: - Dependencies
+    
+    private let deviceManager: DeviceManager
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "VolumeManager")
+    
+    /// Driver device ID for volume sync.
+    private var driverDeviceID: AudioDeviceID?
+    
+    /// Output device ID for volume sync.
+    private var outputDeviceID: AudioDeviceID?
+    
+    /// Flag to prevent feedback loops.
+    private var isSyncingMute = false
+    
+    // MARK: - Callbacks
+    
+    /// Called when boost gain changes (for render pipeline to apply).
+    var onBoostGainChanged: ((Float) -> Void)?
+    
+    // MARK: - Initialization
+    
+    init(deviceManager: DeviceManager) {
+        self.deviceManager = deviceManager
+    }
+    
+    // MARK: - Setup
+    
+    /// Sets up volume and mute sync between driver and output device.
+    /// Must be called after driver and output device are ready.
+    func setupVolumeSync(driverID: AudioDeviceID, outputID: AudioDeviceID) {
+        tearDown()
+        
+        driverDeviceID = driverID
+        outputDeviceID = outputID
+        
+        logger.info("setupVolumeSync: driverID=\(driverID), outputID=\(outputID)")
+        
+        // Output device is source of truth for volume
+        // (speakers/headphones have user's preferred volume stored by macOS)
+        let initialVolume: Float
+        if let volume = deviceManager.getDeviceVolumeScalar(deviceID: outputID), volume > 0 {
+            initialVolume = volume
+            let linearGain = driverScalarToLinear(volume)
+            logger.info("Initial volume from output device: scalar=\(volume), linear=\(linearGain)")
+        } else {
+            // Fallback to very low volume to avoid blasting user's ears
+            initialVolume = 0.01
+            logger.warning("Could not get output volume, defaulting to 1%")
+        }
+        
+        gain = initialVolume
+        
+        // Get initial mute state from output device (source of truth)
+        let initialMuted = deviceManager.getDeviceMute(deviceID: outputID) ?? false
+        muted = initialMuted
+        logger.info("Initial mute state: \(initialMuted)")
+        
+        // Sync driver volume to output device (output is source of truth)
+        if deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: initialVolume) {
+            logger.debug("Synced driver volume to output: \(initialVolume)")
+        } else {
+            logger.warning("Failed to sync driver volume to \(initialVolume)")
+        }
+        
+        // Sync mute state to driver (output is source of truth)
+        if deviceManager.setDeviceMute(deviceID: driverID, muted: initialMuted) {
+            logger.debug("Synced driver mute to \(initialMuted)")
+        }
+        
+        // Listen for driver volume changes (master control)
+        deviceManager.observeDeviceVolumeChanges(deviceID: driverID) { [weak self] newVolume in
+            Task { @MainActor in
+                self?.handleDriverVolumeChanged(newVolume)
+            }
+        }
+        logger.info("Registered volume listener on driver device \(driverID)")
+        
+        // Listen for mute changes on driver
+        deviceManager.observeMuteChanges(on: driverID) { [weak self] newMuted in
+            Task { @MainActor in
+                self?.handleDriverMuteChanged(newMuted)
+            }
+        }
+        logger.info("Registered mute listener on driver device \(driverID)")
+        
+        // Listen for mute changes on output device (sync back to driver)
+        deviceManager.observeMuteChanges(on: outputID) { [weak self] newMuted in
+            Task { @MainActor in
+                self?.handleOutputMuteChanged(newMuted)
+            }
+        }
+        logger.info("Registered mute listener on output device \(outputID)")
+        
+        // Calculate initial boost
+        let boost = boostGain()
+        logger.info("Initial boost: \(boost)x (gain=\(initialVolume), muted=\(initialMuted))")
+        onBoostGainChanged?(boost)
+        
+        logger.info("Volume sync setup complete")
+    }
+    
+    /// Tears down volume sync listeners.
+    func tearDown() {
+        if let driverID = driverDeviceID {
+            deviceManager.stopObservingDeviceVolumeChanges(deviceID: driverID)
+            deviceManager.stopObservingMuteChanges(on: driverID)
+        }
+        if let outputID = outputDeviceID {
+            deviceManager.stopObservingMuteChanges(on: outputID)
+        }
+        
+        driverDeviceID = nil
+        outputDeviceID = nil
+    }
+    
+    // MARK: - Volume Change Handlers
+    
+    /// Handles volume changes from the driver device (macOS slider).
+    /// Updates internal state, syncs output volume, and recalculates boost.
+    private func handleDriverVolumeChanged(_ newVolume: Float) {
+        let linearGain = driverScalarToLinear(newVolume)
+        let boost = boostGain()
+        
+        logger.debug("handleDriverVolumeChanged: scalar=\(newVolume), linear=\(linearGain), boost=\(boost)x")
+        
+        // Update internal state
+        gain = newVolume
+        
+        // Sync output device volume to driver (same scalar value)
+        if let outputID = outputDeviceID {
+            deviceManager.setDeviceVolumeScalar(deviceID: outputID, volume: newVolume)
+        }
+        
+        // Update boost (brings signal back to unity)
+        onBoostGainChanged?(boost)
+    }
+    
+    // MARK: - Mute Change Handlers
+    
+    /// Handles mute changes from the driver device.
+    private func handleDriverMuteChanged(_ newMuted: Bool) {
+        guard !isSyncingMute else {
+            logger.debug("handleDriverMuteChanged: skipping - already syncing")
+            return
+        }
+        
+        logger.info("handleDriverMuteChanged: newMuted=\(newMuted)")
+        
+        isSyncingMute = true
+        defer { isSyncingMute = false }
+        
+        // Update internal state
+        muted = newMuted
+        
+        // Sync mute to output device
+        if let outputID = outputDeviceID {
+            deviceManager.setDeviceMute(deviceID: outputID, muted: newMuted)
+        }
+        
+        // Update boost (no boost when muted)
+        let boost = boostGain()
+        onBoostGainChanged?(boost)
+    }
+    
+    /// Handles mute changes from the output device.
+    /// Syncs back to driver since mute should be unified.
+    private func handleOutputMuteChanged(_ newMuted: Bool) {
+        guard !isSyncingMute else {
+            logger.debug("handleOutputMuteChanged: skipping - already syncing")
+            return
+        }
+        
+        logger.info("handleOutputMuteChanged: newMuted=\(newMuted)")
+        
+        isSyncingMute = true
+        defer { isSyncingMute = false }
+        
+        // Update internal state
+        muted = newMuted
+        
+        // Sync mute to driver
+        if let driverID = driverDeviceID {
+            deviceManager.setDeviceMute(deviceID: driverID, muted: newMuted)
+        }
+        
+        // Update boost
+        let boost = boostGain()
+        onBoostGainChanged?(boost)
+    }
+    
+    // MARK: - Programmatic Changes
+    
+    /// Sets the volume from UI (not currently used - volume is controlled by macOS).
+    func setGain(_ newGain: Float) {
+        guard abs(newGain - gain) > 0.001 else { return }
+        
+        logger.info("setGain: newGain=\(newGain)")
+        
+        gain = newGain
+        
+        // Sync both driver and output device
+        if let driverID = driverDeviceID {
+            deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: newGain)
+        }
+        if let outputID = outputDeviceID {
+            deviceManager.setDeviceVolumeScalar(deviceID: outputID, volume: newGain)
+        }
+        
+        // Update boost
+        let boost = boostGain()
+        onBoostGainChanged?(boost)
+    }
+    
+    /// Sets mute state from UI.
+    func setMuted(_ newMuted: Bool) {
+        guard newMuted != muted else { return }
+        
+        isSyncingMute = true
+        defer { isSyncingMute = false }
+        
+        logger.info("setMuted: newMuted=\(newMuted)")
+        
+        muted = newMuted
+        
+        // Sync both devices
+        if let driverID = driverDeviceID {
+            deviceManager.setDeviceMute(deviceID: driverID, muted: newMuted)
+        }
+        if let outputID = outputDeviceID {
+            deviceManager.setDeviceMute(deviceID: outputID, muted: newMuted)
+        }
+        
+        // Update boost
+        let boost = boostGain()
+        onBoostGainChanged?(boost)
+    }
+    
+    /// Sets whether boost is enabled.
+    func setBoostEnabled(_ enabled: Bool) {
+        guard enabled != boostEnabled else { return }
+        
+        boostEnabled = enabled
+        let boost = boostGain()
+        onBoostGainChanged?(boost)
+    }
+    
+    // MARK: - Volume Conversion
+    
+    /// Converts driver's scalar value (0-1) to actual linear gain.
+    /// The driver uses dB-based conversion from BlackHole:
+    ///   scalar → dB: scalar × 64 - 64 (range: -64 to 0 dB)
+    ///   dB → linear: 10^(dB/20)
+    /// This matches the driver's volume_to_decibel and volume_from_decibel functions.
+    private func driverScalarToLinear(_ scalar: Float) -> Float {
+        let minDB: Float = -64.0
+        let maxDB: Float = 0.0
+        
+        // Clamp scalar to valid range
+        let clampedScalar = max(0.0, min(1.0, scalar))
+        
+        // Convert scalar to dB (mirrors driver's volume_to_decibel + volume_from_decibel)
+        // dB = scalar × (maxDB - minDB) + minDB
+        let decibel = clampedScalar * (maxDB - minDB) + minDB
+        
+        // Convert dB to linear: linear = 10^(dB/20)
+        if decibel <= minDB { return 0.0 }
+        return pow(10.0, decibel / 20.0)
+    }
+    
+    // MARK: - Boost Calculation
+    
+    /// Calculates the boost to bring signal back to unity.
+    /// Uses driver's actual linear gain (after dB conversion) for accurate boost.
+    /// - Returns: Boost factor (1.0 = unity, 175x for 30% volume).
+    func boostGain() -> Float {
+        guard boostEnabled else { return 1.0 }
+        guard !muted else { return 1.0 }
+        guard gain > 0 else { return 1.0 }
+        
+        // Convert from driver's scalar dB mapping to actual linear gain
+        let linearGain = driverScalarToLinear(gain)
+        guard linearGain > 0 else { return 1.0 }  // Only prevent division by zero
+        
+        return 1.0 / linearGain
+    }
+    
+    /// Returns the current output volume (same as gain, 0.0 - 1.0).
+    func outputVolume() -> Float {
+        return gain
+    }
+}

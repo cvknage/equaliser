@@ -2,6 +2,8 @@
 
 Guidelines for AI coding agents working in this repository.
 
+**IMPORTANT:** Read this entire document before making any changes. It contains critical architecture details, coding conventions, and context necessary for successful modifications.
+
 ## Project Overview
 
 A macOS menu bar equalizer application built with Swift 6 and SwiftUI.
@@ -43,6 +45,11 @@ swift test --filter TestClassName
 | **Audio/DSP/** | `AudioRingBuffer.swift` | Lock-free SPSC ring buffer |
 | | `ParameterSmoother.swift` | Smooth parameter ramping (actor) |
 | **Device/** | `DeviceManager.swift` | Core Audio device enumeration |
+| **Driver/** | `DriverConstants.swift` | Bundle ID, UIDs, paths, custom property selectors |
+| | `DriverManager.swift` | Driver lifecycle: install, uninstall, status |
+| **Driver/** | `EqualiserDriver.patch` | Patch file for upstream updates |
+| **Driver/src/** | `EqualiserDriver.c` | Kernel audio driver source |
+| | `Info.plist` | Driver bundle metadata |
 | **Presets/** | `PresetModel.swift` | Preset, PresetMetadata, PresetBand types |
 | | `PresetManager.swift` | Load/save/delete presets |
 | | `FactoryPresets.swift` | Built-in presets (Flat, Bass Boost, etc.) |
@@ -65,6 +72,7 @@ swift test --filter TestClassName
 | **Views/Presets/** | `PresetViews.swift` | Preset management UI |
 | **Views/Device/** | `DevicePickerView.swift` | Device selection UI |
 | | `RoutingStatusView.swift` | Routing status display |
+| **Views/Driver/** | `DriverInstallationView.swift` | Driver installation UI |
 | **Views/Shared/** | `StepperButton.swift` | Reusable stepper button |
 | | `ToggleWithHelp.swift` | Toggle with help text |
 | | `InlineEditableValue.swift` | Inline editable value field |
@@ -78,9 +86,10 @@ swift test --filter TestClassName
 |------|---------|
 | `AudioRingBufferTests.swift` | Ring buffer tests |
 | `BandwidthConverterTests.swift` | Q/bandwidth conversion tests |
-| `DeviceManagerTests.swift` | Device enumeration tests |
+| `DeviceManagerTests.swift` | Device enumeration and transport type tests |
 | `EasyEffectsImportExportTests.swift` | Import/export tests |
 | `EQConfigurationTests.swift` | EQ configuration tests |
+| `EqualiserStoreTests.swift` | Device selection logic tests |
 | `MeterCalculationTests.swift` | Meter math tests |
 | `MeterStoreTests.swift` | Meter state management tests |
 | `PresetCodableTests.swift` | Preset serialization tests |
@@ -94,6 +103,7 @@ swift test --filter TestClassName
 | `EqualiserStore` | Coordinator: routing, presets, computed properties | No (delegates to EQConfiguration) |
 | `EQConfiguration` | Pure data model: bands, gains, bypass | No (storage-free) |
 | `MeterStore` | Isolated 30 FPS meter state | No (storage-free) |
+| `DriverManager` | Driver lifecycle: install, uninstall, status | No (queries system) |
 | `AppStatePersistence` | Saves on app quit | Yes (single JSON blob) |
 
 **Key pattern:** Models are storage-free. Persistence happens at app quit via `AppStateSnapshot`:
@@ -158,6 +168,72 @@ Compare Mode (EQ vs Flat) uses an auto-revert timer to protect users from accide
 - Auto-reverts to EQ after 5 minutes
 - Works independently of System EQ toggle
 - Processing modes: 0=System EQ OFF, 1=Normal EQ, 2=Flat mode
+
+### Routing Modes
+
+Two routing modes are supported:
+
+| Mode | Input | Output | Use Case |
+|------|-------|--------|----------|
+| Automatic | Equaliser driver | macOS default (excludes virtual/aggregate) | Recommended |
+| Manual | User-selected | User-selected | Advanced setups |
+
+In Automatic mode, input is always the Equaliser driver. Output device selection uses `determineAutomaticOutputDevice()` — a pure function that preserves the user's previous output if valid, falls back to macOS default if not the driver, and finally selects the first non-virtual, non-aggregate device.
+
+The `RoutingStatus` enum includes `.driverNotInstalled` for automatic mode when the driver is missing.
+
+### Device Detection
+
+`AudioDevice` queries CoreAudio transport type once at creation:
+
+```swift
+struct AudioDevice {
+    let transportType: UInt32  // From kAudioDevicePropertyTransportType
+    
+    var isVirtual: Bool {
+        if transportType == kAudioDeviceTransportTypeVirtual { return true }
+        return uid.hasPrefix("Equaliser") || uid.hasPrefix("BlackHole")
+    }
+    
+    var isAggregate: Bool {
+        transportType == kAudioDeviceTransportTypeAggregate
+    }
+}
+```
+
+Virtual detection has UID prefix fallback for drivers that don't set transport type. Aggregate detection trusts CoreAudio only.
+
+### Driver Integration
+
+The custom kernel driver (EqualiserDriver) captures system-wide audio:
+
+```
+┌──────────────┐     ┌──────────────┐     ┌───────────────┐
+│ System Audio │ ──▶ │ Equaliser    │ ──▶ │ App (EQ)      │
+│ (any source) │     │ Driver       │     │ Process + EQ  │
+└──────────────┘     └──────────────┘     └───────┬───────┘
+                                                  │
+                                                  ▼
+                                          ┌──────────────┐
+                                          │ Output Device│
+                                          │ (speakers)   │
+                                          └──────────────┘
+```
+
+| Component | Role |
+|-----------|------|
+| `DriverManager` | Singleton: install, uninstall, status, device name |
+| `DriverConstants` | Bundle ID, UIDs, paths, custom property selectors |
+| `DriverInstallationView` | SwiftUI flow for driver setup |
+
+Key constants:
+- `DRIVER_BUNDLE_ID = "net.knage.equaliser.driver"`
+- `DRIVER_DEVICE_UID = "Equaliser_UID"`
+- `DRIVER_INSTALL_PATH = "/Library/Audio/Plug-Ins/HAL"`
+
+Custom properties allow runtime configuration:
+- `'eqnm'` — device name (read/write)
+- `'eqlt'` — output latency (read/write)
 
 ### Audio Thread Safety
 
@@ -323,6 +399,22 @@ store.bandCount = 10
 store.inputGain = 0
 ```
 
+### Working with the Driver
+
+Check and manage driver status:
+```swift
+DriverManager.shared.isReady                  // true if installed and valid
+DriverManager.shared.status                   // .notInstalled, .installed, .needsUpdate, .error
+DriverManager.shared.setDeviceName("My EQ")  // Set custom device name
+```
+
+Installation requires admin privileges and restarts CoreAudio:
+```swift
+try await DriverManager.shared.installDriver()
+```
+
+The driver is bundled with the app via `bundle.sh` and installed to `/Library/Audio/Plug-Ins/HAL/Equaliser.driver`.
+
 ### Adding Files
 
 **Source file:**
@@ -336,5 +428,7 @@ store.inputGain = 0
 
 ## Entitlements
 
-- `com.apple.security.app-sandbox` (enabled)
 - `com.apple.security.device.audio-input` (microphone/audio routing)
+- `com.apple.security.files.user-selected.read-write` (preset import/export)
+
+**Note:** The app is not sandboxed. This is required for driver installation, which needs admin privileges and writes to `/Library/Audio/Plug-Ins/HAL`.

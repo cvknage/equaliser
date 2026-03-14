@@ -341,7 +341,7 @@ extension PresetManager {
                     if presetExists(named: factoryPreset.metadata.name) {
                         try deletePreset(named: factoryPreset.metadata.name)
                     }
-                    try savePreset(factoryPreset)
+                    try savePresetWithoutReload(factoryPreset)
                 } catch {
                     // Ignore errors - factory presets are optional
                 }
@@ -351,7 +351,7 @@ extension PresetManager {
                 if !existingPreset.metadata.isFactoryPreset {
                     var updatedPreset = existingPreset
                     updatedPreset.metadata.isFactoryPreset = true
-                    try? savePreset(updatedPreset)
+                    try? savePresetWithoutReload(updatedPreset)
                 }
             }
         }
@@ -359,5 +359,8 @@ extension PresetManager {
         if needsReinstall {
             UserDefaults.standard.set(Self.factoryPresetVersion, forKey: Self.factoryVersionKey)
         }
+        
+        // Reload once after all factory presets are saved
+        loadAllPresets()
     }
 }

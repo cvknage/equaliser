@@ -28,8 +28,10 @@ struct EQWindowView: View {
 
                 // Unified control panel - device pickers, status, and buttons grouped together
                 VStack(alignment: .trailing, spacing: 8) {
-                    // Device pickers
-                    DevicePickerView(layout: .horizontal)
+                    // Device picker - only show in manual mode
+                    if store.manualModeEnabled {
+                        DevicePickerView()
+                    }
 
                     RoutingStatusView(status: store.routingStatus, isBypassed: store.isBypassed)
                         .frame(width: 376)
@@ -58,29 +60,32 @@ struct EQWindowView: View {
                         SystemEQToggleView()
                             .id("system-eq-toggle")
 
-                        // Audio Routing toggle with help
-                        ToggleWithHelp(
-                            label: "Audio Routing",
-                            isOn: Binding(
-                                get: { store.routingStatus.isActive },
-                                set: { newValue in
-                                    if newValue {
-                                        store.reconfigureRouting()
-                                    } else {
-                                        store.stopRouting()
+                        // Audio Routing toggle - only shown in manual mode
+                        // In automatic mode, routing starts automatically when driver is installed
+                        if store.manualModeEnabled {
+                            ToggleWithHelp(
+                                label: "Audio Routing",
+                                isOn: Binding(
+                                    get: { store.routingStatus.isActive },
+                                    set: { newValue in
+                                        if newValue {
+                                            store.reconfigureRouting()
+                                        } else {
+                                            store.stopRouting()
+                                        }
                                     }
-                                }
-                            ),
-                            helpText: "Enable or disable audio routing between the selected input and output devices. Both devices must be selected to enable routing."
-                        )
-                        .disabled(store.routingStatus == .idle
-                                  && (store.selectedInputDeviceID == nil
-                                      || store.selectedOutputDeviceID == nil))
-                        .errorTint({
-                            if case .error = store.routingStatus { return true }
-                            return false
-                        }())
-                        .id("audio-routing-toggle")
+                                ),
+                                helpText: "Enable or disable audio routing between the selected input and output devices. Both devices must be selected to enable routing."
+                            )
+                            .disabled(store.routingStatus == .idle
+                                      && (store.selectedInputDeviceID == nil
+                                          || store.selectedOutputDeviceID == nil))
+                            .errorTint({
+                                if case .error = store.routingStatus { return true }
+                                return false
+                            }())
+                            .id("audio-routing-toggle")
+                        }
                     }
                 }
                 .frame(minWidth: 376)

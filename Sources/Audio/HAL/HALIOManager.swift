@@ -57,7 +57,6 @@ final class HALIOManager {
     /// - Parameter mode: Whether this manager should operate in input-only or output-only mode.
     init(mode: HALIOMode) {
         self.ioMode = mode
-        logger.debug("HALIOManager created in \(String(describing: mode)) mode")
     }
 
     deinit {
@@ -179,15 +178,15 @@ final class HALIOManager {
             scopeName = "output"
         }
 
-        var deviceID = id
-        let status = AudioUnitSetProperty(
-            unit,
-            kAudioOutputUnitProperty_CurrentDevice,
-            kAudioUnitScope_Global,
-            element,
-            &deviceID,
-            UInt32(MemoryLayout<AudioDeviceID>.size)
-        )
+         var deviceID = id
+         let status = AudioUnitSetProperty(
+             unit,
+             kAudioOutputUnitProperty_CurrentDevice,
+             kAudioUnitScope_Global,
+             element,
+             &deviceID,
+             UInt32(MemoryLayout<AudioDeviceID>.size)
+         )
 
         if status != noErr {
             logger.error("Failed to set \(scopeName) device \(id): \(status)")
@@ -512,7 +511,7 @@ final class HALIOManager {
         }
 
         isRunning = true
-        logger.info("Audio unit started")
+        logger.info("Audio unit started (\(String(describing: self.ioMode)))")
         return .success(())
     }
 

@@ -39,6 +39,9 @@ struct RoutingStatusView: View {
                 Image(systemName: "waveform.circle.fill")
                     .foregroundStyle(.green)
             }
+        case .driverNotInstalled:
+            Image(systemName: "speaker.wave.3.fill")
+                .foregroundStyle(.orange)
         case .error:
             Image(systemName: "exclamationmark.triangle.fill")
                 .foregroundStyle(.red)
@@ -62,6 +65,9 @@ struct RoutingStatusView: View {
                 Text("\(inputName) → EQ → \(outputName)")
                     .fontWeight(.medium)
             }
+        case .driverNotInstalled:
+            Text("Driver Not Installed - Open Settings to Install")
+                .foregroundStyle(.orange)
         case .error(let message):
             Text(message)
                 .foregroundStyle(.red)
@@ -78,6 +84,8 @@ struct RoutingStatusView: View {
                 return Color.yellow.opacity(0.1)
             }
             return Color.green.opacity(0.1)
+        case .driverNotInstalled:
+            return Color.orange.opacity(0.1)
         case .error:
             return Color.red.opacity(0.1)
         }
