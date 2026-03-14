@@ -65,6 +65,14 @@ final class RenderCallbackContext: @unchecked Sendable {
 
     /// Target linear gain applied to output samples after EQ rendering.
     nonisolated(unsafe) var targetOutputGainLinear: Float = 1.0
+    
+    /// Current boost gain applied to input samples before input gain.
+    /// Used for volume boost when macOS volume > 100%.
+    /// Linear scale: 1.0 = unity (no boost), 2.0 = 2x boost (6dB).
+    nonisolated(unsafe) var boostGainLinear: Float = 1.0
+    
+    /// Target boost gain applied to input samples before input gain.
+    nonisolated(unsafe) var targetBoostGainLinear: Float = 1.0
 
     /// Processing mode for audio thread:
     /// 0 = full bypass (System EQ OFF) - skip gains, bypass EQ

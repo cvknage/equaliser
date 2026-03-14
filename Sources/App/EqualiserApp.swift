@@ -1,11 +1,28 @@
 import AVFoundation
 import SwiftUI
 
+// MARK: - Cleanup Delegate
+
+@MainActor
+final class AppCleanupDelegate: NSObject, NSApplicationDelegate {
+    private weak var store: EqualiserStore?
+
+    func setStore(_ store: EqualiserStore) {
+        self.store = store
+    }
+}
+
+// MARK: - Main App
+
 @main
 struct EqualiserMain: App {
     @StateObject private var store = EqualiserStore()
+    @NSApplicationDelegateAdaptor(AppCleanupDelegate.self) var appDelegate
+    @Environment(\.openWindow) private var openWindow
 
     init() {
+        appDelegate.setStore(self.store)
+
         // Hide dock icon permanently - this is a menu bar app
         // Defer until NSApp is available (it's nil during init)
         DispatchQueue.main.async {
@@ -29,6 +46,30 @@ struct EqualiserMain: App {
         .defaultPosition(.center)
         .defaultSize(width: 1060, height: 530)
         .windowResizability(.contentMinSize)
+
+        // Driver installation window (shown when driver not installed in automatic mode)
+        Window("Driver Required", id: "driver-install") {
+            DriverInstallationView(
+                onInstall: {
+                    store.handleDriverInstalled()
+                },
+                onSwitchToManual: {
+                    store.switchToManualMode()
+                }
+            )
+            .environmentObject(store)
+            .onAppear {
+                // Window opened
+            }
+        }
+        .defaultPosition(.center)
+        .defaultSize(width: 500, height: 400)
+        .windowResizability(.contentMinSize)
+        .onChange(of: store.showDriverPrompt) { _, shouldShow in
+            if shouldShow {
+                openWindow(id: "driver-install")
+            }
+        }
 
         // Menu bar popover (always available)
         MenuBarExtra("Equaliser", systemImage: "slider.vertical.3") {

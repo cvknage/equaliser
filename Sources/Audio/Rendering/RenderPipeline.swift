@@ -306,7 +306,6 @@ final class RenderPipeline {
             logger.error("Failed to start output HAL unit: \(error.localizedDescription)")
             _ = inputManager.stop()
             inputManager.uninitialize()
-            outputManager.uninitialize()
             _ = inputManager.clearInputCallback()
             _ = outputManager.clearOutputRenderCallback()
             callbackContext = nil
@@ -385,6 +384,15 @@ final class RenderPipeline {
     /// Updates the output gain applied after EQ processing.
     func updateOutputGain(linear: Float) {
         callbackContext?.targetOutputGainLinear = max(0, linear)
+    }
+
+    /// Updates the boost gain applied before input gain.
+    /// Used for volume boost (>100%) when output device can't go higher.
+    /// Linear scale: 1.0 = unity (no boost), 2.0 = 2x boost (6dB gain).
+    func updateBoostGain(linear: Float) {
+        let context = callbackContext
+        logger.debug("updateBoostGain: linear=\(linear), callbackContext=\(context != nil ? "exists" : "nil")")
+        context?.targetBoostGainLinear = max(1, linear)
     }
 
     // MARK: - EQ Control
@@ -491,6 +499,17 @@ final class RenderPipeline {
                 staticLogger.error("Input #\(inputCallCount): AudioUnitRender failed with \(pullStatus)")
             }
             return noErr
+        }
+
+        // Apply boost gain before input gain (for volume > 100%)
+        // Skip in full bypass mode (processingMode == 0)
+        if context.processingMode != 0 {
+            context.applyGain(
+                to: context.inputSampleBuffers,
+                frameCount: frameCount,
+                currentGain: &context.boostGainLinear,
+                targetGain: context.targetBoostGainLinear
+            )
         }
 
         // Apply input gain before writing to ring buffers (skip in full bypass mode)

@@ -18,14 +18,10 @@ struct DevicePickerView: View {
     }
 
     private var horizontalLayout: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 16) {
             InputDevicePickerView(layout: .horizontal)
-                .frame(maxWidth: 180, alignment: .leading)
-            Spacer()
             OutputDevicePickerView(layout: .horizontal)
-                .frame(maxWidth: 180, alignment: .trailing)
         }
-        .frame(width: 376)
     }
 
     private var verticalLayout: some View {
@@ -59,71 +55,33 @@ struct InputDevicePickerView: View {
             Text("Input")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Menu {
-                if store.selectedInputDeviceID == nil {
-                    Section {
-                        Text("Select Input")
-                    }
+            Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
+                ForEach(store.inputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
                 }
-                Section {
-                    ForEach(store.inputDevices) { device in
-                        Button {
-                            store.selectedInputDeviceID = device.uid
-                        } label: {
-                            HStack {
-                                Text(device.displayName)
-                                if store.selectedInputDeviceID == device.uid {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(displayInputText)
             }
+            .labelsHidden()
+            .frame(width: 180)
         }
     }
 
     private var verticalLayout: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Input")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Menu {
-                if store.selectedInputDeviceID == nil {
-                    Section {
-                        Text("Select Input")
-                    }
+        MenuSection(title: "Input") {
+            Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
+                ForEach(store.inputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
                 }
-                Section {
-                    ForEach(store.inputDevices) { device in
-                        Button {
-                            store.selectedInputDeviceID = device.uid
-                        } label: {
-                            HStack {
-                                Text(device.displayName)
-                                if store.selectedInputDeviceID == device.uid {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(displayInputText)
             }
+            .labelsHidden()
         }
     }
 
-    private var displayInputText: String {
-        if let uid = store.selectedInputDeviceID,
-           let device = store.inputDevices.first(where: { $0.uid == uid }) {
-            return device.displayName
+    private func binding(for selection: Binding<String?>) -> Binding<String> {
+        Binding {
+            selection.wrappedValue ?? ""
+        } set: { value in
+            selection.wrappedValue = value.isEmpty ? nil : value
         }
-        return "Select Input"
     }
 }
 
@@ -150,70 +108,32 @@ struct OutputDevicePickerView: View {
             Text("Output")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Menu {
-                if store.selectedOutputDeviceID == nil {
-                    Section {
-                        Text("Select Output")
-                    }
+            Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
+                ForEach(store.outputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
                 }
-                Section {
-                    ForEach(store.outputDevices) { device in
-                        Button {
-                            store.selectedOutputDeviceID = device.uid
-                        } label: {
-                            HStack {
-                                Text(device.displayName)
-                                if store.selectedOutputDeviceID == device.uid {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(displayOutputText)
             }
+            .labelsHidden()
+            .frame(width: 180)
         }
     }
 
     private var verticalLayout: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Output")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Menu {
-                if store.selectedOutputDeviceID == nil {
-                    Section {
-                        Text("Select Output")
-                    }
+        MenuSection(title: "Output") {
+            Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
+                ForEach(store.outputDevices) { device in
+                    Text(device.displayName).tag(device.uid)
                 }
-                Section {
-                    ForEach(store.outputDevices) { device in
-                        Button {
-                            store.selectedOutputDeviceID = device.uid
-                        } label: {
-                            HStack {
-                                Text(device.displayName)
-                                if store.selectedOutputDeviceID == device.uid {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(displayOutputText)
             }
+            .labelsHidden()
         }
     }
 
-    private var displayOutputText: String {
-        if let uid = store.selectedOutputDeviceID,
-           let device = store.outputDevices.first(where: { $0.uid == uid }) {
-            return device.displayName
+    private func binding(for selection: Binding<String?>) -> Binding<String> {
+        Binding {
+            selection.wrappedValue ?? ""
+        } set: { value in
+            selection.wrappedValue = value.isEmpty ? nil : value
         }
-        return "Select Output"
     }
 }

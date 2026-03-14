@@ -107,9 +107,19 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Use observer pattern for direct meter updates bypassing SwiftUI re-rendering
 
 ## 12. Built-in Virtual Audio Device
-- [ ] Bundle a custom Core Audio kernel extension or AudioServerPlugIn
-- [ ] Eliminate dependency on third-party tools like BlackHole or Loopback
-- [ ] Provide one-click setup: app creates its own virtual input/output endpoints
+- [x] Bundle an AudioServerPlugIn driver (userspace, not kernel extension)
+- [x] Create Driver/ directory with build script (no Xcode project)
+- [x] Adapt BlackHole.c for Equaliser with custom property (eqnm) and client-based visibility
+- [x] Create DriverConstants.swift for bundle IDs and property selectors
+- [x] Create DriverManager.swift for installation/uninstallation management
+- [x] Create DriverInstallationView.swift for installation UI
+- [x] Integrate with EqualiserStore for automatic device selection (bestInputDeviceForEQ)
+- [x] Update DeviceManager to filter driver from output devices
+- [x] Bundle driver with app (copy Driver/build/ to app bundle)
+- [x] Test driver installation on clean macOS system
+- [x] Add driver uninstall option in settings UI
+- [x] Auto select driver on start up and name it after current active physical device
+- [x] Add driver icon (EqualiserDriver.icns)
 
 ## 13. Application-Specific Routing
 - [ ] Allow users to select which applications route through the EQ (e.g., Spotify, Safari)

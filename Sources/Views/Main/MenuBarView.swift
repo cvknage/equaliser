@@ -41,7 +41,10 @@ struct MenuBarContentView: View {
         VStack(spacing: 12) {
             statusRow
 
-            outputPickerRow
+            // Only show output picker in manual mode
+            if store.manualModeEnabled {
+                outputPickerRow
+            }
 
             presetPickerRow
         }
@@ -159,6 +162,8 @@ struct MenuBarContentView: View {
             return .orange
         case .active:
             return store.isBypassed ? .yellow : .green
+        case .driverNotInstalled:
+            return .orange
         case .error:
             return .red
         }
@@ -172,6 +177,8 @@ struct MenuBarContentView: View {
             return "Starting..."
         case .active:
             return store.isBypassed ? "Bypassed" : "Active"
+        case .driverNotInstalled:
+            return "Driver Not Installed"
         case .error(let message):
             return "Error: \(message)"
         }
