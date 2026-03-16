@@ -502,15 +502,13 @@ final class RenderPipeline {
         }
 
         // Apply boost gain before input gain (for volume > 100%)
-        // Skip in full bypass mode (processingMode == 0)
-        if context.processingMode != 0 {
-            context.applyGain(
-                to: context.inputSampleBuffers,
-                frameCount: frameCount,
-                currentGain: &context.boostGainLinear,
-                targetGain: context.targetBoostGainLinear
-            )
-        }
+        // Boost compensates for driver volume attenuation and should always be applied.
+        context.applyGain(
+            to: context.inputSampleBuffers,
+            frameCount: frameCount,
+            currentGain: &context.boostGainLinear,
+            targetGain: context.targetBoostGainLinear
+        )
 
         // Apply input gain before writing to ring buffers (skip in full bypass mode)
         if context.processingMode != 0 {

@@ -44,20 +44,6 @@ final class MeterStore: ObservableObject {
     private var lastMeterValues: [MeterType: MeterValues] = [:]
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "MeterStore")
     
-    // MARK: - Constants
-    
-    private static let peakHoldHoldDuration: TimeInterval = 1.0
-    private static let peakHoldDecayPerTick: Float = 0.02
-    private static let peakAttackSmoothing: Float = 1.0
-    private static let peakReleaseSmoothing: Float = 0.33
-    private static let rmsSmoothing: Float = 0.12
-    private static let clipHoldDuration: TimeInterval = 0.5
-    private static let meterRange: ClosedRange<Float> = Float(-36)...Float(0)
-    private static let gamma: Float = 0.5
-    private static let changeThreshold: Float = 0.002
-    private static let silenceThreshold: Float = -85
-    private static let atRestThreshold: Float = 0.01
-    
     // MARK: - Value Storage
     
     private struct MeterValues {
@@ -196,10 +182,10 @@ final class MeterStore: ObservableObject {
         
         // Check if at rest (all meters silent)
         if metersAtRest {
-            let stillSilent = snapshot.inputDB.allSatisfy({ $0 <= Self.silenceThreshold }) &&
-                              snapshot.outputDB.allSatisfy({ $0 <= Self.silenceThreshold }) &&
-                              snapshot.inputRmsDB.allSatisfy({ $0 <= Self.silenceThreshold }) &&
-                              snapshot.outputRmsDB.allSatisfy({ $0 <= Self.silenceThreshold })
+            let stillSilent = snapshot.inputDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold }) &&
+                              snapshot.outputDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold }) &&
+                              snapshot.inputRmsDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold }) &&
+                              snapshot.outputRmsDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold })
             
             if stillSilent {
                 return
@@ -208,58 +194,58 @@ final class MeterStore: ObservableObject {
         }
         
         // Process each meter type
-        let interval = Self.meterInterval
+        let interval = MeterConstants.meterInterval
         
         // Input Peak - Left
         updateMeter(
             type: .inputPeakLeft,
-            dbValue: snapshot.inputDB.indices.contains(0) ? snapshot.inputDB[0] : Self.meterRange.lowerBound,
+            dbValue: snapshot.inputDB.indices.contains(0) ? snapshot.inputDB[0] : MeterConstants.meterRange.lowerBound,
             interval: interval
         )
         
         // Input Peak - Right
         updateMeter(
             type: .inputPeakRight,
-            dbValue: snapshot.inputDB.indices.contains(1) ? snapshot.inputDB[1] : Self.meterRange.lowerBound,
+            dbValue: snapshot.inputDB.indices.contains(1) ? snapshot.inputDB[1] : MeterConstants.meterRange.lowerBound,
             interval: interval
         )
         
         // Output Peak - Left
         updateMeter(
             type: .outputPeakLeft,
-            dbValue: snapshot.outputDB.indices.contains(0) ? snapshot.outputDB[0] : Self.meterRange.lowerBound,
+            dbValue: snapshot.outputDB.indices.contains(0) ? snapshot.outputDB[0] : MeterConstants.meterRange.lowerBound,
             interval: interval
         )
         
         // Output Peak - Right
         updateMeter(
             type: .outputPeakRight,
-            dbValue: snapshot.outputDB.indices.contains(1) ? snapshot.outputDB[1] : Self.meterRange.lowerBound,
+            dbValue: snapshot.outputDB.indices.contains(1) ? snapshot.outputDB[1] : MeterConstants.meterRange.lowerBound,
             interval: interval
         )
         
         // Input RMS - Left
         updateRMSMeter(
             type: .inputRMSLeft,
-            dbValue: snapshot.inputRmsDB.indices.contains(0) ? snapshot.inputRmsDB[0] : Self.meterRange.lowerBound
+            dbValue: snapshot.inputRmsDB.indices.contains(0) ? snapshot.inputRmsDB[0] : MeterConstants.meterRange.lowerBound
         )
         
         // Input RMS - Right
         updateRMSMeter(
             type: .inputRMSRight,
-            dbValue: snapshot.inputRmsDB.indices.contains(1) ? snapshot.inputRmsDB[1] : Self.meterRange.lowerBound
+            dbValue: snapshot.inputRmsDB.indices.contains(1) ? snapshot.inputRmsDB[1] : MeterConstants.meterRange.lowerBound
         )
         
         // Output RMS - Left
         updateRMSMeter(
             type: .outputRMSLeft,
-            dbValue: snapshot.outputRmsDB.indices.contains(0) ? snapshot.outputRmsDB[0] : Self.meterRange.lowerBound
+            dbValue: snapshot.outputRmsDB.indices.contains(0) ? snapshot.outputRmsDB[0] : MeterConstants.meterRange.lowerBound
         )
         
         // Output RMS - Right
         updateRMSMeter(
             type: .outputRMSRight,
-            dbValue: snapshot.outputRmsDB.indices.contains(1) ? snapshot.outputRmsDB[1] : Self.meterRange.lowerBound
+            dbValue: snapshot.outputRmsDB.indices.contains(1) ? snapshot.outputRmsDB[1] : MeterConstants.meterRange.lowerBound
         )
         
         // Check if we should go back to rest
@@ -284,17 +270,17 @@ final class MeterStore: ObservableObject {
         
         let allHolds: [Float] = [inputHoldLeft, inputHoldRight, outputHoldLeft, outputHoldRight]
         
-        let allValuesSilent = allValues.allSatisfy({ $0 < Self.atRestThreshold })
-        let allHoldsSilent = allHolds.allSatisfy({ $0 < Self.atRestThreshold })
+        let allValuesSilent = allValues.allSatisfy({ $0 < MeterConstants.atRestThreshold })
+        let allHoldsSilent = allHolds.allSatisfy({ $0 < MeterConstants.atRestThreshold })
         metersAtRest = allValuesSilent && allHoldsSilent
     }
     
     private func updateMeter(type: MeterType, dbValue: Float, interval: TimeInterval) {
         var values = lastMeterValues[type] ?? MeterValues()
         
-        let normalized = Self.normalize(db: dbValue)
+        let normalized = MeterConstants.normalizedPosition(for: dbValue)
         let delta = normalized - values.peak
-        let smoothing = delta >= 0 ? Self.peakAttackSmoothing : Self.peakReleaseSmoothing
+        let smoothing = delta >= 0 ? MeterConstants.peakAttackSmoothing : MeterConstants.peakReleaseSmoothing
         let rawPeak = values.peak + delta * smoothing
         let peak = max(0, min(1, rawPeak))
         
@@ -305,18 +291,18 @@ final class MeterStore: ObservableObject {
         let newHoldTime: TimeInterval
         let peakHold: Float
         if isNewPeak {
-            newHoldTime = Self.peakHoldHoldDuration
+            newHoldTime = MeterConstants.peakHoldDuration
             peakHold = actualPeakForHold
         } else if values.peakHoldTimeRemaining > 0 {
             newHoldTime = max(0, values.peakHoldTimeRemaining - interval)
             peakHold = values.peakHold
         } else {
             newHoldTime = 0
-            let rawPeakHold = values.peakHold - Self.peakHoldDecayPerTick
+            let rawPeakHold = values.peakHold - MeterConstants.peakHoldDecayPerTick
             peakHold = max(0, min(1, rawPeakHold))
         }
         
-        let clipHold = isClipping ? Self.clipHoldDuration : max(0, values.clipHold - interval)
+        let clipHold = isClipping ? MeterConstants.clipHoldDuration : max(0, values.clipHold - interval)
         
         values.peak = peak
         values.peakHold = peakHold
@@ -337,9 +323,9 @@ final class MeterStore: ObservableObject {
     private func updateRMSMeter(type: MeterType, dbValue: Float) {
         var values = lastMeterValues[type] ?? MeterValues()
         
-        let normalized = Self.normalize(db: dbValue)
+        let normalized = MeterConstants.normalizedPosition(for: dbValue)
         let delta = normalized - values.rms
-        let rawRMS = values.rms + delta * Self.rmsSmoothing
+        let rawRMS = values.rms + delta * MeterConstants.rmsSmoothing
         let rms = max(0, min(1, rawRMS))
         
         values.rms = rms
@@ -355,7 +341,7 @@ final class MeterStore: ObservableObject {
         if let last = lastMeterValues[type] {
             let lastTotal = last.peak + last.peakHold
             let newTotal = value + hold
-            if abs(newTotal - lastTotal) < Self.changeThreshold && !clipping {
+            if abs(newTotal - lastTotal) < MeterConstants.changeThreshold && !clipping {
                 return
             }
         }
@@ -381,21 +367,5 @@ final class MeterStore: ObservableObject {
         
         // Reset stored values
         lastMeterValues.removeAll()
-    }
-    
-    // MARK: - Utility
-    
-    private static func normalize(db: Float) -> Float {
-        if db <= meterRange.lowerBound {
-            return 0
-        }
-        if db >= meterRange.upperBound {
-            return 1
-        }
-        let amp = powf(10.0, 0.05 * db)
-        let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
-        let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
-        let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
-        return powf(normalizedAmp, gamma)
     }
 }

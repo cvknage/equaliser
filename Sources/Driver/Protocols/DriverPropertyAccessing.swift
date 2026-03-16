@@ -1,0 +1,24 @@
+// DriverPropertyAccessing.swift
+// Protocol for driver property access
+
+import Foundation
+import CoreAudio
+
+/// Protocol for driver property access (name, sample rate).
+@MainActor
+protocol DriverPropertyAccessing: AnyObject {
+    /// The current sample rate of the driver, if known.
+    var driverSampleRate: Float64? { get }
+    
+    /// Sets the driver's device name.
+    func setDeviceName(_ name: String)
+    
+    /// Gets the driver's current device name.
+    func getDeviceName() -> String?
+    
+    /// Sets the driver's nominal sample rate to the closest supported rate.
+    /// - Parameter targetRate: The desired sample rate (e.g., from output device).
+    /// - Returns: The actual rate set, or nil on failure.
+    @discardableResult
+    func setDriverSampleRate(matching targetRate: Float64) -> Float64?
+}

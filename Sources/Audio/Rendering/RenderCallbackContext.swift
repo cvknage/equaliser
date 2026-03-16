@@ -16,8 +16,8 @@ import os.log
 final class RenderCallbackContext: @unchecked Sendable {
     // MARK: - Properties
 
-    private static let maxMeterChannels = 2
-    private static let silenceDB: Float = -90
+    private static let maxMeterChannels = MeterConstants.maxMeterChannels
+    private static let silenceDB: Float = MeterConstants.silenceDB
 
     /// Ring buffers for audio samples (one per channel).
     /// Written by input callback, read by output callback.

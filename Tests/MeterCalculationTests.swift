@@ -208,5 +208,110 @@ final class MeterCalculationTests: XCTestCase {
         XCTAssertEqual(rms, amplitude, accuracy: 0.001)
     }
 
+    // MARK: - MeterMath Tests
 
+    func testMeterMath_linearToDB_silence() {
+        // Very low values should return silence floor
+        XCTAssertEqual(MeterMath.linearToDB(0), MeterConstants.silenceDB, accuracy: 0.001)
+        XCTAssertEqual(MeterMath.linearToDB(1e-8), MeterConstants.silenceDB, accuracy: 0.001)
+    }
+
+    func testMeterMath_linearToDB_referenceValues() {
+        // Unity gain
+        XCTAssertEqual(MeterMath.linearToDB(1.0), 0, accuracy: 0.001)
+
+        // Half amplitude
+        XCTAssertEqual(MeterMath.linearToDB(0.5), -6.02, accuracy: 0.02)
+
+        // Double amplitude
+        XCTAssertEqual(MeterMath.linearToDB(2.0), 6.02, accuracy: 0.02)
+    }
+
+    func testMeterMath_dbToLinear_referenceValues() {
+        // Unity gain
+        XCTAssertEqual(MeterMath.dbToLinear(0), 1.0, accuracy: 0.001)
+
+        // -6 dB
+        XCTAssertEqual(MeterMath.dbToLinear(-6), 0.5, accuracy: 0.01)
+
+        // +6 dB
+        XCTAssertEqual(MeterMath.dbToLinear(6), 2.0, accuracy: 0.01)
+    }
+
+    func testMeterMath_calculatePeak_silence() {
+        let buffer: [Float] = [0, 0, 0, 0, 0]
+        let peak = MeterMath.calculatePeak(buffer: buffer, frameCount: buffer.count)
+        XCTAssertEqual(peak, 0, accuracy: 0.001)
+    }
+
+    func testMeterMath_calculatePeak_positive() {
+        let buffer: [Float] = [0.1, 0.5, 0.3, 0.2]
+        let peak = MeterMath.calculatePeak(buffer: buffer, frameCount: buffer.count)
+        XCTAssertEqual(peak, 0.5, accuracy: 0.001)
+    }
+
+    func testMeterMath_calculatePeak_negative() {
+        let buffer: [Float] = [-0.1, -0.5, -0.3, -0.2]
+        let peak = MeterMath.calculatePeak(buffer: buffer, frameCount: buffer.count)
+        XCTAssertEqual(peak, 0.5, accuracy: 0.001)
+    }
+
+    func testMeterMath_calculatePeak_mixed() {
+        let buffer: [Float] = [-0.3, 0.7, -0.5, 0.2]
+        let peak = MeterMath.calculatePeak(buffer: buffer, frameCount: buffer.count)
+        XCTAssertEqual(peak, 0.7, accuracy: 0.001)
+    }
+
+    func testMeterMath_calculateRMS_silence() {
+        let buffer: [Float] = [0, 0, 0, 0, 0]
+        let rms = MeterMath.calculateRMS(buffer: buffer, frameCount: buffer.count)
+        XCTAssertEqual(rms, 0, accuracy: 0.001)
+    }
+
+    func testMeterMath_calculateRMS_dcSignal() {
+        let buffer: [Float] = [Float](repeating: 0.5, count: 100)
+        let rms = MeterMath.calculateRMS(buffer: buffer, frameCount: buffer.count)
+        XCTAssertEqual(rms, 0.5, accuracy: 0.001)
+    }
+
+    func testMeterMath_smoothMeter_attack() {
+        // Attack smoothing (rising value)
+        let result = MeterMath.smoothMeter(
+            current: 0.0,
+            target: 1.0,
+            attackSmoothing: 1.0,  // Instant attack
+            releaseSmoothing: 0.5
+        )
+        XCTAssertEqual(result, 1.0, accuracy: 0.001)
+    }
+
+    func testMeterMath_smoothMeter_release() {
+        // Release smoothing (falling value)
+        let result = MeterMath.smoothMeter(
+            current: 1.0,
+            target: 0.0,
+            attackSmoothing: 1.0,
+            releaseSmoothing: 0.5  // Half-way toward target per call
+        )
+        XCTAssertEqual(result, 0.5, accuracy: 0.001)
+    }
+
+    func testMeterMath_smoothMeter_bounds() {
+        // Should clamp to 0-1 range
+        let lowerBound = MeterMath.smoothMeter(
+            current: 0.0,
+            target: -1.0,
+            attackSmoothing: 1.0,
+            releaseSmoothing: 1.0
+        )
+        XCTAssertEqual(lowerBound, 0, accuracy: 0.001)
+
+        let upperBound = MeterMath.smoothMeter(
+            current: 1.0,
+            target: 2.0,
+            attackSmoothing: 1.0,
+            releaseSmoothing: 1.0
+        )
+        XCTAssertEqual(upperBound, 1, accuracy: 0.001)
+    }
 }
