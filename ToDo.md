@@ -93,7 +93,6 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Prepare signed/notarized builds and optionally integrate Sparkle or TestFlight for updates.
 
 ## 10. Bypass & Compare Mode (Completed)
-
 - [x] System EQ toggle (master bypass) — complete bypass of EQ and gains when OFF
 - [x] Compare mode segmented control ([EQ|Flat]) — A/B comparison with gains still applied in Flat mode
 - [x] Auto-revert timer (5 minutes) to switch back to EQ from Flat
@@ -120,6 +119,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Add driver uninstall option in settings UI
 - [x] Auto select driver on start up and name it after current active physical device
 - [x] Add driver icon (EqualiserDriver.icns)
+- [ ] Volume sync on Bluetooth devices
 
 ## 13. Application-Specific Routing
 - [ ] Allow users to select which applications route through the EQ (e.g., Spotify, Safari)
@@ -132,4 +132,11 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Allow chaining multiple EQ presets with different band counts
 - [ ] Design UI for managing EQ chain slots (add/remove/reorder)
 - [ ] Consider latency implications of serial processing
+
+## 15. Remove Microphone Indicator
+- [ ] Eliminate the orange microphone indicator and microphone permission requirement.
+- [ ] App does not appear in System Settings → Privacy & Security → Microphone
+- [ ] No orange menu bar dot appears while audio routing is active
+- [ ] Users are not prompted for microphone permission
+See `docs/dev/permissions.md` for technical analysis and architecture options.
 
