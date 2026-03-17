@@ -69,7 +69,7 @@ struct DisplaySettingsTab: View {
 }
 
 struct DriverSettingsTab: View {
-    @ObservedObject private var driverManager = DriverManager.shared
+    @StateObject private var driverManager = DriverManager.shared
     @State private var showUninstallConfirm = false
     @State private var isRefreshing = false
     

@@ -5,6 +5,11 @@ import SwiftUI
 struct MenuBarContentView: View {
     @EnvironmentObject var store: EqualiserStore
     @Environment(\.openWindow) private var openWindow
+    
+    /// View model for routing status and device selection.
+    private var routingViewModel: RoutingViewModel {
+        RoutingViewModel(store: store)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -42,7 +47,7 @@ struct MenuBarContentView: View {
             statusRow
 
             // Only show output picker in manual mode
-            if store.manualModeEnabled {
+            if routingViewModel.manualModeEnabled {
                 outputPickerRow
             }
 
@@ -57,9 +62,9 @@ struct MenuBarContentView: View {
         HStack {
             HStack(spacing: 4) {
                 Circle()
-                    .fill(statusColor)
+                    .fill(routingViewModel.statusColor)
                     .frame(width: 8, height: 8)
-                Text(statusText)
+                Text(routingViewModel.statusText)
                     .font(.subheadline)
             }
             Spacer()
@@ -81,13 +86,13 @@ struct MenuBarContentView: View {
                     Text("Select Output")
                 }
                 Section {
-                    ForEach(store.outputDevices) { device in
+                    ForEach(routingViewModel.outputDevices) { device in
                         Button {
-                            store.selectedOutputDeviceID = device.uid
+                            routingViewModel.selectOutputDevice(device.uid)
                         } label: {
                             HStack {
                                 Text(device.displayName)
-                                if store.selectedOutputDeviceID == device.uid {
+                                if routingViewModel.selectedOutputDeviceID == device.uid {
                                     Spacer()
                                     Image(systemName: "checkmark")
                                 }
@@ -96,17 +101,9 @@ struct MenuBarContentView: View {
                     }
                 }
             } label: {
-                Text(displayOutputText)
+                Text(routingViewModel.outputDeviceName)
             }
         }
-    }
-
-    private var displayOutputText: String {
-        if let uid = store.selectedOutputDeviceID,
-           let device = store.outputDevices.first(where: { $0.uid == uid }) {
-            return device.displayName
-        }
-        return "Select Output"
     }
 
     // MARK: - Preset Picker Row
@@ -149,38 +146,6 @@ struct MenuBarContentView: View {
                 .foregroundStyle(.secondary)
             }
             .padding(.top, 8)
-        }
-    }
-
-    // MARK: - Status Helpers
-
-    private var statusColor: Color {
-        switch store.routingStatus {
-        case .idle:
-            return .gray
-        case .starting:
-            return .orange
-        case .active:
-            return store.isBypassed ? .yellow : .green
-        case .driverNotInstalled:
-            return .orange
-        case .error:
-            return .red
-        }
-    }
-
-    private var statusText: String {
-        switch store.routingStatus {
-        case .idle:
-            return "Stopped"
-        case .starting:
-            return "Starting..."
-        case .active:
-            return store.isBypassed ? "Bypassed" : "Active"
-        case .driverNotInstalled:
-            return "Driver Not Installed"
-        case .error(let message):
-            return "Error: \(message)"
         }
     }
 }

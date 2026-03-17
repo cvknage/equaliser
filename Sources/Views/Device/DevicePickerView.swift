@@ -40,6 +40,11 @@ struct InputDevicePickerView: View {
 
     @EnvironmentObject var store: EqualiserStore
     var layout: Layout
+    
+    /// View model for device selection.
+    private var viewModel: RoutingViewModel {
+        RoutingViewModel(store: store)
+    }
 
     var body: some View {
         switch layout {
@@ -56,7 +61,7 @@ struct InputDevicePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
-                ForEach(store.inputDevices) { device in
+                ForEach(viewModel.inputDevices) { device in
                     Text(device.displayName).tag(device.uid)
                 }
             }
@@ -68,7 +73,7 @@ struct InputDevicePickerView: View {
     private var verticalLayout: some View {
         MenuSection(title: "Input") {
             Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
-                ForEach(store.inputDevices) { device in
+                ForEach(viewModel.inputDevices) { device in
                     Text(device.displayName).tag(device.uid)
                 }
             }
@@ -93,6 +98,11 @@ struct OutputDevicePickerView: View {
 
     @EnvironmentObject var store: EqualiserStore
     var layout: Layout
+    
+    /// View model for device selection.
+    private var viewModel: RoutingViewModel {
+        RoutingViewModel(store: store)
+    }
 
     var body: some View {
         switch layout {
@@ -109,7 +119,7 @@ struct OutputDevicePickerView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
-                ForEach(store.outputDevices) { device in
+                ForEach(viewModel.outputDevices) { device in
                     Text(device.displayName).tag(device.uid)
                 }
             }
@@ -121,7 +131,7 @@ struct OutputDevicePickerView: View {
     private var verticalLayout: some View {
         MenuSection(title: "Output") {
             Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
-                ForEach(store.outputDevices) { device in
+                ForEach(viewModel.outputDevices) { device in
                     Text(device.displayName).tag(device.uid)
                 }
             }

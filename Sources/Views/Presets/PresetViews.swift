@@ -65,9 +65,13 @@ struct CompactPresetPicker: View {
 /// A small indicator showing that the current preset has been modified.
 struct ModifiedIndicator: View {
     @EnvironmentObject var store: EqualiserStore
+    
+    private var viewModel: PresetViewModel {
+        PresetViewModel(store: store)
+    }
 
     var body: some View {
-        if store.presetManager.isModified {
+        if viewModel.isModified {
             Circle()
                 .fill(Color.orange)
                 .frame(width: 8, height: 8)
@@ -79,22 +83,26 @@ struct ModifiedIndicator: View {
 
 struct PresetMenuLabelView: View {
     @EnvironmentObject var store: EqualiserStore
-
-    var body: some View {
-        Text(currentPresetLabel)
-            .lineLimit(1)
+    
+    private var viewModel: PresetViewModel {
+        PresetViewModel(store: store)
     }
 
-    private var currentPresetLabel: String {
-        store.presetManager.selectedPresetName ?? "Custom"
+    var body: some View {
+        Text(viewModel.currentPresetName)
+            .lineLimit(1)
     }
 }
 
 struct PresetMenuContentView: View {
     @EnvironmentObject var store: EqualiserStore
+    
+    private var viewModel: PresetViewModel {
+        PresetViewModel(store: store)
+    }
 
     var body: some View {
-        if store.presetManager.presets.isEmpty {
+        if !viewModel.hasPresets {
             Text("No presets")
                 .foregroundStyle(.secondary)
         } else {
@@ -126,7 +134,7 @@ struct PresetMenuContentView: View {
         } label: {
             HStack {
                 Text(preset.metadata.name)
-                if preset.metadata.name == store.presetManager.selectedPresetName {
+                if preset.metadata.name == viewModel.selectedPresetName {
                     Image(systemName: "checkmark")
                 }
             }

@@ -6,6 +6,16 @@ struct EQWindowView: View {
     @EnvironmentObject var store: EqualiserStore
     @State private var showCompareHelp = false
     @State private var metersEnabledUI = false
+    
+    /// View model for routing status.
+    private var routingViewModel: RoutingViewModel {
+        RoutingViewModel(store: store)
+    }
+    
+    /// View model for EQ configuration.
+    private var eqViewModel: EQViewModel {
+        EQViewModel(store: store)
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -29,7 +39,7 @@ struct EQWindowView: View {
                 // Unified control panel - device pickers, status, and buttons grouped together
                 VStack(alignment: .trailing, spacing: 8) {
                     // Device picker - only show in manual mode
-                    if store.manualModeEnabled {
+                    if routingViewModel.manualModeEnabled {
                         DevicePickerView()
                     }
 
@@ -62,11 +72,11 @@ struct EQWindowView: View {
 
                         // Audio Routing toggle - only shown in manual mode
                         // In automatic mode, routing starts automatically when driver is installed
-                        if store.manualModeEnabled {
+                        if routingViewModel.manualModeEnabled {
                             ToggleWithHelp(
                                 label: "Audio Routing",
                                 isOn: Binding(
-                                    get: { store.routingStatus.isActive },
+                                    get: { routingViewModel.isActive },
                                     set: { newValue in
                                         if newValue {
                                             store.reconfigureRouting()
@@ -77,9 +87,7 @@ struct EQWindowView: View {
                                 ),
                                 helpText: "Enable or disable audio routing between the selected input and output devices. Both devices must be selected to enable routing."
                             )
-                            .disabled(store.routingStatus == .idle
-                                      && (store.selectedInputDeviceID == nil
-                                          || store.selectedOutputDeviceID == nil))
+                            .disabled(!routingViewModel.canToggleRouting)
                             .errorTint({
                                 if case .error = store.routingStatus { return true }
                                 return false

@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct DriverInstallationView: View {
-    @ObservedObject private var driverManager = DriverManager.shared
+    @StateObject private var driverManager = DriverManager.shared
     @EnvironmentObject var store: EqualiserStore
     @Environment(\.dismiss) private var dismiss
     
