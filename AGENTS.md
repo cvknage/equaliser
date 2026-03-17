@@ -30,45 +30,45 @@ swift test --filter TestClassName
 
 | Directory | Purpose |
 |-----------|---------|
-| `sources/app/` | App entry point and lifecycle |
-| `sources/domain/` | Pure data types (no dependencies) |
-| `sources/domain/eq/` | EQ configuration types |
-| `sources/domain/presets/` | Preset model types |
-| `sources/domain/routing/` | Routing status types |
-| `sources/domain/driver/` | Driver status types |
-| `sources/services/` | Infrastructure layer |
-| `sources/services/audio/` | Audio processing (DSP, HAL, rendering) |
-| `sources/services/device/` | Device enumeration and control |
-| `sources/services/driver/` | Driver lifecycle management |
-| `sources/services/presets/` | Preset file management |
-| `sources/services/meters/` | Meter state and calculations |
-| `sources/store/` | Application state coordinators |
-| `sources/store/coordinators/` | Audio routing, device changes, volume sync |
-| `sources/store/protocols/` | Coordinator protocols |
-| `sources/viewmodels/` | Presentation layer view models |
-| `sources/views/` | SwiftUI views |
+| `src/app/` | App entry point and lifecycle |
+| `src/domain/` | Pure data types (no dependencies) |
+| `src/domain/eq/` | EQ configuration types |
+| `src/domain/presets/` | Preset model types |
+| `src/domain/routing/` | Routing status types |
+| `src/domain/driver/` | Driver status types |
+| `src/services/` | Infrastructure layer |
+| `src/services/audio/` | Audio processing (DSP, HAL, rendering) |
+| `src/services/device/` | Device enumeration and control |
+| `src/services/driver/` | Driver lifecycle management |
+| `src/services/presets/` | Preset file management |
+| `src/services/meters/` | Meter state and calculations |
+| `src/store/` | Application state coordinators |
+| `src/store/coordinators/` | Audio routing, device changes, volume sync |
+| `src/store/protocols/` | Coordinator protocols |
+| `src/viewmodels/` | Presentation layer view models |
+| `src/views/` | SwiftUI views |
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `sources/store/EqualiserStore.swift` | Thin coordinator delegating to coordinators |
-| `sources/domain/eq/EQConfiguration.swift` | EQ band data (storage-free) |
-| `sources/services/meters/MeterStore.swift` | Meter state management |
-| `sources/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
-| `sources/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
+| `src/store/EqualiserStore.swift` | Thin coordinator delegating to coordinators |
+| `src/domain/eq/EQConfiguration.swift` | EQ band data (storage-free) |
+| `src/services/meters/MeterStore.swift` | Meter state management |
+| `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
+| `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
 
 ### Views Structure
 
 | Directory | Purpose |
 |-----------|---------|
-| `sources/views/main/` | Main EQ window, menu bar, settings |
-| `sources/views/eq/` | EQ band controls |
-| `sources/views/meters/` | Level meters |
-| `sources/views/presets/` | Preset management |
-| `sources/views/device/` | Device selection |
-| `sources/views/driver/` | Driver installation |
-| `sources/views/shared/` | Reusable components |
+| `src/views/main/` | Main EQ window, menu bar, settings |
+| `src/views/eq/` | EQ band controls |
+| `src/views/meters/` | Level meters |
+| `src/views/presets/` | Preset management |
+| `src/views/device/` | Device selection |
+| `src/views/driver/` | Driver installation |
+| `src/views/shared/` | Reusable components |
 
 ### Tests (189 tests)
 
@@ -85,6 +85,7 @@ swift test --filter TestClassName
 | Directory | Purpose |
 |-----------|---------|
 | `driver/` | Kernel driver source code |
+| `driver/src/` | Driver C source files |
 | `resources/` | App icon and assets |
 | `docs/user/` | User documentation |
 | `docs/dev/` | Developer documentation |

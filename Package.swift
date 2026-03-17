@@ -9,7 +9,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Equaliser",
-            path: "sources",
+            path: "src",
             exclude: ["app/Info.plist"]
         ),
         .testTarget(
