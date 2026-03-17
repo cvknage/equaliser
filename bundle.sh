@@ -5,14 +5,14 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$ROOT_DIR/.build/release"
 EXECUTABLE_NAME="Equaliser"
 APP_NAME="Equaliser"
-RELEASE_DIR="$ROOT_DIR/Release"
+RELEASE_DIR="$ROOT_DIR/release"
 APP_BUNDLE="$RELEASE_DIR/${APP_NAME}.app"
-INFO_PLIST_SRC="$ROOT_DIR/Sources/App/Info.plist"
+INFO_PLIST_SRC="$ROOT_DIR/sources/app/Info.plist"
 ENTITLEMENTS="$ROOT_DIR/Equaliser.entitlements"
-ICON_SVG="$ROOT_DIR/Resources/AppIcon.svg"
+ICON_SVG="$ROOT_DIR/resources/AppIcon.svg"
 ICONSET_DIR="$ROOT_DIR/.build/AppIcon.iconset"
 ICON_ICNS="$ROOT_DIR/.build/AppIcon.icns"
-DRIVER_BUNDLE="$ROOT_DIR/Driver/.build/Equaliser.driver"
+DRIVER_BUNDLE="$ROOT_DIR/driver/.build/Equaliser.driver"
 
 if [[ ! -f "$ROOT_DIR/Package.swift" ]]; then
   echo "Error: bundle.sh must run from repo root containing Package.swift" >&2
@@ -53,7 +53,7 @@ build_driver() {
   fi
 
   echo "Building virtual audio driver..."
-  "$ROOT_DIR/Driver/driver.sh" bundle --quiet
+  "$ROOT_DIR/driver/driver.sh" bundle --quiet
 }
 
 build_app() {

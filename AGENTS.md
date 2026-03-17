@@ -1,4 +1,4 @@
-# AGENTS.md - Equaliser
+# AI Guidelines - Equaliser
 
 Guidelines for AI coding agents working in this repository.
 
@@ -30,56 +30,64 @@ swift test --filter TestClassName
 
 | Directory | Purpose |
 |-----------|---------|
-| `Core/` | Central state and coordinators |
-| `Core/Coordinators/` | Audio routing, device changes, system defaults, timers |
-| `Core/Meters/` | Shared meter constants and calculations |
-| `Core/Protocols/` | Protocols for testability |
-| `ViewModels/` | Presentation layer view models |
-
-### Device & Driver
-
-| Directory | Purpose |
-|-----------|---------|
-| `Device/` | Device enumeration and volume control |
-| `Device/Protocols/` | Device-related protocols |
-| `Driver/` | Kernel driver management |
-| `Driver/Protocols/` | Driver-related protocols |
-
-### Audio Pipeline
-
-| Directory | Purpose |
-|-----------|---------|
-| `Audio/HAL/` | HAL audio unit management |
-| `Audio/Rendering/` | Render pipeline and manual rendering |
-| `Audio/DSP/` | Ring buffer and parameter smoothing |
-
-### Views
-
-| Directory | Purpose |
-|-----------|---------|
-| `Views/Main/` | Main EQ window, menu bar, settings |
-| `Views/EQ/` | EQ band controls |
-| `Views/Meters/` | Level meters |
-| `Views/Presets/` | Preset management |
-| `Views/Device/` | Device selection |
-| `Views/Shared/` | Reusable components |
+| `sources/app/` | App entry point and lifecycle |
+| `sources/domain/` | Pure data types (no dependencies) |
+| `sources/domain/eq/` | EQ configuration types |
+| `sources/domain/presets/` | Preset model types |
+| `sources/domain/routing/` | Routing status types |
+| `sources/domain/driver/` | Driver status types |
+| `sources/services/` | Infrastructure layer |
+| `sources/services/audio/` | Audio processing (DSP, HAL, rendering) |
+| `sources/services/device/` | Device enumeration and control |
+| `sources/services/driver/` | Driver lifecycle management |
+| `sources/services/presets/` | Preset file management |
+| `sources/services/meters/` | Meter state and calculations |
+| `sources/store/` | Application state coordinators |
+| `sources/store/coordinators/` | Audio routing, device changes, volume sync |
+| `sources/store/protocols/` | Coordinator protocols |
+| `sources/viewmodels/` | Presentation layer view models |
+| `sources/views/` | SwiftUI views |
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `EqualiserStore.swift` | Thin coordinator delegating to coordinators |
-| `EQConfiguration.swift` | EQ band data (storage-free) |
-| `MeterStore.swift` | Meter state management |
-| `AudioRoutingCoordinator.swift` | Device selection and pipeline management |
-| `RenderPipeline.swift` | Dual HAL + EQ processing |
+| `sources/store/EqualiserStore.swift` | Thin coordinator delegating to coordinators |
+| `sources/domain/eq/EQConfiguration.swift` | EQ band data (storage-free) |
+| `sources/services/meters/MeterStore.swift` | Meter state management |
+| `sources/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
+| `sources/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
+
+### Views Structure
+
+| Directory | Purpose |
+|-----------|---------|
+| `sources/views/main/` | Main EQ window, menu bar, settings |
+| `sources/views/eq/` | EQ band controls |
+| `sources/views/meters/` | Level meters |
+| `sources/views/presets/` | Preset management |
+| `sources/views/device/` | Device selection |
+| `sources/views/driver/` | Driver installation |
+| `sources/views/shared/` | Reusable components |
 
 ### Tests (189 tests)
 
-| File | Purpose |
-|------|---------|
-| `*Tests.swift` | Unit tests for each component |
-| `Mocks/` | Mock implementations for testing |
+| Directory | Purpose |
+|-----------|---------|
+| `tests/mocks/` | Mock implementations for testing |
+| `tests/domain/` | Domain type tests |
+| `tests/services/` | Service layer tests |
+| `tests/store/` | Store and coordinator tests |
+| `tests/viewmodels/` | View model tests |
+
+### Other Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `driver/` | Kernel driver source code |
+| `resources/` | App icon and assets |
+| `docs/user/` | User documentation |
+| `docs/dev/` | Developer documentation |
 
 ## Architecture
 

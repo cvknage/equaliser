@@ -1,8 +1,4 @@
 .DS_Store
 .build/
 .swiftpm/
-EqualizerApp.xcodeproj/
-*.xcworkspace/
-DerivedData/
-Equaliser.app/
-Release/
+release/

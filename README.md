@@ -1,4 +1,4 @@
-# <img src="./Resources/AppIcon.svg" width="36" align="center"> Equaliser
+# <img src="./resources/AppIcon.svg" width="36" align="center"> Equaliser
 
 **Equaliser** (🇬🇧) is a system-wide audio equalizer (🇺🇸) for macOS.
 
@@ -12,7 +12,7 @@ Equaliser runs quietly in your **menu bar**, keeping your Dock uncluttered.
 Equaliser lives in the macOS menu bar, where you can quickly enable or disable system EQ, select output device, and access presets.
 
 <p align="center">
-  <img src="./Graphics/equalisaer-menu-bar.png" alt="Equaliser Menu Bar" width="320">
+  <img src="./docs/user/images/equalisaer-menu-bar.png" alt="Equaliser Menu Bar" width="320">
 </p>
 
 
@@ -22,7 +22,7 @@ Equaliser provides a parametric equaliser with up to **64 adjustable bands**.
 Each band allows precise control over **frequency**, **gain**, and **bandwidth**, making it possible to subtly correct headphones or completely reshape your sound.
 
 <p align="center">
-  <img src="./Graphics/equalisaer-main-window.png" alt="Equaliser Main Window">
+  <img src="./docs/user/images/equalisaer-main-window.png" alt="Equaliser Main Window">
 </p>
 
 Level meters allow you to monitor both **input and output signals** in real time, with clip indicators to help you detect and avoid distortion. **Compare Mode** lets you instantly switch between your EQ curve and a flat response at matched volume.
@@ -140,7 +140,6 @@ Some other macOS system audio tools you might consider:
 * **[AU Lab](https://www.apple.com/apple-music/apple-digital-masters/)** — Proprietary, Gratis
 * **[eqMac (latest version)](https://eqmac.app/)** — Proprietary, Paid
 * **[Sound Control 3](https://staticz.com/soundcontrol/)** — Proprietary, Paid
-* **[Airfoil](https://rogueamoeba.com/airfoil/)** — Proprietary, Paid
 * **[SoundSource](https://rogueamoeba.com/soundsource/)** — Proprietary, Paid
 
 **Legend:**  
