@@ -13,6 +13,7 @@ final class DeviceVolumeService: VolumeControlling {
     // MARK: - Private Properties
     
     private nonisolated(unsafe) var deviceVolumeListenerBlocks: [AudioDeviceID: AudioObjectPropertyListenerBlock] = [:]
+    private nonisolated(unsafe) var deviceVolumePropertySelectors: [AudioDeviceID: AudioObjectPropertySelector] = [:]
     private nonisolated(unsafe) var muteListenerBlocks: [AudioObjectID: AudioObjectPropertyListenerBlock] = [:]
     private nonisolated(unsafe) var virtualMuteListenerBlocks: [AudioObjectID: AudioObjectPropertyListenerBlock] = [:]
     private let listenerQueue = DispatchQueue(label: "net.knage.equaliser.DeviceVolumeService.listener")
@@ -45,7 +46,7 @@ final class DeviceVolumeService: VolumeControlling {
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
+
         var vol = volume
         let status = AudioObjectSetPropertyData(
             deviceID,
@@ -55,39 +56,39 @@ final class DeviceVolumeService: VolumeControlling {
             UInt32(MemoryLayout<Float32>.size),
             &vol
         )
-        
-        if status == noErr {
-            return true
-        }
-        
-        // Fall back to setting volume on control objects
-        return setVolumeOnControlObject(deviceID: deviceID, scope: kAudioObjectPropertyScopeOutput, volume: volume)
+
+        return status == noErr
     }
     
     // MARK: - Device-Level Volume
     
     func getDeviceVolumeScalar(deviceID: AudioDeviceID) -> Float? {
-        // Try VolumeScalar first
+        // 1. Try VolumeScalar on main element
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVolumeScalar,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
+
         var volume: Float32 = 0
         var size = UInt32(MemoryLayout<Float32>.size)
-        
+
         if AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume) == noErr {
             return volume
         }
-        
-        // Fallback to VirtualMasterVolume (common for real audio output devices)
+
+        // 2. Try VirtualMasterVolume (common for real audio output devices)
         if let vmv = getVirtualMasterVolume(deviceID: deviceID) {
-            logger.debug("getDeviceVolumeScalar: using VirtualMasterVolume fallback for device \(deviceID)")
             return vmv
         }
-        
-        logger.warning("getDeviceVolumeScalar: failed for device \(deviceID)")
+
+        // 3. Try per-channel volume (Bluetooth devices)
+        if let channelVolume = getDeviceVolumeOnChannels(deviceID: deviceID) {
+            return channelVolume
+        }
+
+        // No volume method worked - this is unexpected
+        logger.warning("getDeviceVolumeScalar: No volume property available for device \(deviceID)")
         return nil
     }
     
@@ -99,28 +100,112 @@ final class DeviceVolumeService: VolumeControlling {
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
+
         var volumeValue = volume
         let size = UInt32(MemoryLayout<Float32>.size)
-        
+
         if AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &volumeValue) == noErr {
             return true
         }
-        
+
         // Fallback to VirtualMasterVolume (common for real audio output devices)
-        logger.debug("setDeviceVolumeScalar: VolumeScalar failed for device \(deviceID), trying VirtualMasterVolume")
-        return setVirtualMasterVolume(deviceID: deviceID, volume: volume)
+        if setVirtualMasterVolume(deviceID: deviceID, volume: volume) {
+            return true
+        }
+
+        // Fallback to per-channel volume (Bluetooth devices)
+        return setDeviceVolumeOnChannels(deviceID: deviceID, volume: volume)
     }
-    
+
+    // MARK: - Per-Channel Volume Control
+
+    /// Sets volume on individual channels (left/right) instead of master.
+    /// Some Bluetooth devices only support channel-level volume control, not master volume.
+    /// Uses kAudioDevicePropertyPreferredChannelsForStereo to determine actual channel numbers.
+    @discardableResult
+    private func setDeviceVolumeOnChannels(deviceID: AudioDeviceID, volume: Float) -> Bool {
+        // Get preferred channels for stereo
+        var preferredAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyPreferredChannelsForStereo,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var preferredSize = UInt32(MemoryLayout<UInt32>.size * 2)
+        var channels: [UInt32] = [1, 2]  // Default left/right
+
+        let getStatus = AudioObjectGetPropertyData(deviceID, &preferredAddress, 0, nil, &preferredSize, &channels)
+        if getStatus != noErr {
+            channels = [1, 2]
+        }
+
+        // Set volume on each channel (skip element 0 which is invalid)
+        var success = false
+        for channel in channels where channel != 0 {
+            var address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: AudioObjectPropertyElement(channel)
+            )
+
+            var volumeValue = volume
+            if AudioObjectSetPropertyData(deviceID, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volumeValue) == noErr {
+                success = true
+            }
+        }
+
+        return success
+    }
+
+    /// Gets volume from per-channel control (for Bluetooth devices).
+    /// Returns average of left/right channel volumes, or nil if not supported.
+    private func getDeviceVolumeOnChannels(deviceID: AudioDeviceID) -> Float? {
+        // Get preferred channels for stereo
+        var preferredAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyPreferredChannelsForStereo,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var preferredSize = UInt32(MemoryLayout<UInt32>.size * 2)
+        var channels: [UInt32] = [0, 0]
+
+        guard AudioObjectGetPropertyData(deviceID, &preferredAddress, 0, nil, &preferredSize, &channels) == noErr else {
+            return nil
+        }
+
+        // Read volume from each channel and average
+        var totalVolume: Float = 0
+        var channelCount: Int = 0
+
+        for channel in channels where channel != 0 {
+            var address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyVolumeScalar,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: AudioObjectPropertyElement(channel)
+            )
+
+            var volume: Float32 = 0
+            var size = UInt32(MemoryLayout<Float32>.size)
+
+            if AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume) == noErr {
+                totalVolume += volume
+                channelCount += 1
+            }
+        }
+
+        guard channelCount > 0 else { return nil }
+        return totalVolume / Float(channelCount)
+    }
+
     // MARK: - Volume Observation
     
     func observeDeviceVolumeChanges(deviceID: AudioDeviceID, handler: @escaping (Float) -> Void) {
+        // Try VolumeScalar first (works for most devices)
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyVolumeScalar,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
+
         let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
             guard let self = self else { return }
             if let volume = self.getDeviceVolumeScalar(deviceID: deviceID) {
@@ -129,27 +214,44 @@ final class DeviceVolumeService: VolumeControlling {
                 }
             }
         }
-        
+
         deviceVolumeListenerBlocks[deviceID] = block
-        
+
         let status = AudioObjectAddPropertyListenerBlock(deviceID, &address, listenerQueue, block)
-        
-        if status != noErr {
-            logger.error("observeDeviceVolumeChanges: Failed to register listener on device \(deviceID): error \(status)")
+
+        if status == noErr {
+            deviceVolumePropertySelectors[deviceID] = kAudioDevicePropertyVolumeScalar
+            logger.info("observeDeviceVolumeChanges: Registered VolumeScalar listener on device \(deviceID)")
+            return
+        }
+
+        // VolumeScalar failed, try VirtualMasterVolume (Bluetooth devices like AirPods)
+        logger.debug("observeDeviceVolumeChanges: VolumeScalar not available on device \(deviceID), trying VirtualMasterVolume")
+
+        address.mSelector = kAudioHardwareServiceDeviceProperty_VirtualMasterVolume
+        let vmvStatus = AudioObjectAddPropertyListenerBlock(deviceID, &address, listenerQueue, block)
+
+        if vmvStatus == noErr {
+            deviceVolumePropertySelectors[deviceID] = kAudioHardwareServiceDeviceProperty_VirtualMasterVolume
+            logger.info("observeDeviceVolumeChanges: Registered VirtualMasterVolume listener on device \(deviceID)")
         } else {
-            logger.info("observeDeviceVolumeChanges: Registered listener on device \(deviceID)")
+            // Both registrations failed - clean up the block
+            deviceVolumeListenerBlocks.removeValue(forKey: deviceID)
+            logger.error("observeDeviceVolumeChanges: Failed to register listener on device \(deviceID): VolumeScalar error \(status), VirtualMasterVolume error \(vmvStatus)")
         }
     }
     
     func stopObservingDeviceVolumeChanges(deviceID: AudioDeviceID) {
         guard let block = deviceVolumeListenerBlocks.removeValue(forKey: deviceID) else { return }
-        
+
+        let selector = deviceVolumePropertySelectors.removeValue(forKey: deviceID) ?? kAudioDevicePropertyVolumeScalar
+
         var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyVolumeScalar,
+            mSelector: selector,
             mScope: kAudioDevicePropertyScopeOutput,
             mElement: kAudioObjectPropertyElementMain
         )
-        
+
         AudioObjectRemovePropertyListenerBlock(deviceID, &address, listenerQueue, block)
     }
     
@@ -305,60 +407,7 @@ final class DeviceVolumeService: VolumeControlling {
         
         return volume
     }
-    
-    private func setVolumeOnControlObject(deviceID: AudioDeviceID, scope: AudioObjectPropertyScope, volume: Float) -> Bool {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyOwnedObjects,
-            mScope: scope,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        
-        var qualifier = AudioClassID(kAudioVolumeControlClassID)
-        var size: UInt32 = 0
-        
-        guard AudioObjectGetPropertyDataSize(deviceID, &address, UInt32(MemoryLayout<AudioClassID>.size), &qualifier, &size) == noErr else {
-            return false
-        }
-        
-        let controlCount = Int(size) / MemoryLayout<AudioObjectID>.size
-        guard controlCount > 0 else { return false }
-        
-        var controls = [AudioObjectID](repeating: 0, count: controlCount)
-        guard AudioObjectGetPropertyData(deviceID, &address, UInt32(MemoryLayout<AudioClassID>.size), &qualifier, &size, &controls) == noErr else {
-            return false
-        }
-        
-        // Set volume on all volume controls
-        var success = false
-        for controlID in controls {
-            if setVolumeOnControl(controlID: controlID, volume: volume) {
-                success = true
-            }
-        }
-        
-        return success
-    }
-    
-    private func setVolumeOnControl(controlID: AudioObjectID, volume: Float) -> Bool {
-        var volumeAddress = AudioObjectPropertyAddress(
-            mSelector: kAudioLevelControlPropertyScalarValue,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        
-        var vol = volume
-        let status = AudioObjectSetPropertyData(
-            controlID,
-            &volumeAddress,
-            0,
-            nil,
-            UInt32(MemoryLayout<Float32>.size),
-            &vol
-        )
-        
-        return status == noErr
-    }
-    
+
     // MARK: - Private Helpers - Mute Control Objects
     
     private func getMuteFromControlObject(deviceID: AudioDeviceID, scope: AudioObjectPropertyScope) -> Bool? {
@@ -398,14 +447,15 @@ final class DeviceVolumeService: VolumeControlling {
             mScope: kAudioObjectPropertyScopeGlobal,
             mElement: kAudioObjectPropertyElementMain
         )
-        
+
         var muted: UInt32 = 0
         var size = UInt32(MemoryLayout<UInt32>.size)
-        
+
         guard AudioObjectGetPropertyData(controlID, &muteAddress, 0, nil, &size, &muted) == noErr else {
             return nil
         }
-        
+
         return muted != 0
     }
+
 }

@@ -472,7 +472,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             renderPipeline = nil
         }
         
-        // Clear boost gain callback and tear down volume sync
+        // Clear callbacks and tear down volume sync
         volumeSyncCoordinator.onBoostGainChanged = nil
         volumeSyncCoordinator.tearDown()
     }

@@ -8,27 +8,27 @@ import CoreAudio
 /// Thin wrapper around VolumeManager for simpler integration with AudioRoutingCoordinator.
 @MainActor
 final class VolumeSyncCoordinator {
-    
+
     // MARK: - Properties
-    
+
     private var volumeManager: VolumeManager?
     private let deviceManager: DeviceManager
-    
+
     /// Callback invoked when boost gain changes.
     var onBoostGainChanged: ((Float) -> Void)? {
         didSet {
             volumeManager?.onBoostGainChanged = onBoostGainChanged
         }
     }
-    
+
     // MARK: - Initialization
-    
+
     init(deviceManager: DeviceManager) {
         self.deviceManager = deviceManager
     }
-    
+
     // MARK: - Public Methods
-    
+
     /// Sets up volume sync between driver and output device.
     /// Creates VolumeManager if needed and configures the sync.
     /// - Parameters:
@@ -41,7 +41,7 @@ final class VolumeSyncCoordinator {
         }
         volumeManager?.setupVolumeSync(driverID: driverID, outputID: outputID)
     }
-    
+
     /// Tears down volume sync.
     func tearDown() {
         volumeManager?.tearDown()

@@ -43,15 +43,15 @@ final class VolumeManager: ObservableObject {
     
     /// Driver device ID for volume sync.
     private var driverDeviceID: AudioDeviceID?
-    
+
     /// Output device ID for volume sync.
     private var outputDeviceID: AudioDeviceID?
-    
+
     /// Flag to prevent feedback loops.
     private var isSyncingMute = false
-    
+
     // MARK: - Callbacks
-    
+
     /// Called when boost gain changes (for render pipeline to apply).
     var onBoostGainChanged: ((Float) -> Void)?
     
@@ -67,12 +67,12 @@ final class VolumeManager: ObservableObject {
     /// Must be called after driver and output device are ready.
     func setupVolumeSync(driverID: AudioDeviceID, outputID: AudioDeviceID) {
         tearDown()
-        
+
         driverDeviceID = driverID
         outputDeviceID = outputID
-        
+
         logger.info("setupVolumeSync: driverID=\(driverID), outputID=\(outputID)")
-        
+
         // Output device is source of truth for volume
         // (speakers/headphones have user's preferred volume stored by macOS)
         let initialVolume: Float
@@ -156,20 +156,16 @@ final class VolumeManager: ObservableObject {
     /// Handles volume changes from the driver device (macOS slider).
     /// Updates internal state, syncs output volume, and recalculates boost.
     private func handleDriverVolumeChanged(_ newVolume: Float) {
-        let linearGain = driverScalarToLinear(newVolume)
-        let boost = boostGain()
-        
-        logger.debug("handleDriverVolumeChanged: scalar=\(newVolume), linear=\(linearGain), boost=\(boost)x")
-        
         // Update internal state
         gain = newVolume
-        
-        // Sync output device volume to driver (same scalar value)
+
+        // Sync to output device
         if let outputID = outputDeviceID {
             deviceManager.setDeviceVolumeScalar(deviceID: outputID, volume: newVolume)
         }
-        
+
         // Update boost (brings signal back to unity)
+        let boost = boostGain()
         onBoostGainChanged?(boost)
     }
     
