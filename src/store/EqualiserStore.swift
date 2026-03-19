@@ -42,8 +42,8 @@ final class EqualiserStore: ObservableObject {
         get { eqConfiguration.inputGain }
         set {
             let clamped = Self.clampGain(newValue)
-            eqConfiguration.inputGain = clamped
-            routingCoordinator.updateInputGain(linear: Self.dbToLinear(clamped))
+        eqConfiguration.inputGain = clamped
+        routingCoordinator.updateInputGain(linear: AudioMath.dbToLinear(clamped))
         }
     }
     
@@ -52,8 +52,8 @@ final class EqualiserStore: ObservableObject {
         get { eqConfiguration.outputGain }
         set {
             let clamped = Self.clampGain(newValue)
-            eqConfiguration.outputGain = clamped
-            routingCoordinator.updateOutputGain(linear: Self.dbToLinear(clamped))
+        eqConfiguration.outputGain = clamped
+        routingCoordinator.updateOutputGain(linear: AudioMath.dbToLinear(clamped))
         }
     }
     
@@ -306,7 +306,15 @@ final class EqualiserStore: ObservableObject {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
-        
+
+        // Forward device manager changes (device list updates)
+        deviceManager.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
         // Listen for app termination
         NotificationCenter.default.addObserver(
             self,
@@ -521,9 +529,5 @@ final class EqualiserStore: ObservableObject {
     
     static func clampGain(_ gain: Float) -> Float {
         min(max(gain, gainRange.lowerBound), gainRange.upperBound)
-    }
-    
-    private static func dbToLinear(_ db: Float) -> Float {
-        powf(10.0, db / 20.0)
     }
 }

@@ -148,7 +148,7 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
     }
     
     // MARK: - Device Enumeration
-    
+
     func refreshDevices() {
         var propertySize: UInt32 = 0
         var address = AudioObjectPropertyAddress(

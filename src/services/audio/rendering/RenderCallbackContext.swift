@@ -377,9 +377,9 @@ final class RenderCallbackContext: @unchecked Sendable {
                 sumSquares += sample * sample
                 frame += 1
             }
-            let db = max(Self.silenceDB, 20 * log10(max(peak, 1e-7)))
+            let db = AudioMath.linearToDB(max(peak, 1e-7), silence: Self.silenceDB)
             let rms = sqrt(sumSquares / Float(frameCount))
-            let rmsDb = max(Self.silenceDB, 20 * log10(max(rms, 1e-7)))
+            let rmsDb = AudioMath.linearToDB(max(rms, 1e-7), silence: Self.silenceDB)
             storage[channel] = db
             rmsStorage[channel] = rmsDb
         }

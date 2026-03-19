@@ -26,21 +26,22 @@ public final class DriverPropertyService: ObservableObject, DriverPropertyAccess
     
     // MARK: - Device Name
     
-    public func setDeviceName(_ name: String) {
+    @discardableResult
+    public func setDeviceName(_ name: String) -> Bool {
         // Refresh device ID in case CoreAudio re-enumerated
         _ = registry.refreshDeviceID()
-        
+
         guard let deviceID = registry.deviceID else {
             logger.warning("setDeviceName: driver device not found")
-            return
+            return false
         }
-        
+
         var address = DRIVER_ADDRESS_NAME
         // Note: Compiler warns about CFString pointer, but this is correct for SET operations.
         // For GET operations we use Unmanaged<CFString>? to handle ownership, but for SET
         // operations we must provide a pointer to the existing CFString reference.
         var nameRef: CFString = name as CFString
-        
+
         let status = AudioObjectSetPropertyData(
             deviceID,
             &address,
@@ -49,10 +50,26 @@ public final class DriverPropertyService: ObservableObject, DriverPropertyAccess
             UInt32(MemoryLayout<CFString>.stride),
             &nameRef
         )
-        
+
         if status != noErr {
             logger.error("Failed to set device name: \(status)")
+            return false
         }
+
+        // Verify by reading back
+        guard let verifiedName = getDeviceName() else {
+            logger.warning("Could not verify device name after setting")
+            return false
+        }
+
+        if verifiedName != name {
+            logger.warning("Device name mismatch: set '\(name)', got '\(verifiedName)'")
+            return false
+        }
+
+        logger.info("Device name verified: '\(name)'")
+
+        return true
     }
     
     public func getDeviceName() -> String? {

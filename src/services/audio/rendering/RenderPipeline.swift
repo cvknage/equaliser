@@ -234,6 +234,15 @@ final class RenderPipeline {
             maxFrameCount: maxFrameCount,
             ringBufferCapacity: ringBufferCapacity
         )
+
+        // Apply initial gains from EQConfiguration
+        let inputGainLinear = AudioMath.dbToLinear(eqConfiguration.inputGain)
+        let outputGainLinear = AudioMath.dbToLinear(eqConfiguration.outputGain)
+        context.targetInputGainLinear = inputGainLinear
+        context.targetOutputGainLinear = outputGainLinear
+        context.inputGainLinear = inputGainLinear
+        context.outputGainLinear = outputGainLinear
+
         callbackContext = context
         latestMeters = .silent
 

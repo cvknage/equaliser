@@ -200,17 +200,8 @@ final class AudioRoutingCoordinator: ObservableObject {
             selectedInputDeviceID = inputUID
             selectedOutputDeviceID = outputUID
             
-            // Get output device for driver naming
-            guard let outputDevice = deviceManager.device(forUID: outputUID) else {
-                routingStatus = .error("Output device not found")
-                logger.error("Automatic mode: output device not found for UID: \(outputUID)")
-                return
-            }
-            
             // Rename driver to match output device
-            let driverName = "\(outputDevice.name) (Equaliser)"
-            DriverManager.shared.setDeviceName(driverName)
-            logger.info("Automatic mode: renamed driver to '\(driverName)'")
+            _ = updateDriverName()
             
             // Set driver as macOS default (with loop prevention)
             systemDefaultObserver.setDriverAsDefault(
@@ -230,7 +221,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         if !manualModeEnabled && inputUID == DRIVER_DEVICE_UID {
             if !DriverManager.shared.isDriverVisible() {
                 logger.warning("Driver became hidden during configuration, waiting...")
-                
+
                 Task { @MainActor in
                     if await DriverManager.shared.findDriverDeviceWithRetry() != nil {
                         logger.info("Driver became visible, retrying routing configuration")
@@ -244,31 +235,52 @@ final class AudioRoutingCoordinator: ObservableObject {
                 return
             }
         }
-        
+
         guard let inputDeviceID = deviceManager.deviceID(forUID: inputUID),
               let outputDeviceID = deviceManager.deviceID(forUID: outputUID),
-              let inputDevice = deviceManager.device(forUID: inputUID),
               let outputDevice = deviceManager.device(forUID: outputUID) else {
             routingStatus = .error("Failed to resolve device IDs")
             logger.error("Failed to resolve device IDs")
             return
         }
-        
+
         logger.debug("Device IDs resolved: input=\(inputDeviceID), output=\(outputDeviceID)")
-        
-        // Sync driver sample rate to match output device
-        syncDriverSampleRate(to: outputDeviceID)
-        
+
+        // Sync driver sample rate to match output device (automatic mode only)
+        if !manualModeEnabled {
+            syncDriverSampleRate(to: outputDeviceID)
+        }
+
         // Set up listener for output device sample rate changes
         setupSampleRateListener(for: outputDeviceID)
-        
+
         // Create and configure the render pipeline
         let outputName = outputDevice.name
+
+        // In automatic mode, use the intended driver name (just set via updateDriverName)
+        // instead of reading from cached device list which may not have refreshed yet
+        let inputName: String
+        if manualModeEnabled {
+            guard let inputDevice = deviceManager.device(forUID: inputUID) else {
+                routingStatus = .error("Failed to resolve input device")
+                logger.error("Manual mode: failed to resolve input device")
+                return
+            }
+            // If input is the driver, use known name "Equaliser" (cache may be stale after rename)
+            if inputUID == DRIVER_DEVICE_UID {
+                inputName = "Equaliser"
+            } else {
+                inputName = inputDevice.name
+            }
+        } else {
+            inputName = "\(outputDevice.name) (Equaliser)"
+        }
+
         routingStatus = .starting
-        logger.info("Starting routing: \(inputDevice.name) → \(outputName)")
-        
+        logger.info("Starting routing: \(inputName) → \(outputName)")
+
         let pipeline = RenderPipeline(eqConfiguration: eqConfiguration)
-        
+
         switch pipeline.configure(inputDeviceID: inputDeviceID, outputDeviceID: outputDeviceID) {
         case .success:
             break // RenderPipeline logs success at info level
@@ -277,18 +289,18 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.error("Pipeline configuration failed: \(error.localizedDescription)")
             return
         }
-        
+
         // Start the pipeline
         switch pipeline.start() {
         case .success:
             renderPipeline = pipeline
-            routingStatus = .active(inputName: inputDevice.name, outputName: outputName)
-            logger.info("Routing active: \(inputDevice.name) → \(outputName)")
+            routingStatus = .active(inputName: inputName, outputName: outputName)
+            logger.info("Routing active: \(inputName) → \(outputName)")
             meterStore.setRenderPipeline(pipeline)
             meterStore.startMeterUpdates()
             
-            // Set up volume sync between driver and output device
-            if let driverID = DriverManager.shared.deviceID {
+            // Set up volume sync between driver and output device (automatic mode only)
+            if !manualModeEnabled, let driverID = DriverManager.shared.deviceID {
                 // Wire up boost gain callback before setting up volume sync
                 volumeSyncCoordinator.onBoostGainChanged = { [weak self] boostGain in
                     self?.renderPipeline?.updateBoostGain(linear: boostGain)
@@ -334,8 +346,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             }
             
             // Rename driver back to "Equaliser"
-            DriverManager.shared.setDeviceName("Equaliser")
-            logger.info("Renamed driver back to 'Equaliser'")
+            _ = updateDriverName()
         }
         // In manual mode, don't modify macOS default
         
@@ -359,8 +370,17 @@ final class AudioRoutingCoordinator: ObservableObject {
         showDriverPrompt = false
         manualModeEnabled = true
         deviceChangeHandler.clearHistory()
-        logger.info("Switched to manual mode, cleared output history")
-        
+
+        // Rename driver back to default since it's no longer used in manual mode
+        _ = updateDriverName()
+
+        // Reset driver volume to 100% for clean state when returning to automatic mode
+        if let driverID = DriverManager.shared.deviceID {
+            _ = deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: 1.0)
+        }
+
+        logger.info("Switched to manual mode")
+
         // Attempt routing if both input and output devices are selected
         if selectedInputDeviceID != nil && selectedOutputDeviceID != nil {
             reconfigureRouting()
@@ -374,11 +394,11 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.warning("Cannot switch to automatic mode: driver not installed")
             return
         }
-        
+
         manualModeEnabled = false
         logger.info("Switched to automatic mode")
-        
-        // Start routing
+
+        // Start routing (this will rename the driver)
         reconfigureRouting()
     }
     
@@ -508,8 +528,8 @@ final class AudioRoutingCoordinator: ObservableObject {
         deviceManager.observeSampleRateChanges(on: outputDeviceID) { [weak self] newRate in
             guard let self = self else { return }
             
-            // Only sync if routing is active
-            guard case .active = self.routingStatus else { return }
+            // Only sync if routing is active and in automatic mode
+            guard case .active = self.routingStatus, !self.manualModeEnabled else { return }
             
             self.logger.info("Output device sample rate changed to \(newRate) Hz, re-syncing driver")
             
@@ -550,17 +570,18 @@ final class AudioRoutingCoordinator: ObservableObject {
         
         // Update output device
         selectedOutputDeviceID = device.uid
-        
-        // Rename driver to match new output device
-        let driverName = "\(device.name) (Equaliser)"
-        DriverManager.shared.setDeviceName(driverName)
-        logger.info("Renamed driver to: \(driverName)")
-        
-        // Reconfigure routing
+
+        // Reconfigure routing (this will rename the driver)
         reconfigureRouting()
     }
     
     private func handleDeviceDisconnected() {
+        // Only handle in automatic mode (driver is used)
+        guard !manualModeEnabled else {
+            logger.debug("Manual mode: ignoring device disconnect handling for driver")
+            return
+        }
+
         // Check if our currently selected output device still exists
         guard !deviceChangeHandler.deviceStillExists(selectedOutputDeviceID) else {
             logger.debug("Selected output device still exists, no action needed")
@@ -573,11 +594,8 @@ final class AudioRoutingCoordinator: ObservableObject {
         if let replacement = deviceChangeHandler.findReplacementDevice(currentUID: selectedOutputDeviceID) {
             selectedOutputDeviceID = replacement.uid
             logger.info("Using replacement device: \(replacement.name)")
-            
-            let driverName = "\(replacement.name) (Equaliser)"
-            DriverManager.shared.setDeviceName(driverName)
-            logger.info("Renamed driver to: \(driverName)")
-            
+
+            // Reconfigure routing (this will rename the driver)
             reconfigureRouting()
         } else {
             // No output device available
@@ -591,12 +609,95 @@ final class AudioRoutingCoordinator: ObservableObject {
     }
     
     // MARK: - Init-time Configuration
-    
+
     /// Configures callbacks after initialization (for cross-reference callbacks).
     func configureCallbacks(
         onSystemDefaultChanged: ((AudioDevice) -> Void)? = nil,
         onDeviceDisconnected: ((AudioDevice?) -> Void)? = nil
     ) {
         // Already configured in init, but allow override if needed
+    }
+
+    // MARK: - Driver Name Management
+
+    /// Updates the driver name based on current routing state.
+    ///
+    /// This method handles naming the driver to reflect the current output device:
+    /// - **Automatic mode (routing active)**: Sets name to "{outputDevice} (Equaliser)"
+    /// - **Automatic mode (not routing)**: Sets name to "{outputDevice} (Equaliser)"
+    /// - **Manual mode**: Resets name to "Equaliser"
+    ///
+    /// ## Why Refresh After Name Change
+    ///
+    /// After setting the driver name, we must refresh the device list because:
+    /// 1. CoreAudio caches device names - the cache becomes stale after rename
+    /// 2. The UI displays device names from the cached list
+    /// 3. Without refresh, the status bar shows outdated driver names
+    ///
+    /// ## The Toggle Pattern
+    ///
+    /// Simply renaming the driver doesn't trigger CoreAudio notifications. We use a
+    /// toggle pattern to force macOS to notice the change:
+    /// 1. Set driver name via CoreAudio property
+    /// 2. Set output device as default (triggers notification)
+    /// 3. After 0.1s delay, set driver as default again (triggers notification)
+    /// 4. Refresh device list to get updated name
+    ///
+    /// The delay is necessary because CoreAudio notifications are asynchronous.
+    ///
+    /// - Returns: `true` if name was set and verified, `false` otherwise.
+    @discardableResult
+    private func updateDriverName() -> Bool {
+        // Manual mode or not routing: reset to default name
+        guard !manualModeEnabled else {
+            let success = DriverManager.shared.setDeviceName("Equaliser")
+
+            // Trigger macOS Control Center refresh by toggling default output
+            // When switching from automatic to manual mode:
+            // - Driver is already default (from automatic mode)
+            // - Setting driver as default again is a no-op (no notification)
+            // - Toggle to output device and back to trigger CoreAudio notifications
+            if success, let outputUID = selectedOutputDeviceID {
+                // First, set the output device as default (triggers notification)
+                systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
+
+                // Then, set driver back as default (triggers another notification)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                    self?.systemDefaultObserver.setDriverAsDefault()
+                    // Refresh device list so status shows updated driver name
+                    self?.deviceManager.refreshDevices()
+                    self?.logger.debug("Device list refreshed after driver name change")
+                }
+            }
+
+            return success
+        }
+
+        // Automatic mode: need output device and visible driver
+        guard let outputUID = selectedOutputDeviceID,
+              let outputDevice = deviceManager.device(forUID: outputUID),
+              DriverManager.shared.isDriverVisible() else {
+            logger.warning("updateDriverName: cannot update - no output device or driver not visible")
+            return false
+        }
+
+        let driverName = "\(outputDevice.name) (Equaliser)"
+        let success = DriverManager.shared.setDeviceName(driverName)
+
+        // Trigger macOS Control Center refresh by toggling default output
+        // When switching from manual to automatic mode:
+        // - Driver may or may not be the current default
+        // - Toggle to output device and back to ensure CoreAudio notifications fire
+        if success, let _ = DriverManager.shared.deviceID {
+            systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.systemDefaultObserver.setDriverAsDefault()
+                // Refresh device list so status shows updated driver name
+                self?.deviceManager.refreshDevices()
+                self?.logger.debug("Device list refreshed after driver name change")
+            }
+        }
+
+        return success
     }
 }

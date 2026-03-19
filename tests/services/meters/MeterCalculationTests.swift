@@ -2,66 +2,6 @@ import XCTest
 @testable import Equaliser
 
 final class MeterCalculationTests: XCTestCase {
-    // MARK: - dB to Linear Conversion Tests
-
-    /// Standard audio formula: linear = 10^(dB/20)
-    private func dbToLinear(_ db: Float) -> Float {
-        powf(10.0, db / 20.0)
-    }
-
-    /// Standard audio formula: dB = 20 * log10(linear)
-    private func linearToDb(_ linear: Float) -> Float {
-        guard linear > 0 else { return -.infinity }
-        return 20.0 * log10(linear)
-    }
-
-    func testDbToLinear_referenceValues() {
-        // 0 dB → 1.0 (unity gain)
-        XCTAssertEqual(dbToLinear(0), 1.0, accuracy: 0.001)
-
-        // +6 dB → ~2.0 (double amplitude)
-        XCTAssertEqual(dbToLinear(6), 2.0, accuracy: 0.01)
-
-        // -6 dB → ~0.5 (half amplitude)
-        XCTAssertEqual(dbToLinear(-6), 0.5, accuracy: 0.01)
-
-        // -20 dB → ~0.1
-        XCTAssertEqual(dbToLinear(-20), 0.1, accuracy: 0.001)
-
-        // -12 dB → ~0.25 (quarter amplitude)
-        XCTAssertEqual(dbToLinear(-12), 0.25, accuracy: 0.01)
-
-        // +20 dB → 10.0
-        XCTAssertEqual(dbToLinear(20), 10.0, accuracy: 0.001)
-    }
-
-    func testLinearToDb_referenceValues() {
-        // 1.0 → 0 dB
-        XCTAssertEqual(linearToDb(1.0), 0, accuracy: 0.001)
-
-        // 2.0 → ~+6 dB
-        XCTAssertEqual(linearToDb(2.0), 6.02, accuracy: 0.02)
-
-        // 0.5 → ~-6 dB
-        XCTAssertEqual(linearToDb(0.5), -6.02, accuracy: 0.02)
-
-        // 0.1 → -20 dB
-        XCTAssertEqual(linearToDb(0.1), -20, accuracy: 0.01)
-
-        // 10.0 → +20 dB
-        XCTAssertEqual(linearToDb(10.0), 20, accuracy: 0.01)
-    }
-
-    func testDbLinear_roundTrip() {
-        let testDbValues: [Float] = [-60, -36, -20, -12, -6, 0, 6, 12, 20]
-
-        for db in testDbValues {
-            let linear = dbToLinear(db)
-            let roundTripped = linearToDb(linear)
-            XCTAssertEqual(roundTripped, db, accuracy: 0.001, "dB value \(db) failed round-trip")
-        }
-    }
-
     // MARK: - Normalized Position Tests
 
     func testNormalizedPosition_boundaries() {
@@ -313,5 +253,28 @@ final class MeterCalculationTests: XCTestCase {
             releaseSmoothing: 1.0
         )
         XCTAssertEqual(upperBound, 1, accuracy: 0.001)
+    }
+
+    // MARK: - Delegation Tests
+
+    func testMeterMath_delegatesToAudioMath() {
+        // MeterMath should delegate to AudioMath with same results
+        let dbValues: [Float] = [-60.0, -36.0, -20.0, 0.0, 6.0, 20.0]
+        for db in dbValues {
+            XCTAssertEqual(
+                MeterMath.dbToLinear(db),
+                AudioMath.dbToLinear(db),
+                "MeterMath.dbToLinear should delegate to AudioMath for \(db) dB"
+            )
+        }
+
+        let linearValues: [Float] = [0.001, 0.1, 0.5, 1.0, 2.0, 10.0]
+        for linear in linearValues {
+            XCTAssertEqual(
+                MeterMath.linearToDB(linear),
+                AudioMath.linearToDB(linear),
+                "MeterMath.linearToDB should delegate to AudioMath for \(linear)"
+            )
+        }
     }
 }

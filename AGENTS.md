@@ -297,6 +297,28 @@ if context.processingMode != 0 {
 }
 ```
 
+### Driver Name Refresh Pattern
+
+When changing the driver's device name, the device list must be refreshed afterward:
+
+```swift
+// 1. Set the name
+let success = DriverManager.shared.setDeviceName("Speakers (Equaliser)")
+
+// 2. Toggle default output to trigger CoreAudio notifications
+systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
+
+// 3. After delay, set driver back as default and refresh
+DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+    systemDefaultObserver.setDriverAsDefault()
+    deviceManager.refreshDevices()  // Critical: updates cached device list
+}
+```
+
+**Why this matters**: CoreAudio caches device names. Without `refreshDevices()`, the UI shows stale driver names after renaming.
+
+**If driver names aren't updating in UI**: Check that `refreshDevices()` is called after `setDeviceName()`.
+
 ## Code Guidelines
 
 ### Naming Conventions

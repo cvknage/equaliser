@@ -8,7 +8,7 @@ import Foundation
 /// in performance-critical audio code paths.
 enum MeterMath {
     // MARK: - dB Conversion
-    
+
     /// Converts linear amplitude to decibels.
     /// - Parameters:
     ///   - linear: Linear amplitude (0-1 typical range).
@@ -16,16 +16,15 @@ enum MeterMath {
     /// - Returns: dBFS value (0 = full scale, negative = quieter).
     @inline(__always)
     static func linearToDB(_ linear: Float, silence: Float = MeterConstants.silenceDB) -> Float {
-        guard linear > 1e-7 else { return silence }
-        return max(silence, 20 * log10(linear))
+        AudioMath.linearToDB(linear, silence: silence)
     }
-    
+
     /// Converts decibels to linear amplitude.
     /// - Parameter db: dBFS value.
     /// - Returns: Linear amplitude.
     @inline(__always)
     static func dbToLinear(_ db: Float) -> Float {
-        powf(10.0, 0.05 * db)
+        AudioMath.dbToLinear(db)
     }
     
     // MARK: - Peak/RMS Calculation

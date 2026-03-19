@@ -92,16 +92,16 @@ enum MeterConstants {
     
     /// Converts a dB value to a normalized position (0-1) for meter display.
     /// Uses gamma correction for perceptual uniformity.
-    /// 
+    ///
     /// - Parameter db: The dBFS value to normalize.
     /// - Returns: Normalized value 0-1 where 0 is minimum and 1 is maximum.
     @inline(__always)
     static func normalizedPosition(for db: Float) -> Float {
         if db <= meterRange.lowerBound { return 0 }
         if db >= meterRange.upperBound { return 1 }
-        let amp = powf(10.0, 0.05 * db)
-        let minAmp = powf(10.0, 0.05 * meterRange.lowerBound)
-        let maxAmp = powf(10.0, 0.05 * meterRange.upperBound)
+        let amp = AudioMath.dbToLinear(db)
+        let minAmp = AudioMath.dbToLinear(meterRange.lowerBound)
+        let maxAmp = AudioMath.dbToLinear(meterRange.upperBound)
         let normalizedAmp = (amp - minAmp) / (maxAmp - minAmp)
         return powf(normalizedAmp, gamma)
     }

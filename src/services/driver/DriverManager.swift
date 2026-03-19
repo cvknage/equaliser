@@ -102,7 +102,8 @@ public final class DriverManager: ObservableObject {
     
     // MARK: - Device Properties (pass-through)
     
-    public func setDeviceName(_ name: String) {
+    @discardableResult
+    public func setDeviceName(_ name: String) -> Bool {
         propertyService.setDeviceName(name)
     }
     

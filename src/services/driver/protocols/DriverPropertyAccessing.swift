@@ -11,7 +11,10 @@ protocol DriverPropertyAccessing: AnyObject {
     var driverSampleRate: Float64? { get }
     
     /// Sets the driver's device name.
-    func setDeviceName(_ name: String)
+    /// - Parameter name: The name to set.
+    /// - Returns: `true` if the name was set and verified, `false` otherwise.
+    @discardableResult
+    func setDeviceName(_ name: String) -> Bool
     
     /// Gets the driver's current device name.
     func getDeviceName() -> String?
