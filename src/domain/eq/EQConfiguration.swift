@@ -266,7 +266,10 @@ final class EQConfiguration: ObservableObject {
             unit.bypass = globalBypass
         }
 
-        let targetCount = min(activeBandCount, totalCapacity(of: eqUnits))
+        let capacity = totalCapacity(of: eqUnits)
+        let targetCount = min(activeBandCount, capacity)
+
+        // Apply settings to active bands
         for index in 0..<targetCount {
             guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { continue }
             let config = bands[index]
@@ -276,6 +279,12 @@ final class EQConfiguration: ObservableObject {
             band.bandwidth = config.bandwidth
             band.gain = config.gain
             band.bypass = config.bypass
+        }
+
+        // Bypass unused bands (beyond activeBandCount) to prevent stale settings
+        for index in targetCount..<capacity {
+            guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { continue }
+            unit.bands[bandIndex].bypass = true
         }
     }
 

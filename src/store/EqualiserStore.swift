@@ -33,7 +33,16 @@ final class EqualiserStore: ObservableObject {
         get { eqConfiguration.activeBandCount }
         set {
             eqConfiguration.setActiveBandCount(newValue)
-            routingCoordinator.reconfigureRouting()
+
+            // Only update pipeline if routing is active
+            guard routingCoordinator.routingStatus.isActive else { return }
+
+            // Reconfigure only if new band count exceeds current capacity
+            if newValue > routingCoordinator.currentBandCapacity() {
+                routingCoordinator.reconfigureRouting()
+            } else {
+                routingCoordinator.reapplyConfiguration()
+            }
         }
     }
     
@@ -458,16 +467,13 @@ final class EqualiserStore: ObservableObject {
     func loadPreset(_ preset: Preset) {
         // Apply settings to EQ configuration
         presetManager.applyPreset(preset, to: eqConfiguration)
-        
+
         // Apply input/output gains
         inputGain = preset.settings.inputGain
         outputGain = preset.settings.outputGain
         isBypassed = preset.settings.globalBypass
-        bandCount = preset.settings.activeBandCount
-        
-        // Reapply to audio engine if active
-        routingCoordinator.reapplyConfiguration()
-        
+        bandCount = preset.settings.activeBandCount  // Uses smart setter
+
         // Mark as selected (not modified since we just loaded it)
         presetManager.selectPreset(named: preset.metadata.name)
     }

@@ -1,3 +1,4 @@
+import AVFoundation
 import XCTest
 @testable import Equaliser
 
@@ -157,5 +158,62 @@ final class EQConfigurationTests: XCTestCase {
     func testDefaultBandwidth() {
         // Verify default bandwidth constant
         XCTAssertEqual(EQConfiguration.defaultBandwidth, 0.67)
+    }
+
+    // MARK: - Apply to EQ Units Tests
+
+    @MainActor
+    func testApply_toEQUnits_appliesActiveBands() {
+        let config = EQConfiguration(initialBandCount: 10)
+        // Modify some band settings
+        config.updateBandGain(index: 0, gain: 6.0)
+        config.updateBandGain(index: 5, gain: -3.0)
+        config.updateBandFrequency(index: 2, frequency: 500)
+
+        let eqUnit = AVAudioUnitEQ(numberOfBands: 32)
+
+        config.apply(to: [eqUnit])
+
+        // Verify active bands have correct settings
+        XCTAssertEqual(eqUnit.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(eqUnit.bands[5].gain, -3.0, accuracy: 0.001)
+        XCTAssertEqual(eqUnit.bands[2].frequency, 500, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testApply_toEQUnits_bypassesUnusedBands() {
+        let config = EQConfiguration(initialBandCount: 10)
+        let eqUnit = AVAudioUnitEQ(numberOfBands: 32)
+
+        config.apply(to: [eqUnit])
+
+        // Bands 0-9 should have their bypass set from config (false by default)
+        for i in 0..<10 {
+            XCTAssertFalse(eqUnit.bands[i].bypass, "Active band \(i) should not be bypassed")
+        }
+        // Bands 10-31 should be bypassed (true)
+        for i in 10..<32 {
+            XCTAssertTrue(eqUnit.bands[i].bypass, "Unused band \(i) should be bypassed")
+        }
+    }
+
+    @MainActor
+    func testApply_toEQUnits_decreasingBandCount() {
+        // Start with 32 bands, then decrease to 10
+        let config = EQConfiguration(initialBandCount: 32)
+        config.setActiveBandCount(10, preserveConfiguredBands: false)
+
+        let eqUnit = AVAudioUnitEQ(numberOfBands: 32)
+
+        config.apply(to: [eqUnit])
+
+        // Bands 0-9 should be active (not bypassed)
+        for i in 0..<10 {
+            XCTAssertFalse(eqUnit.bands[i].bypass, "Active band \(i) should not be bypassed")
+        }
+        // Bands 10-31 should be bypassed (the unused bands)
+        for i in 10..<32 {
+            XCTAssertTrue(eqUnit.bands[i].bypass, "Unused band \(i) should be bypassed after decreasing band count")
+        }
     }
 }

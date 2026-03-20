@@ -445,6 +445,11 @@ final class RenderPipeline {
         renderingEngine?.updateBandBypass(index: index)
     }
 
+    /// Returns the total band capacity of the EQ units.
+    var bandCapacity: Int {
+        renderingEngine?.bandCapacity ?? 0
+    }
+
     /// Reapplies the entire configuration (e.g., after band count changes).
     func reapplyConfiguration() {
         renderingEngine?.reapplyConfiguration()

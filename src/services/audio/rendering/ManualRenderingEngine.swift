@@ -110,14 +110,14 @@ final class ManualRenderingEngine {
             throw ManualRenderingError.manualRenderingFailed(error.localizedDescription)
         }
 
-        // 3. Create EQ units to cover the active band count (max 32 bands per unit)
+        // 3. Create EQ units with full 32-band capacity each (max 32 bands per unit)
+        //    This avoids pipeline reconfigure when increasing band count within capacity.
+        //    Unused bands are bypassed in apply(to:) to prevent stale settings.
         let activeBandCount = eqConfiguration.activeBandCount
         let bandsPerUnit = 32
         let unitCount = Int(ceil(Float(activeBandCount) / Float(bandsPerUnit)))
-        let units: [AVAudioUnitEQ] = (0..<unitCount).map { unitIndex in
-            let remaining = activeBandCount - unitIndex * bandsPerUnit
-            let bandsForUnit = max(1, min(bandsPerUnit, remaining))
-            return AVAudioUnitEQ(numberOfBands: bandsForUnit)
+        let units: [AVAudioUnitEQ] = (0..<unitCount).map { _ in
+            AVAudioUnitEQ(numberOfBands: bandsPerUnit)  // Always full capacity
         }
         self.eqUnits = units
 
@@ -263,6 +263,11 @@ final class ManualRenderingEngine {
     /// Updates a band's bypass state from the current EQ configuration.
     func updateBandBypass(index: Int) {
         eqConfiguration.applyBandBypass(index: index, to: eqUnits)
+    }
+
+    /// Returns the total band capacity (sum of all EQ unit bands).
+    var bandCapacity: Int {
+        eqUnits.reduce(0) { $0 + $1.bands.count }
     }
 
     /// Reapplies the full EQ configuration.

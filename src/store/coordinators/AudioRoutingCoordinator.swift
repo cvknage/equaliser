@@ -442,6 +442,11 @@ final class AudioRoutingCoordinator: ObservableObject {
         renderPipeline?.updateBandBypass(index: index)
     }
     
+    /// Returns the current band capacity of the render pipeline, or 0 if not active.
+    func currentBandCapacity() -> Int {
+        renderPipeline?.bandCapacity ?? 0
+    }
+
     /// Reapplies the entire configuration to the render pipeline.
     func reapplyConfiguration() {
         renderPipeline?.reapplyConfiguration()
