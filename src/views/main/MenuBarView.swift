@@ -64,7 +64,7 @@ struct MenuBarContentView: View {
                 Circle()
                     .fill(routingViewModel.statusColor)
                     .frame(width: 8, height: 8)
-                Text(routingViewModel.statusText)
+                Text(routingViewModel.simplifiedStatusText)
                     .font(.subheadline)
             }
             Spacer()

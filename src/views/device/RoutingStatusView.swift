@@ -1,13 +1,12 @@
 import SwiftUI
 
 /// Displays the current audio routing status.
+/// Uses RoutingViewModel for all presentation logic (text, colors, icons).
 struct RoutingStatusView: View {
-    let status: RoutingStatus
-    let isBypassed: Bool
+    let viewModel: RoutingViewModel
 
-    init(status: RoutingStatus, isBypassed: Bool = false) {
-        self.status = status
-        self.isBypassed = isBypassed
+    init(viewModel: RoutingViewModel) {
+        self.viewModel = viewModel
     }
 
     var body: some View {
@@ -18,101 +17,36 @@ struct RoutingStatusView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(statusBackground)
+        .background(viewModel.statusBackgroundColor)
         .cornerRadius(6)
     }
 
     @ViewBuilder
     private var statusIcon: some View {
-        switch status {
-        case .idle:
-            Image(systemName: "stop.circle")
-                .foregroundStyle(.secondary)
-        case .starting:
+        if viewModel.showsProgressIndicator {
             ProgressView()
                 .controlSize(.small)
-        case .active(_, _):
-            if isBypassed {
-                Image(systemName: "pause.circle.fill")
-                    .foregroundStyle(.yellow)
-            } else {
-                Image(systemName: "waveform.circle.fill")
-                    .foregroundStyle(.green)
-            }
-        case .driverNotInstalled:
-            Image(systemName: "speaker.wave.3.fill")
-                .foregroundStyle(.orange)
-        case .error:
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.red)
+        } else if let iconName = viewModel.statusIconName {
+            Image(systemName: iconName)
+                .foregroundStyle(viewModel.statusIconColor)
         }
     }
 
     @ViewBuilder
     private var statusText: some View {
-        switch status {
-        case .idle:
-            Text("Audio Routing Stopped")
-                .foregroundStyle(.secondary)
-        case .starting:
-            Text("Starting...")
-                .foregroundStyle(.secondary)
-        case .active(let inputName, let outputName):
-            if isBypassed {
-                Text("\(inputName) → \(outputName)")
-                    .foregroundStyle(.yellow)
-            } else {
-                Text("\(inputName) → EQ → \(outputName)")
-                    .fontWeight(.medium)
-            }
-        case .driverNotInstalled:
-            Text("Driver Not Installed - Open Settings to Install")
-                .foregroundStyle(.orange)
-        case .error(let message):
-            Text(message)
-                .foregroundStyle(.red)
-                .lineLimit(2)
-        }
-    }
+        let text = Text(viewModel.detailedStatusText)
+            .foregroundStyle(viewModel.detailedStatusColor)
+            .fontWeight(viewModel.statusTextIsMedium ? .medium : .regular)
 
-    private var statusBackground: Color {
-        switch status {
-        case .idle, .starting:
-            return Color.clear
-        case .active(_, _):
-            if isBypassed {
-                return Color.yellow.opacity(0.1)
-            }
-            return Color.green.opacity(0.1)
-        case .driverNotInstalled:
-            return Color.orange.opacity(0.1)
-        case .error:
-            return Color.red.opacity(0.1)
+        if let lineLimit = viewModel.statusTextLineLimit {
+            text.lineLimit(lineLimit)
+        } else {
+            text
         }
     }
 }
 
 #Preview("Idle") {
-    RoutingStatusView(status: .idle)
-        .padding()
-}
-
-#Preview("Starting") {
-    RoutingStatusView(status: .starting)
-        .padding()
-}
-
-#Preview("Active") {
-    RoutingStatusView(status: .active(inputName: "BlackHole 2ch", outputName: "Built-in Output"), isBypassed: false)
-        .padding()
-}
-
-#Preview("Active (Bypassed)") {
-    RoutingStatusView(status: .active(inputName: "BlackHole 2ch", outputName: "Built-in Output"), isBypassed: true)
-        .padding()
-}
-
-#Preview("Error") {
-    RoutingStatusView(status: .error("Sample rate mismatch: 48000 Hz vs 44100 Hz"))
+    RoutingStatusView(viewModel: RoutingViewModel(store: EqualiserStore()))
         .padding()
 }
