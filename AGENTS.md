@@ -75,7 +75,7 @@ swift test --filter TestClassName
 | `src/views/driver/` | Driver installation |
 | `src/views/shared/` | Reusable components |
 
-### Tests (189 tests)
+### Tests
 
 | Directory | Purpose |
 |-----------|---------|
@@ -185,50 +185,19 @@ protocol DriverLifecycleManaging: ObservableObject {
 
 ### View Models
 
-View models derive presentation state from the store:
+View models hold `unowned` store references and derive presentation state:
 
 ```swift
-@Observable
-final class RoutingViewModel {
+@Observable final class RoutingViewModel {
     private unowned let store: EqualiserStore
-    
-    var statusColor: Color {
-        switch store.routingStatus {
-        case .idle: return .gray
-        case .active: return .green
-        // ...
-        }
-    }
-    
-    func toggleRouting() {
-        if store.routingStatus.isActive {
-            store.stopRouting()
-        } else {
-            store.reconfigureRouting()
-        }
-    }
+    var statusColor: Color { /* derive from store.routingStatus */ }
 }
 ```
 
 ### Meter Constants
 
-All meter calculations use shared constants:
-
-```swift
-enum MeterConstants {
-    static let silenceDB: Float = -90
-    static let meterRange: ClosedRange<Float> = -36...0
-    static let gamma: Float = 0.5
-    
-    static func normalizedPosition(for db: Float) -> Float { ... }
-}
-
-enum MeterMath {
-    static func linearToDB(_ linear: Float) -> Float { ... }
-    static func dbToLinear(_ db: Float) -> Float { ... }
-    static func calculatePeak(buffer: UnsafePointer<Float>, frameCount: Int) -> Float { ... }
-}
-```
+- `MeterConstants`: silence threshold (-90 dB), range (-36...0), gamma (0.5), normalizedPosition()
+- `MeterMath`: linearToDB, dbToLinear, calculatePeak
 
 ### Audio Pipeline
 
@@ -426,80 +395,43 @@ Use British English throughout:
 
 **Pure Function Testing Pattern:**
 
-For complex logic without dependencies, extract to pure functions in `enum` types. This matches `OutputDeviceSelection`, `DeviceChangeDetector`, `HeadphoneSwitchPolicy`, `AudioMath`, and `MeterMath`.
+For complex logic without dependencies, extract to pure functions in `enum` types (`OutputDeviceSelection`, `DeviceChangeDetector`, `HeadphoneSwitchPolicy`, `AudioMath`, `MeterMath`).
 
 ```swift
-// Extract logic to pure function
 enum HeadphoneSwitchPolicy {
-    static func shouldSwitch(
-        currentOutput: AudioDevice?,
-        newDevice: AudioDevice,
-        isInManualMode: Bool,
-        isReconfiguring: Bool
-    ) -> Bool { ... }
+    static func shouldSwitch(...) -> Bool { ... }
 }
-
-// Test without mocking
-func testShouldSwitch_currentIsBuiltIn_returnsTrue() {
-    let current = makeBuiltInDevice(uid: "builtin-speakers")
-    let new = makeBuiltInDevice(uid: "headphones")
-    
-    XCTAssertTrue(HeadphoneSwitchPolicy.shouldSwitch(
-        currentOutput: current,
-        newDevice: new,
-        isInManualMode: false,
-        isReconfiguring: false
-    ))
-}
+// Test directly without mocking
+XCTAssertTrue(HeadphoneSwitchPolicy.shouldSwitch(...))
 ```
 
 ## Common Tasks
 
 ### Modifying EQ Settings
-
 ```swift
-// Via store (marks preset as modified)
-store.updateBandGain(index: 0, gain: 6.0)
-store.updateBandFrequency(index: 0, frequency: 1000)
-
-// Via view model
+store.updateBandGain(index: 0, gain: 6.0)  // marks preset as modified
 eqViewModel.updateBandGain(index: 0, gain: 6.0)
 ```
 
 ### Working with View Models
-
 ```swift
-// Create view model
 let routingVM = RoutingViewModel(store: store)
-
-// Access derived state
 let color = routingVM.statusColor
-let text = routingVM.statusText
-
-// Perform actions
 routingVM.toggleRouting()
 ```
 
 ### Working with Coordinators
-
 ```swift
-// Coordinators are owned by EqualiserStore
-// Access via store.routingCoordinator or create view models
-
-// Routing status
 store.routingStatus  // .idle, .starting, .active, .error
-
-// Device selection
 store.selectedInputDeviceID = "device-uid"
 store.selectedOutputDeviceID = "device-uid"
 ```
 
 ### Working with the Driver
-
 ```swift
-DriverManager.shared.isReady                  // true if installed
-DriverManager.shared.status                   // .notInstalled, .installed, .needsUpdate
-DriverManager.shared.setDeviceName("My EQ")  // Set custom name
+DriverManager.shared.isReady  // true if installed
+DriverManager.shared.status   // .notInstalled, .installed, .needsUpdate
+DriverManager.shared.setDeviceName("My EQ")
 ```
 
 ## Entitlements
