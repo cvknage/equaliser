@@ -265,7 +265,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         setupSampleRateListener(for: outputDeviceID)
 
         // Set up jack connection listener on built-in device (Intel Macs: headphone jack detection)
-        // Note: Apple Silicon uses device count change detection in DeviceEnumerator instead
+        // Note: Apple Silicon uses device count change detection in DeviceEnumerationService instead
         if !manualModeEnabled {
             if let builtInDevice = deviceManager.enumerator.findBuiltInAudioDevice() {
                 deviceChangeCoordinator.setupJackConnectionListener(for: builtInDevice.id)

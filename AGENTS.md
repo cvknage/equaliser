@@ -32,7 +32,7 @@ swift test --filter TestClassName
 |-----------|---------|
 | `src/app/` | App entry point and lifecycle |
 | `src/domain/` | Pure data types (no dependencies) |
-| `src/domain/device/` | Device change detection policy (pure functions) |
+| `src/domain/device/` | Device types, history, policies (pure) |
 | `src/domain/eq/` | EQ configuration types |
 | `src/domain/presets/` | Preset model types |
 | `src/domain/routing/` | Routing status types |
@@ -43,8 +43,8 @@ swift test --filter TestClassName
 | `src/services/driver/` | Driver lifecycle management |
 | `src/services/presets/` | Preset file management |
 | `src/services/meters/` | Meter state and calculations |
-| `src/store/` | Application state coordinators |
-| `src/store/coordinators/` | Audio routing, device changes, volume sync |
+| `src/store/` | Application state (managers, coordinators) |
+| `src/store/coordinators/` | Coordinators (orchestrate multiple components) |
 | `src/store/protocols/` | Coordinator protocols |
 | `src/viewmodels/` | Presentation layer view models |
 | `src/views/` | SwiftUI views |
@@ -56,12 +56,14 @@ swift test --filter TestClassName
 | `src/store/EqualiserStore.swift` | Thin coordinator delegating to coordinators |
 | `src/domain/eq/EQConfiguration.swift` | EQ band data (storage-free) |
 | `src/domain/device/DeviceChangeDetector.swift` | Built-in device diff detection (pure) |
+| `src/domain/device/DeviceChangeEvent.swift` | Device change event types (pure) |
 | `src/domain/device/HeadphoneSwitchPolicy.swift` | Headphone switch decision logic (pure) |
+| `src/domain/device/OutputDeviceHistory.swift` | Output device history for reconnection |
 | `src/services/meters/MeterStore.swift` | Meter state management |
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
-| `src/store/coordinators/DeviceChangeCoordinator.swift` | Device change events, history, headphone detection |
-| `src/store/coordinators/OutputDeviceHistory.swift` | Output device history for reconnection |
+| `src/store/coordinators/DeviceChangeCoordinator.swift` | Device change events, headphone detection |
 | `src/store/VolumeManager.swift` | Volume sync between driver and output device |
+| `src/store/CompareModeTimer.swift` | Auto-revert timer for compare mode |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
 | `src/services/device/DeviceEnumerationService.swift` | Device enumeration and change events |
 | `src/services/device/DeviceManager.swift` | Device model and selection logic |
@@ -84,7 +86,7 @@ swift test --filter TestClassName
 |-----------|---------|
 | `tests/mocks/` | Mock implementations for testing |
 | `tests/domain/` | Domain type tests |
-| `tests/domain/device/` | Device change and headphone switch policy tests |
+| `tests/domain/device/` | Device change, history, and headphone switch policy tests |
 | `tests/services/` | Service layer tests |
 | `tests/store/` | Store and coordinator tests |
 | `tests/viewmodels/` | View model tests |

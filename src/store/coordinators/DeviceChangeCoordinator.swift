@@ -6,11 +6,11 @@ import CoreAudio
 import Foundation
 import OSLog
 
-/// Coordinates device change events from DeviceEnumerator.
+/// Coordinates device change events from DeviceEnumerationService.
 /// Manages output device history and emits events for parent coordinator.
 ///
 /// ## Responsibilities
-/// - Subscribe to DeviceEnumerator change events
+/// - Subscribe to DeviceEnumerationService change events
 /// - Manage OutputDeviceHistory for reconnection
 /// - Handle headphone detection (built-in device changes)
 /// - Report missing output devices

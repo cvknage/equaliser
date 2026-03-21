@@ -47,8 +47,8 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
     private nonisolated(unsafe) var defaultOutputListenerBlock: AudioObjectPropertyListenerBlock?
     private nonisolated(unsafe) var jackConnectionListenerBlock: AudioObjectPropertyListenerBlock?
     private var observedJackDeviceID: AudioDeviceID?
-    private let listenerBlockQueue = DispatchQueue(label: "net.knage.equaliser.DeviceEnumerator.listener")
-    private let logger = Logger(subsystem: "net.knage.equaliser", category: "DeviceEnumerator")
+    private let listenerBlockQueue = DispatchQueue(label: "net.knage.equaliser.DeviceEnumerationService.listener")
+    private let logger = Logger(subsystem: "net.knage.equaliser", category: "DeviceEnumerationService")
     
     // MARK: - Initialization
     
@@ -88,7 +88,7 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
         )
 
         if status != noErr {
-            assertionFailure("DeviceEnumerator: Failed to add device change listener: \(status)")
+            assertionFailure("DeviceEnumerationService: Failed to add device change listener: \(status)")
         }
     }
 
@@ -115,7 +115,7 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
         )
 
         if status != noErr {
-            assertionFailure("DeviceEnumerator: Failed to add default output listener: \(status)")
+            assertionFailure("DeviceEnumerationService: Failed to add default output listener: \(status)")
         }
     }
 

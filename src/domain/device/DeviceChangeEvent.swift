@@ -4,7 +4,7 @@
 import Foundation
 
 /// Represents device enumeration changes that require coordinator action.
-/// Emitted by DeviceEnumerator when the device list changes in meaningful ways.
+/// Emitted by DeviceEnumerationService when the device list changes in meaningful ways.
 enum DeviceChangeEvent: Sendable {
     /// Single built-in device was added (Apple Silicon: headphones plugged in).
     /// Parameter is the newly detected built-in device.
