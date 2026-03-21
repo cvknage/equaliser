@@ -38,6 +38,12 @@ final class OutputDeviceHistory {
         devices.removeAll()
     }
     
+    /// Removes a device from history.
+    /// - Parameter uid: The device UID to remove
+    func remove(_ uid: String) {
+        devices.removeAll { $0 == uid }
+    }
+    
     // MARK: - Device Lookup
     
     /// Checks if the currently selected device still exists.

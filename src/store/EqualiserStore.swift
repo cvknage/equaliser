@@ -123,12 +123,15 @@ final class EqualiserStore: ObservableObject {
     // MARK: - Components
     
     let deviceManager = DeviceManager()
+    let volumeService: VolumeControlling
+    let sampleRateService: SampleRateObserving
     let eqConfiguration: EQConfiguration
     let presetManager: PresetManager
     let meterStore: MeterStore
 
     // MARK: - Coordinators
     
+    private(set) var deviceChangeCoordinator: DeviceChangeCoordinator
     private(set) var routingCoordinator: AudioRoutingCoordinator
     private let systemDefaultObserver: SystemDefaultObserver
     private let compareModeTimer = CompareModeTimer()
@@ -177,15 +180,24 @@ final class EqualiserStore: ObservableObject {
         self.presetManager = PresetManager()
         self.meterStore = MeterStore(metersEnabled: snapshot?.metersEnabled ?? true)
         
+        // Create services
+        self.volumeService = DeviceVolumeService()
+        self.sampleRateService = DeviceSampleRateService()
+        
         // Create coordinators
-        self.volumeSyncCoordinator = VolumeSyncCoordinator(deviceManager: deviceManager)
+        self.volumeSyncCoordinator = VolumeSyncCoordinator(volumeService: volumeService)
         self.systemDefaultObserver = SystemDefaultObserver(deviceManager: deviceManager)
+        self.deviceChangeCoordinator = DeviceChangeCoordinator(
+            deviceEnumerator: deviceManager.enumerator
+        )
         self.routingCoordinator = AudioRoutingCoordinator(
             deviceManager: deviceManager,
+            deviceChangeCoordinator: deviceChangeCoordinator,
             eqConfiguration: eqConfiguration,
             meterStore: meterStore,
             volumeSyncCoordinator: volumeSyncCoordinator,
-            systemDefaultObserver: systemDefaultObserver
+            systemDefaultObserver: systemDefaultObserver,
+            sampleRateService: sampleRateService
         )
         
         // Log macOS system default output

@@ -12,7 +12,7 @@ final class VolumeSyncCoordinator {
     // MARK: - Properties
 
     private var volumeManager: VolumeManager?
-    private let deviceManager: DeviceManager
+    private let volumeService: VolumeControlling
 
     /// Callback invoked when boost gain changes.
     var onBoostGainChanged: ((Float) -> Void)? {
@@ -23,8 +23,8 @@ final class VolumeSyncCoordinator {
 
     // MARK: - Initialization
 
-    init(deviceManager: DeviceManager) {
-        self.deviceManager = deviceManager
+    init(volumeService: VolumeControlling) {
+        self.volumeService = volumeService
     }
 
     // MARK: - Public Methods
@@ -36,7 +36,7 @@ final class VolumeSyncCoordinator {
     ///   - outputID: The output device's audio device ID
     func setup(driverID: AudioDeviceID, outputID: AudioDeviceID) {
         if volumeManager == nil {
-            volumeManager = VolumeManager(deviceManager: deviceManager)
+            volumeManager = VolumeManager(volumeService: volumeService)
             volumeManager?.onBoostGainChanged = onBoostGainChanged
         }
         volumeManager?.setupVolumeSync(driverID: driverID, outputID: outputID)

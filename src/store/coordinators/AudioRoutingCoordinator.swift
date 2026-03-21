@@ -24,13 +24,12 @@ final class AudioRoutingCoordinator: ObservableObject {
     // MARK: - Dependencies
     
     let deviceManager: DeviceManager
+    let deviceChangeCoordinator: DeviceChangeCoordinator
     private let eqConfiguration: EQConfiguration
     private let meterStore: MeterStore
     private let volumeSyncCoordinator: VolumeSyncCoordinator
     private let systemDefaultObserver: SystemDefaultObserver
-    
-    /// Manages history of output devices for restoration on disconnect
-    let outputDeviceHistory = OutputDeviceHistory()
+    private let sampleRateService: SampleRateObserving
     
     // MARK: - Private Properties
     
@@ -45,41 +44,49 @@ final class AudioRoutingCoordinator: ObservableObject {
     
     init(
         deviceManager: DeviceManager,
+        deviceChangeCoordinator: DeviceChangeCoordinator,
         eqConfiguration: EQConfiguration,
         meterStore: MeterStore,
         volumeSyncCoordinator: VolumeSyncCoordinator,
-        systemDefaultObserver: SystemDefaultObserver
+        systemDefaultObserver: SystemDefaultObserver,
+        sampleRateService: SampleRateObserving
     ) {
         self.deviceManager = deviceManager
+        self.deviceChangeCoordinator = deviceChangeCoordinator
         self.eqConfiguration = eqConfiguration
         self.meterStore = meterStore
         self.volumeSyncCoordinator = volumeSyncCoordinator
         self.systemDefaultObserver = systemDefaultObserver
+        self.sampleRateService = sampleRateService
         
         // Wire up system default callback
         systemDefaultObserver.onSystemDefaultChanged = { [weak self] device in
             self?.handleSystemDefaultChanged(device)
         }
         
-        // Set up device change event providers for DeviceEnumerator
-        deviceManager.setSelectedOutputUIDProvider { [weak self] in
-            self?.selectedOutputDeviceID
+        // Wire up device change coordinator callbacks
+        deviceChangeCoordinator.onBuiltInDeviceAdded = { [weak self] device in
+            self?.handleBuiltInDeviceAdded(device)
         }
-        deviceManager.setManualModeProvider { [weak self] in
-            self?.manualModeEnabled ?? false
+        deviceChangeCoordinator.onBuiltInDevicesRemoved = { [weak self] in
+            self?.handleBuiltInDevicesRemoved()
         }
-        deviceManager.setReconfiguringProvider { [weak self] in
-            self?.isReconfiguring ?? false
+        deviceChangeCoordinator.onSelectedOutputMissing = { [weak self] uid in
+            self?.handleSelectedOutputMissing(uid)
         }
         
-        // Subscribe to device change events
-        deviceManager.changeEventPublisher
-            .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] event in
-                self?.handleDeviceChangeEvent(event)
+        // Set up providers for device change detection
+        deviceChangeCoordinator.setProviders(
+            selectedOutputProvider: { [weak self] in
+                self?.selectedOutputDeviceID
+            },
+            manualModeProvider: { [weak self] in
+                self?.manualModeEnabled ?? false
+            },
+            isReconfiguringProvider: { [weak self] in
+                self?.isReconfiguring ?? false
             }
-            .store(in: &cancellables)
+        )
     }
     
     // MARK: - Public Methods
@@ -257,10 +264,10 @@ final class AudioRoutingCoordinator: ObservableObject {
         setupSampleRateListener(for: outputDeviceID)
 
         // Set up jack connection listener on built-in device (Intel Macs: headphone jack detection)
-        // Note: Apple Silicon uses device count change detection in DeviceChangeHandler instead
+        // Note: Apple Silicon uses device count change detection in DeviceEnumerator instead
         if !manualModeEnabled {
             if let builtInDevice = deviceManager.enumerator.findBuiltInAudioDevice() {
-                deviceManager.enumerator.setupJackConnectionListener(for: builtInDevice.id)
+                deviceChangeCoordinator.setupJackConnectionListener(for: builtInDevice.id)
             }
         }
 
@@ -379,14 +386,17 @@ final class AudioRoutingCoordinator: ObservableObject {
     func switchToManualMode() {
         showDriverPrompt = false
         manualModeEnabled = true
-        outputDeviceHistory.clear()
+        deviceChangeCoordinator.clearHistory()
 
         // Rename driver back to default since it's no longer used in manual mode
         _ = updateDriverName()
 
         // Reset driver volume to 100% for clean state when returning to automatic mode
         if let driverID = DriverManager.shared.deviceID {
-            _ = deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: 1.0)
+            // Note: This uses DeviceManager's volume method directly since we need
+            // to reset driver volume, and volumeService is a protocol that VolumeSyncCoordinator
+            // uses internally. The driver reset is a one-time operation, not ongoing sync.
+            deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: 1.0)
         }
 
         logger.info("Switched to manual mode")
@@ -476,13 +486,13 @@ final class AudioRoutingCoordinator: ObservableObject {
         volumeSyncCoordinator.tearDown()
         
         // Clean up jack connection listener (Intel Macs)
-        deviceManager.enumerator.cleanupJackConnectionListener()
+        deviceChangeCoordinator.cleanupJackConnectionListener()
     }
     
     private func syncDriverSampleRate(to outputDeviceID: AudioDeviceID) {
         // Get output device's sample rate (prefer actual over nominal)
-        let outputRate = deviceManager.getActualSampleRate(deviceID: outputDeviceID)
-            ?? deviceManager.getNominalSampleRate(deviceID: outputDeviceID)
+        let outputRate = sampleRateService.getActualSampleRate(deviceID: outputDeviceID)
+            ?? sampleRateService.getNominalSampleRate(deviceID: outputDeviceID)
         
         guard let targetRate = outputRate else {
             logger.warning("Could not determine output device sample rate")
@@ -501,13 +511,13 @@ final class AudioRoutingCoordinator: ObservableObject {
     private func setupSampleRateListener(for outputDeviceID: AudioDeviceID) {
         // Clean up previous listener if any
         if let previousDeviceID = observedOutputDeviceID {
-            deviceManager.stopObservingSampleRateChanges(on: previousDeviceID)
+            sampleRateService.stopObservingSampleRateChanges(on: previousDeviceID)
         }
         
         observedOutputDeviceID = outputDeviceID
         
         // Start observing rate changes
-        deviceManager.observeSampleRateChanges(on: outputDeviceID) { [weak self] newRate in
+        sampleRateService.observeSampleRateChanges(on: outputDeviceID) { [weak self] newRate in
             guard let self = self else { return }
             
             // Only sync if routing is active and in automatic mode
@@ -548,7 +558,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         if let current = selectedOutputDeviceID,
            current != DRIVER_DEVICE_UID,
            current != device.uid {
-            outputDeviceHistory.add(current)
+            deviceChangeCoordinator.addToHistory(current)
             logger.debug("handleSystemDefaultChanged: Saved previous output to history")
         }
         
@@ -573,7 +583,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         logger.info("Selected output device missing: \(uid)")
         
         // Find replacement device
-        if let replacement = outputDeviceHistory.findReplacementDevice(currentUID: selectedOutputDeviceID, deviceManager: deviceManager) {
+        if let replacement = deviceChangeCoordinator.findReplacementDevice(for: selectedOutputDeviceID) {
             selectedOutputDeviceID = replacement.uid
             logger.info("Using replacement device: \(replacement.name)")
             reconfigureRouting()
@@ -590,7 +600,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         guard !manualModeEnabled else { return }
         
         // Clear missing tracking so we can detect if current device is missing
-        deviceManager.clearMissingTracking()
+        deviceChangeCoordinator.clearMissingTracking()
     }
     
     /// Called when a single built-in device is added (Apple Silicon: headphones plugged in).
@@ -621,26 +631,12 @@ final class AudioRoutingCoordinator: ObservableObject {
         // Save current device to history for restoration when headphones unplugged
         if currentUID != DRIVER_DEVICE_UID,
            currentUID != device.uid {
-            outputDeviceHistory.add(currentUID)
+            deviceChangeCoordinator.addToHistory(currentUID)
         }
         
         // Switch to the new built-in device (headphones)
         selectedOutputDeviceID = device.uid
         reconfigureRouting()
-    }
-    
-    // MARK: - Device Change Event Handler
-    
-    /// Handles device change events from DeviceEnumerator.
-    private func handleDeviceChangeEvent(_ event: DeviceChangeEvent) {
-        switch event {
-        case .builtInDeviceAdded(let device):
-            handleBuiltInDeviceAdded(device)
-        case .builtInDevicesRemoved:
-            handleBuiltInDevicesRemoved()
-        case .selectedOutputMissing(let uid):
-            handleSelectedOutputMissing(uid)
-        }
     }
     
     private func findFallbackOutputDevice() -> AudioDevice? {

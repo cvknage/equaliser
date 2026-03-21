@@ -59,9 +59,11 @@ swift test --filter TestClassName
 | `src/domain/device/HeadphoneSwitchPolicy.swift` | Headphone switch decision logic (pure) |
 | `src/services/meters/MeterStore.swift` | Meter state management |
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
+| `src/store/coordinators/DeviceChangeCoordinator.swift` | Device change events, history, headphone detection |
 | `src/store/coordinators/OutputDeviceHistory.swift` | Output device history for reconnection |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
-| `src/services/device/DeviceChangeEvent.swift` | Device change event types |
+| `src/services/device/DeviceEnumerationService.swift` | Device enumeration and change events |
+| `src/services/device/DeviceManager.swift` | Device model and selection logic |
 
 ### Views Structure
 
@@ -128,7 +130,10 @@ swift test --filter TestClassName
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Service Layer (via Protocols)                              │
-│  - DeviceManager: device enumeration, change events         │
+│  - DeviceEnumerationService: device enumeration, events     │
+│  - DeviceVolumeService: volume control                      │
+│  - DeviceSampleRateService: sample rate queries             │
+│  - DeviceManager: device model, selection logic             │
 │  - DriverManager: driver lifecycle (DriverLifecycleManaging)│
 │  - PresetManager: preset file management                    │
 │  - MeterStore: 30 FPS meter updates                         │
@@ -151,17 +156,29 @@ swift test --filter TestClassName
 
 ```swift
 EqualiserStore
+├── DeviceChangeCoordinator (device change events, history, headphone detection)
+│   └── OutputDeviceHistory
 ├── AudioRoutingCoordinator (device selection, pipeline lifecycle)
 │   ├── SystemDefaultObserver (macOS default changes)
 │   └── VolumeSyncCoordinator (volume sync)
 ├── CompareModeTimer (auto-revert)
-├── DeviceManager (device enumeration, change events)
+├── DeviceManager (device enumeration, selection logic)
+│   └── DeviceEnumerationService
 ├── EQConfiguration (band data)
 ├── MeterStore (meter updates)
 └── PresetManager (preset files)
 ```
 
-**Note:** Device change detection (headphone plug/unplug, missing device) is now handled by `DeviceEnumerator` which emits `DeviceChangeEvent` via Combine publisher. `AudioRoutingCoordinator` subscribes to these events.
+**Key coordinators:**
+
+- `DeviceChangeCoordinator`: Subscribes to `DeviceEnumerationService.$changeEvent`, manages `OutputDeviceHistory`, emits callbacks for headphone detection and missing devices
+- `AudioRoutingCoordinator`: Handles pipeline lifecycle, delegates device change handling to `DeviceChangeCoordinator`
+- `VolumeSyncCoordinator`: Coordinates volume sync between driver and output device
+
+**Service dependencies via protocols:**
+
+- `VolumeManager` depends on `VolumeControlling` protocol
+- `AudioRoutingCoordinator` depends on `SampleRateObserving` protocol
 
 ### Protocol-Based DI
 
@@ -169,10 +186,16 @@ Services are accessed via protocols for testability:
 
 ```swift
 // Device enumeration
-protocol DeviceEnumerating: ObservableObject {
+protocol Enumerating: ObservableObject {
     var inputDevices: [AudioDevice] { get }
     var outputDevices: [AudioDevice] { get }
     func device(forUID uid: String) -> AudioDevice?
+}
+
+// Volume control
+protocol VolumeControlling: AnyObject {
+    func getDeviceVolumeScalar(deviceID: AudioDeviceID) -> Float?
+    func setDeviceVolumeScalar(deviceID: AudioDeviceID, volume: Float) -> Bool
 }
 
 // Driver lifecycle
@@ -182,6 +205,10 @@ protocol DriverLifecycleManaging: ObservableObject {
     func installDriver() async throws
 }
 ```
+
+**Naming pattern:**
+- Protocols: Pure capability names with `-ing` suffix (`Enumerating`, `VolumeControlling`, `SampleRateObserving`)
+- Concrete types: Domain prefix + service suffix (`DeviceEnumerationService`, `DeviceVolumeService`, `DeviceSampleRateService`)
 
 ### View Models
 

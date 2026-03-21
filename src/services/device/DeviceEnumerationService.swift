@@ -1,4 +1,4 @@
-// DeviceEnumerator.swift
+// DeviceEnumerationService.swift
 // Device enumeration and discovery service
 
 import Combine
@@ -10,7 +10,7 @@ import OSLog
 /// Provides cached lists of audio input/output devices and device lookup.
 /// Emits change events when device enumeration changes in meaningful ways.
 @MainActor
-final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
+final class DeviceEnumerationService: ObservableObject, Enumerating {
     
     // MARK: - Published Properties
     

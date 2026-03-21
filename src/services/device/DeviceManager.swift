@@ -116,11 +116,8 @@ final class DeviceManager: ObservableObject {
     
     // MARK: - Services
     
-    /// Device enumeration service (internal for Combine forwarding)
-    private let _enumerator: DeviceEnumerator
-    
     /// Device enumeration service
-    var enumerator: any DeviceEnumerating { _enumerator }
+    let enumerator: DeviceEnumerationService
     
     /// Volume and mute control service
     let volume: VolumeControlling
@@ -144,29 +141,29 @@ final class DeviceManager: ObservableObject {
     // MARK: - Initialization
     
     init(
-        enumerator: DeviceEnumerator? = nil,
+        enumerator: DeviceEnumerationService? = nil,
         volume: VolumeControlling? = nil,
         sampleRate: SampleRateObserving? = nil
     ) {
         // Create default services if not provided
-        let newEnumerator = enumerator ?? DeviceEnumerator()
-        self._enumerator = newEnumerator
+        let newEnumerator = enumerator ?? DeviceEnumerationService()
+        self.enumerator = newEnumerator
         self.volume = volume ?? DeviceVolumeService()
         self.sampleRate = sampleRate ?? DeviceSampleRateService()
         
         // Populate synchronously - ensures inputDevices/outputDevices are ready immediately after init.
-        // DeviceEnumerator.init() calls refreshDevices() synchronously.
+        // DeviceEnumerationService.init() calls refreshDevices() synchronously.
         // We're on MainActor, so synchronous access is safe.
-        // Must use local variable since self._enumerator isn't set yet.
+        // Must use local variable since self.enumerator isn't set yet.
         self.inputDevices = newEnumerator.inputDevices
         self.outputDevices = newEnumerator.outputDevices
         
         // Set up async updates for future CoreAudio callbacks (which fire on background threads)
-        self._enumerator.$inputDevices
+        self.enumerator.$inputDevices
             .receive(on: DispatchQueue.main)
             .assign(to: &$inputDevices)
         
-        self._enumerator.$outputDevices
+        self.enumerator.$outputDevices
             .receive(on: DispatchQueue.main)
             .assign(to: &$outputDevices)
     }
@@ -174,11 +171,11 @@ final class DeviceManager: ObservableObject {
     // MARK: - Device Enumeration (pass-through)
     
     func refreshDevices() {
-        (enumerator as? DeviceEnumerator)?.refreshDevices()
+        enumerator.refreshDevices()
     }
     
     func shouldIncludeDevice(name: String) -> Bool {
-        (enumerator as? DeviceEnumerator)?.shouldIncludeDevice(name: name) ?? true
+        enumerator.shouldIncludeDevice(name: name)
     }
     
     func findDeviceByUID(_ uid: String) -> AudioDevice? {
@@ -198,11 +195,11 @@ final class DeviceManager: ObservableObject {
     }
     
     func findBlackHoleDevice() -> AudioDevice? {
-        (enumerator as? DeviceEnumerator)?.findBlackHoleDevice()
+        enumerator.findBlackHoleDevice()
     }
     
     func bestInputDeviceForEQ() -> AudioDevice? {
-        (enumerator as? DeviceEnumerator)?.bestInputDeviceForEQ()
+        enumerator.bestInputDeviceForEQ()
     }
     
     func defaultOutputDevice() -> AudioDevice? {
@@ -306,30 +303,30 @@ final class DeviceManager: ObservableObject {
     /// Publisher for device change events.
     /// Emits when built-in devices are added/removed or selected device goes missing.
     var changeEventPublisher: AnyPublisher<DeviceChangeEvent?, Never> {
-        _enumerator.$changeEvent.eraseToAnyPublisher()
+        enumerator.$changeEvent.eraseToAnyPublisher()
     }
     
     /// Sets the closure that provides the current selected output UID.
     /// Used for missing device detection.
     func setSelectedOutputUIDProvider(_ provider: @escaping () -> String?) {
-        _enumerator.selectedOutputUIDProvider = provider
+        enumerator.selectedOutputUIDProvider = provider
     }
     
     /// Sets the closure that indicates if manual mode is enabled.
     /// When true, device change events are not emitted.
     func setManualModeProvider(_ provider: @escaping () -> Bool) {
-        _enumerator.manualModeProvider = provider
+        enumerator.manualModeProvider = provider
     }
     
     /// Sets the closure that indicates if routing is reconfiguring.
     /// When true, device change events are not emitted.
     func setReconfiguringProvider(_ provider: @escaping () -> Bool) {
-        _enumerator.isReconfiguringProvider = provider
+        enumerator.isReconfiguringProvider = provider
     }
     
     /// Clears tracking for missing selected device.
     /// Call when device is restored or headphones unplugged.
     func clearMissingTracking() {
-        _enumerator.clearMissingTracking()
+        enumerator.clearMissingTracking()
     }
 }

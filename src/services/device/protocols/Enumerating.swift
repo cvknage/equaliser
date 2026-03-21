@@ -1,4 +1,4 @@
-// DeviceEnumerating.swift
+// Enumerating.swift
 // Protocol for device enumeration services
 
 import Foundation
@@ -8,7 +8,7 @@ import Combine
 /// Protocol for audio device enumeration services.
 /// Provides cached lists of audio input/output devices and device lookup.
 @MainActor
-protocol DeviceEnumerating: ObservableObject {
+protocol Enumerating: ObservableObject {
     /// Currently available input devices
     var inputDevices: [AudioDevice] { get }
     

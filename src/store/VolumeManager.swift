@@ -38,7 +38,7 @@ final class VolumeManager: ObservableObject {
     
     // MARK: - Dependencies
     
-    private let deviceManager: DeviceManager
+    private let volumeService: VolumeControlling
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "VolumeManager")
     
     /// Driver device ID for volume sync.
@@ -57,8 +57,8 @@ final class VolumeManager: ObservableObject {
     
     // MARK: - Initialization
     
-    init(deviceManager: DeviceManager) {
-        self.deviceManager = deviceManager
+    init(volumeService: VolumeControlling) {
+        self.volumeService = volumeService
     }
     
     // MARK: - Setup
@@ -76,7 +76,7 @@ final class VolumeManager: ObservableObject {
         // Output device is source of truth for volume
         // (speakers/headphones have user's preferred volume stored by macOS)
         let initialVolume: Float
-        if let volume = deviceManager.getDeviceVolumeScalar(deviceID: outputID), volume > 0 {
+        if let volume = volumeService.getDeviceVolumeScalar(deviceID: outputID), volume > 0 {
             initialVolume = volume
             let linearGain = driverScalarToLinear(volume)
             logger.info("Initial volume from output device: scalar=\(volume), linear=\(linearGain)")
@@ -89,24 +89,24 @@ final class VolumeManager: ObservableObject {
         gain = initialVolume
         
         // Get initial mute state from output device (source of truth)
-        let initialMuted = deviceManager.getDeviceMute(deviceID: outputID) ?? false
+        let initialMuted = volumeService.getDeviceMute(deviceID: outputID) ?? false
         muted = initialMuted
         logger.info("Initial mute state: \(initialMuted)")
         
         // Sync driver volume to output device (output is source of truth)
-        if deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: initialVolume) {
+        if volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: initialVolume) {
             logger.debug("Synced driver volume to output: \(initialVolume)")
         } else {
             logger.warning("Failed to sync driver volume to \(initialVolume)")
         }
         
         // Sync mute state to driver (output is source of truth)
-        if deviceManager.setDeviceMute(deviceID: driverID, muted: initialMuted) {
+        if volumeService.setDeviceMute(deviceID: driverID, muted: initialMuted) {
             logger.debug("Synced driver mute to \(initialMuted)")
         }
         
         // Listen for driver volume changes (master control)
-        deviceManager.observeDeviceVolumeChanges(deviceID: driverID) { [weak self] newVolume in
+        volumeService.observeDeviceVolumeChanges(deviceID: driverID) { [weak self] newVolume in
             Task { @MainActor in
                 self?.handleDriverVolumeChanged(newVolume)
             }
@@ -114,7 +114,7 @@ final class VolumeManager: ObservableObject {
         logger.info("Registered volume listener on driver device \(driverID)")
         
         // Listen for mute changes on driver
-        deviceManager.observeMuteChanges(on: driverID) { [weak self] newMuted in
+        volumeService.observeMuteChanges(on: driverID) { [weak self] newMuted in
             Task { @MainActor in
                 self?.handleDriverMuteChanged(newMuted)
             }
@@ -122,7 +122,7 @@ final class VolumeManager: ObservableObject {
         logger.info("Registered mute listener on driver device \(driverID)")
         
         // Listen for mute changes on output device (sync back to driver)
-        deviceManager.observeMuteChanges(on: outputID) { [weak self] newMuted in
+        volumeService.observeMuteChanges(on: outputID) { [weak self] newMuted in
             Task { @MainActor in
                 self?.handleOutputMuteChanged(newMuted)
             }
@@ -140,11 +140,11 @@ final class VolumeManager: ObservableObject {
     /// Tears down volume sync listeners.
     func tearDown() {
         if let driverID = driverDeviceID {
-            deviceManager.stopObservingDeviceVolumeChanges(deviceID: driverID)
-            deviceManager.stopObservingMuteChanges(on: driverID)
+            volumeService.stopObservingDeviceVolumeChanges(deviceID: driverID)
+            volumeService.stopObservingMuteChanges(on: driverID)
         }
         if let outputID = outputDeviceID {
-            deviceManager.stopObservingMuteChanges(on: outputID)
+            volumeService.stopObservingMuteChanges(on: outputID)
         }
         
         driverDeviceID = nil
@@ -161,7 +161,7 @@ final class VolumeManager: ObservableObject {
 
         // Sync to output device
         if let outputID = outputDeviceID {
-            deviceManager.setDeviceVolumeScalar(deviceID: outputID, volume: newVolume)
+            volumeService.setDeviceVolumeScalar(deviceID: outputID, volume: newVolume)
         }
 
         // Update boost (brings signal back to unity)
@@ -188,7 +188,7 @@ final class VolumeManager: ObservableObject {
         
         // Sync mute to output device
         if let outputID = outputDeviceID {
-            deviceManager.setDeviceMute(deviceID: outputID, muted: newMuted)
+            volumeService.setDeviceMute(deviceID: outputID, muted: newMuted)
         }
         
         // Update boost (no boost when muted)
@@ -214,7 +214,7 @@ final class VolumeManager: ObservableObject {
         
         // Sync mute to driver
         if let driverID = driverDeviceID {
-            deviceManager.setDeviceMute(deviceID: driverID, muted: newMuted)
+            volumeService.setDeviceMute(deviceID: driverID, muted: newMuted)
         }
         
         // Update boost
@@ -234,10 +234,10 @@ final class VolumeManager: ObservableObject {
         
         // Sync both driver and output device
         if let driverID = driverDeviceID {
-            deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: newGain)
+            volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: newGain)
         }
         if let outputID = outputDeviceID {
-            deviceManager.setDeviceVolumeScalar(deviceID: outputID, volume: newGain)
+            volumeService.setDeviceVolumeScalar(deviceID: outputID, volume: newGain)
         }
         
         // Update boost
@@ -258,10 +258,10 @@ final class VolumeManager: ObservableObject {
         
         // Sync both devices
         if let driverID = driverDeviceID {
-            deviceManager.setDeviceMute(deviceID: driverID, muted: newMuted)
+            volumeService.setDeviceMute(deviceID: driverID, muted: newMuted)
         }
         if let outputID = outputDeviceID {
-            deviceManager.setDeviceMute(deviceID: outputID, muted: newMuted)
+            volumeService.setDeviceMute(deviceID: outputID, muted: newMuted)
         }
         
         // Update boost
