@@ -32,6 +32,7 @@ swift test --filter TestClassName
 |-----------|---------|
 | `src/app/` | App entry point and lifecycle |
 | `src/domain/` | Pure data types (no dependencies) |
+| `src/domain/device/` | Device change detection policy (pure functions) |
 | `src/domain/eq/` | EQ configuration types |
 | `src/domain/presets/` | Preset model types |
 | `src/domain/routing/` | Routing status types |
@@ -54,8 +55,12 @@ swift test --filter TestClassName
 |------|---------|
 | `src/store/EqualiserStore.swift` | Thin coordinator delegating to coordinators |
 | `src/domain/eq/EQConfiguration.swift` | EQ band data (storage-free) |
+| `src/domain/device/DeviceChangeDetector.swift` | Built-in device diff detection (pure) |
+| `src/domain/device/HeadphoneSwitchPolicy.swift` | Headphone switch decision logic (pure) |
 | `src/services/meters/MeterStore.swift` | Meter state management |
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
+| `src/store/coordinators/DeviceChangeHandler.swift` | Headphone detection (Apple Silicon) |
+| `src/store/coordinators/OutputDeviceHistory.swift` | Output device history for reconnection |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
 
 ### Views Structure
@@ -76,6 +81,7 @@ swift test --filter TestClassName
 |-----------|---------|
 | `tests/mocks/` | Mock implementations for testing |
 | `tests/domain/` | Domain type tests |
+| `tests/domain/device/` | Device change and headphone switch policy tests |
 | `tests/services/` | Service layer tests |
 | `tests/store/` | Store and coordinator tests |
 | `tests/viewmodels/` | View model tests |
@@ -319,6 +325,65 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
 
 **If driver names aren't updating in UI**: Check that `refreshDevices()` is called after `setDeviceName()`.
 
+### Headphone Auto-Switch
+
+The app automatically switches output to headphones when plugged in, matching macOS behaviour.
+
+**Platform Detection:**
+
+| Platform | Detection Method |
+|----------|------------------|
+| Apple Silicon | Built-in device count change (`+1` = headphones) |
+| Intel Mac | `kAudioDevicePropertyJackIsConnected` property |
+
+**Implementation:**
+- `DeviceChangeHandler` tracks `previousBuiltInDeviceUIDs` and detects `+1` built-in device
+- `AudioRoutingCoordinator.handleBuiltInDeviceAdded()` only switches if current output is built-in
+- Intel Macs use `DeviceEnumerator.setupJackConnectionListener()` for jack detection
+
+**Key behaviour:**
+- Only switches when current output is built-in (never steals from USB/Bluetooth/HDMI)
+- Saves current device to history before switching
+- Works in automatic mode only (respects manual mode)
+
+### Device Selection Logic
+
+Unified device selection via `OutputDeviceSelection.determine()`:
+
+```swift
+// Pure function - no side effects, testable
+let selection = OutputDeviceSelection.determine(
+    currentSelected: savedOutputUID,
+    macDefault: systemDefaultUID,
+    availableDevices: deviceManager.outputDevices
+)
+
+switch selection {
+case .preserveCurrent(let uid):  // Current is valid, keep it
+case .useMacDefault(let uid):    // Use macOS default
+case .useFallback:               // Need fallback device
+}
+```
+
+**Device properties:**
+- `isValidForSelection`: Trusts everything except driver (user choices respected)
+- `isRealDevice`: Excludes driver, virtual, aggregate (fallback only)
+
+### CoreAudio Safety with Stale UIDs
+
+Never call `deviceManager.device(forUID:)` with potentially-stale UIDs from history. CoreAudio may have deallocated the device, causing use-after-free crashes.
+
+```swift
+// WRONG: Calls CoreAudio with stale UID
+if let device = deviceManager.device(forUID: uid) { ... }
+
+// CORRECT: Use cached device list
+let devices = deviceManager.outputDevices
+if let device = devices.first(where: { $0.uid == uid }) { ... }
+```
+
+`OutputDeviceHistory.findReplacementDevice()` uses the cached list to avoid this crash.
+
 ## Code Guidelines
 
 ### Naming Conventions
@@ -358,6 +423,35 @@ Use British English throughout:
 - Use **real instances** (no mocking framework)
 - Protocols enable **test implementations** (`MockCompareModeTimer`, etc.)
 - View models are tested with real store
+
+**Pure Function Testing Pattern:**
+
+For complex logic without dependencies, extract to pure functions in `enum` types. This matches `OutputDeviceSelection`, `DeviceChangeDetector`, `HeadphoneSwitchPolicy`, `AudioMath`, and `MeterMath`.
+
+```swift
+// Extract logic to pure function
+enum HeadphoneSwitchPolicy {
+    static func shouldSwitch(
+        currentOutput: AudioDevice?,
+        newDevice: AudioDevice,
+        isInManualMode: Bool,
+        isReconfiguring: Bool
+    ) -> Bool { ... }
+}
+
+// Test without mocking
+func testShouldSwitch_currentIsBuiltIn_returnsTrue() {
+    let current = makeBuiltInDevice(uid: "builtin-speakers")
+    let new = makeBuiltInDevice(uid: "headphones")
+    
+    XCTAssertTrue(HeadphoneSwitchPolicy.shouldSwitch(
+        currentOutput: current,
+        newDevice: new,
+        isInManualMode: false,
+        isReconfiguring: false
+    ))
+}
+```
 
 ## Common Tasks
 

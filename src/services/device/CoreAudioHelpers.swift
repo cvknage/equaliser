@@ -91,3 +91,30 @@ func hasStreams(id: AudioDeviceID, scope: AudioObjectPropertyScope) -> Bool {
     var propertySize: UInt32 = 0
     return AudioObjectGetPropertyDataSize(id, &address, 0, nil, &propertySize) == noErr && propertySize > 0
 }
+
+// MARK: - Jack Connection Helper (Intel Macs)
+
+/// Checks if a jack (headphone/audio port) is connected for a device.
+/// Used on Intel Macs to detect headphone connection on built-in audio.
+/// - Parameter deviceID: The audio device ID
+/// - Returns: true if connected, false if disconnected, nil if property not supported
+func isJackConnected(_ deviceID: AudioDeviceID) -> Bool? {
+    var address = AudioObjectPropertyAddress(
+        mSelector: kAudioDevicePropertyJackIsConnected,
+        mScope: kAudioDevicePropertyScopeOutput,
+        mElement: kAudioObjectPropertyElementMain
+    )
+    
+    guard AudioObjectHasProperty(deviceID, &address) else {
+        return nil
+    }
+    
+    var connected: UInt32 = 0
+    var size = UInt32(MemoryLayout<UInt32>.size)
+    
+    guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &connected) == noErr else {
+        return nil
+    }
+    
+    return connected != 0
+}

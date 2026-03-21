@@ -35,9 +35,17 @@ protocol DeviceEnumerating: ObservableObject {
     /// Finds the Equaliser driver device among input devices
     func findEqualiserDriverDevice() -> AudioDevice?
     
+    /// Finds the built-in audio device among output devices.
+    /// Used for headphone jack detection and data source discovery.
+    func findBuiltInAudioDevice() -> AudioDevice?
+    
+    /// Sets up a listener for jack connection changes on the specified built-in audio device.
+    /// Posts .jackConnectionChanged notification when jack state changes (Intel Macs only).
+    func setupJackConnectionListener(for deviceID: AudioDeviceID)
+    
+    /// Cleans up the jack connection listener.
+    func cleanupJackConnectionListener()
+
     /// Filters a name to check if device should be included in enumeration
     func shouldIncludeDevice(name: String) -> Bool
-    
-    /// Selects the best fallback output device from available devices
-    static func selectFallbackOutputDevice(from devices: [AudioDevice]) -> AudioDevice?
 }

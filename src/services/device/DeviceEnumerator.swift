@@ -19,6 +19,8 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
     
     private nonisolated(unsafe) var deviceListenerBlock: AudioObjectPropertyListenerBlock?
     private nonisolated(unsafe) var defaultOutputListenerBlock: AudioObjectPropertyListenerBlock?
+    private nonisolated(unsafe) var jackConnectionListenerBlock: AudioObjectPropertyListenerBlock?
+    private var observedJackDeviceID: AudioDeviceID?
     private let listenerBlockQueue = DispatchQueue(label: "net.knage.equaliser.DeviceEnumerator.listener")
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "DeviceEnumerator")
     
@@ -145,6 +147,9 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
                 defaultBlock
             )
         }
+        
+        // Note: Jack connection listener is cleaned up separately via cleanupJackConnectionListener()
+        // which is called from AudioRoutingCoordinator.stopPipeline()
     }
     
     // MARK: - Device Enumeration
@@ -293,6 +298,11 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
         return findDeviceByUID(DRIVER_DEVICE_UID)
     }
     
+    func findBuiltInAudioDevice() -> AudioDevice? {
+        // Find built-in output device using transport type
+        return outputDevices.first { $0.transportType == kAudioDeviceTransportTypeBuiltIn }
+    }
+    
     func findBlackHoleDevice() -> AudioDevice? {
         inputDevices.first { $0.name.contains("BlackHole") }
     }
@@ -339,20 +349,72 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
         defaultOutputDevice()
     }
     
-    // MARK: - Static Helpers
+    // MARK: - Jack Connection Listener (Intel Macs)
     
-    public static func selectFallbackOutputDevice(from devices: [AudioDevice]) -> AudioDevice? {
-        // Prefer built-in speakers
-        if let builtIn = devices.first(where: { device in
-            let name = device.name.lowercased()
-            return (name.contains("built-in") || name.contains("speakers")) &&
-                   !device.isVirtual &&
-                   !device.isAggregate
-        }) {
-            return builtIn
+    /// Sets up a listener for jack connection changes on the specified built-in audio device.
+    /// Posts .jackConnectionChanged notification when jack state changes.
+    /// - Parameter deviceID: The audio device ID to monitor (should be built-in device)
+    func setupJackConnectionListener(for deviceID: AudioDeviceID) {
+        cleanupJackConnectionListener()
+        
+        // Check if device supports jack connection property
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyJackIsConnected,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        
+        guard AudioObjectHasProperty(deviceID, &address) else {
+            // Apple Silicon doesn't support this property - uses device enumeration changes instead
+            return
         }
         
-        // Fallback: first non-virtual, non-aggregate
-        return devices.first { !$0.isVirtual && !$0.isAggregate }
+        // Log current jack state for diagnostics
+        if let connected = isJackConnected(deviceID) {
+            logger.debug("Jack listener set up, current state: \(connected ? "connected" : "disconnected")")
+        }
+        
+        let block: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            Task { @MainActor in
+                self?.handleJackConnectionChange()
+            }
+        }
+        
+        jackConnectionListenerBlock = block
+        observedJackDeviceID = deviceID
+        
+        let status = AudioObjectAddPropertyListenerBlock(
+            deviceID,
+            &address,
+            listenerBlockQueue,
+            block
+        )
+        
+        if status != noErr {
+            logger.error("Failed to set up jack listener: \(status)")
+        }
+    }
+    
+    private func handleJackConnectionChange() {
+        guard observedJackDeviceID != nil else { return }
+        
+        // Post notification for AudioRoutingCoordinator to handle
+        NotificationCenter.default.post(name: .jackConnectionChanged, object: nil)
+    }
+    
+    func cleanupJackConnectionListener() {
+        guard let deviceID = observedJackDeviceID else { return }
+        
+        if let block = jackConnectionListenerBlock {
+            var address = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyJackIsConnected,
+                mScope: kAudioDevicePropertyScopeOutput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            AudioObjectRemovePropertyListenerBlock(deviceID, &address, listenerBlockQueue, block)
+            jackConnectionListenerBlock = nil
+        }
+        
+        observedJackDeviceID = nil
     }
 }

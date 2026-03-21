@@ -12,7 +12,7 @@ final class EqualiserStoreTests: XCTestCase {
             AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
         ]
 
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: "airpods",
             macDefault: DRIVER_DEVICE_UID,
             availableDevices: devices
@@ -30,7 +30,7 @@ final class EqualiserStoreTests: XCTestCase {
 
         // User has AirPods selected, driver is macOS default (from previous crash)
         // Should preserve AirPods, not use driver or fallback
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: "airpods",
             macDefault: DRIVER_DEVICE_UID,
             availableDevices: devices
@@ -46,7 +46,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // No current selection, macOS default is AirPods
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: nil,
             macDefault: "airpods",
             availableDevices: devices
@@ -62,7 +62,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // Current selection is driver (invalid), macOS default is AirPods
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: DRIVER_DEVICE_UID,
             macDefault: "airpods",
             availableDevices: devices
@@ -77,7 +77,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // Current is driver, mac default is driver, no valid devices
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: DRIVER_DEVICE_UID,
             macDefault: DRIVER_DEVICE_UID,
             availableDevices: devices
@@ -93,7 +93,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // All devices are virtual
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: nil,
             macDefault: nil,
             availableDevices: devices
@@ -108,7 +108,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // Current selection not in available list
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: "disconnected-device",
             macDefault: "builtin",
             availableDevices: devices
@@ -124,7 +124,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // Driver is virtual, should use mac default
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: DRIVER_DEVICE_UID,
             macDefault: "airpods",
             availableDevices: devices
@@ -140,7 +140,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // Valid current selection should take precedence over mac default
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: "airpods",
             macDefault: "builtin",
             availableDevices: devices
@@ -155,7 +155,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // No current, no mac default
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: nil,
             macDefault: nil,
             availableDevices: devices
@@ -170,7 +170,7 @@ final class EqualiserStoreTests: XCTestCase {
         ]
 
         // Mac default is a disconnected device, no valid current
-        let result = AudioRoutingCoordinator.determineAutomaticOutputDevice(
+        let result = OutputDeviceSelection.determine(
             currentSelected: nil,
             macDefault: "disconnected-device",
             availableDevices: devices

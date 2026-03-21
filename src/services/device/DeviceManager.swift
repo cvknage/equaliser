@@ -10,6 +10,7 @@ import os.log
 
 extension Notification.Name {
     static let systemDefaultOutputDidChange = Notification.Name("net.knage.equaliser.systemDefaultOutputDidChange")
+    static let jackConnectionChanged = Notification.Name("net.knage.equaliser.jackConnectionChanged")
 }
 
 // MARK: - Audio Device Model
@@ -39,6 +40,71 @@ struct AudioDevice: Identifiable, Equatable {
     /// Uses CoreAudio transport type for reliable detection.
     var isAggregate: Bool {
         transportType == kAudioDeviceTransportTypeAggregate
+    }
+    
+    /// Returns true if this device is the Equaliser driver.
+    var isDriver: Bool {
+        uid.hasPrefix("Equaliser")
+    }
+    
+    /// Returns true if this device is valid for selection.
+    /// Only excludes the driver - trust user's choices for everything else.
+    var isValidForSelection: Bool {
+        !isDriver
+    }
+    
+    /// Returns true if this is a real physical device (not driver, virtual, or aggregate).
+    /// Used for fallback selection when no user preference exists.
+    var isRealDevice: Bool {
+        !isDriver && !isVirtual && !isAggregate
+    }
+    
+    /// Returns true if this device has built-in transport type.
+    var isBuiltIn: Bool {
+        transportType == kAudioDeviceTransportTypeBuiltIn
+    }
+}
+
+// MARK: - Output Device Selection
+
+/// Represents the result of automatic output device selection.
+enum OutputDeviceSelection: Equatable {
+    /// Use the existing selected device (it's still valid)
+    case preserveCurrent(String)
+    /// Use the current macOS default output device
+    case useMacDefault(String)
+    /// Need to find a fallback device (no valid selection available)
+    case useFallback
+    
+    /// Determines which output device to use.
+    /// Pure function — no side effects, testable with any inputs.
+    ///
+    /// - Parameters:
+    ///   - currentSelected: Currently selected output device UID (if any)
+    ///   - macDefault: Current macOS default output device UID (if any)
+    ///   - availableDevices: List of available output devices
+    /// - Returns: Selection decision indicating which device to use
+    static func determine(
+        currentSelected: String?,
+        macDefault: String?,
+        availableDevices: [AudioDevice]
+    ) -> OutputDeviceSelection {
+        // If current selection exists and isn't the driver, preserve it
+        if let current = currentSelected,
+           let device = availableDevices.first(where: { $0.uid == current }),
+           device.isValidForSelection {
+            return .preserveCurrent(current)
+        }
+        
+        // If macOS default exists and isn't the driver, use it
+        if let defaultUID = macDefault,
+           let device = availableDevices.first(where: { $0.uid == defaultUID }),
+           device.isValidForSelection {
+            return .useMacDefault(defaultUID)
+        }
+        
+        // Otherwise need fallback
+        return .useFallback
     }
 }
 
@@ -84,11 +150,19 @@ final class DeviceManager: ObservableObject {
         sampleRate: SampleRateObserving? = nil
     ) {
         // Create default services if not provided
-        self._enumerator = enumerator ?? DeviceEnumerator()
+        let newEnumerator = enumerator ?? DeviceEnumerator()
+        self._enumerator = newEnumerator
         self.volume = volume ?? DeviceVolumeService()
         self.sampleRate = sampleRate ?? DeviceSampleRateService()
         
-        // Forward published properties from enumerator for SwiftUI
+        // Populate synchronously - ensures inputDevices/outputDevices are ready immediately after init.
+        // DeviceEnumerator.init() calls refreshDevices() synchronously.
+        // We're on MainActor, so synchronous access is safe.
+        // Must use local variable since self._enumerator isn't set yet.
+        self.inputDevices = newEnumerator.inputDevices
+        self.outputDevices = newEnumerator.outputDevices
+        
+        // Set up async updates for future CoreAudio callbacks (which fire on background threads)
         self._enumerator.$inputDevices
             .receive(on: DispatchQueue.main)
             .assign(to: &$inputDevices)
@@ -140,8 +214,25 @@ final class DeviceManager: ObservableObject {
         enumerator.currentSystemDefaultOutputDevice()
     }
     
-    static func selectFallbackOutputDevice(from devices: [AudioDevice]) -> AudioDevice? {
-        DeviceEnumerator.selectFallbackOutputDevice(from: devices)
+    // MARK: - Device Selection
+    
+    /// Finds a suitable fallback output device.
+    /// Order: built-in speakers → any real device
+    /// - Parameter excludeUID: Optional UID to exclude from selection
+    /// - Returns: A valid fallback device, or nil if none available
+    func selectFallbackOutputDevice(excluding excludeUID: String? = nil) -> AudioDevice? {
+        // First: built-in speakers (most common fallback)
+        let builtIn = outputDevices.first { device in
+            device.isBuiltIn && device.isRealDevice && device.uid != excludeUID
+        }
+        if let builtIn = builtIn {
+            return builtIn
+        }
+        
+        // Last resort: any real device
+        return outputDevices.first { device in
+            device.isRealDevice && device.uid != excludeUID
+        }
     }
     
     // MARK: - Volume Control (pass-through)

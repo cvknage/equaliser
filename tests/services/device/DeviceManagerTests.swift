@@ -1,9 +1,10 @@
 import XCTest
 @testable import Equaliser
 
-// Transport type constants for testing (must match DeviceManager.swift)
+// Transport type constants for testing (must match CoreAudio FourCharCodes)
 private let kAudioDeviceTransportTypeVirtual: UInt32 = 0x76697274    // 'virt'
 private let kAudioDeviceTransportTypeAggregate: UInt32 = 0x61676720  // 'agg '
+private let kAudioDeviceTransportTypeBuiltIn: UInt32 = 0x626C746E    // 'bltn'
 
 final class DeviceManagerTests: XCTestCase {
 
@@ -124,7 +125,7 @@ final class DeviceManagerTests: XCTestCase {
             name: "Built-in Speakers",
             isInput: false,
             isOutput: true,
-            transportType: 0x626C744E  // 'bltN' (built-in)
+            transportType: kAudioDeviceTransportTypeBuiltIn
         )
         XCTAssertFalse(device.isVirtual, "Built-in device should not be virtual")
     }
@@ -192,102 +193,140 @@ final class DeviceManagerTests: XCTestCase {
         XCTAssertFalse(device.isAggregate, "Device without aggregate transport type should not be aggregate, regardless of name")
     }
 
-    // MARK: - DeviceManager.selectFallbackOutputDevice Tests
+    // MARK: - AudioDevice.isRealDevice Tests
 
-    @MainActor
-    func testSelectFallbackOutputDevice_builtinSpeakersPreferred() {
-        let devices = [
-            AudioDevice(id: 1, uid: "external", name: "External Headphones", isInput: false, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", isInput: false, isOutput: true, transportType: 0),
-            AudioDevice(id: 3, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertEqual(fallback?.name, "Built-in Speakers")
+    func testIsRealDevice_excludesDriver() {
+        let device = AudioDevice(
+            id: 1,
+            uid: "Equaliser_UID_123",
+            name: "Equaliser",
+            isInput: true,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeVirtual
+        )
+        XCTAssertFalse(device.isRealDevice, "Driver should be excluded")
+    }
+    
+    func testIsRealDevice_excludesVirtual() {
+        let device = AudioDevice(
+            id: 1,
+            uid: "BlackHole_2ch",
+            name: "BlackHole 2ch",
+            isInput: true,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeVirtual
+        )
+        XCTAssertFalse(device.isRealDevice, "Virtual devices should be excluded")
+    }
+    
+    func testIsRealDevice_excludesAggregate() {
+        let device = AudioDevice(
+            id: 1,
+            uid: "agg1",
+            name: "My Aggregate",
+            isInput: false,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeAggregate
+        )
+        XCTAssertFalse(device.isRealDevice, "Aggregates should be excluded")
+    }
+    
+    func testIsRealDevice_acceptsPhysicalDevice() {
+        let device = AudioDevice(
+            id: 1,
+            uid: "builtin-speakers",
+            name: "Built-in Speakers",
+            isInput: false,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeBuiltIn
+        )
+        XCTAssertTrue(device.isRealDevice, "Physical devices should be accepted")
+    }
+    
+    func testIsRealDevice_acceptsUSBDevice() {
+        let usbTransportType: UInt32 = 0x75736220  // 'usb '
+        let device = AudioDevice(
+            id: 1,
+            uid: "usb-headphones",
+            name: "USB Headphones",
+            isInput: true,
+            isOutput: true,
+            transportType: usbTransportType
+        )
+        XCTAssertTrue(device.isRealDevice, "USB devices should be accepted")
+    }
+    
+    func testIsRealDevice_acceptsBTDevice() {
+        let btTransportType: UInt32 = 0x626C7461  // 'blta'
+        let device = AudioDevice(
+            id: 1,
+            uid: "bt-headphones",
+            name: "Bluetooth Headphones",
+            isInput: true,
+            isOutput: true,
+            transportType: btTransportType
+        )
+        XCTAssertTrue(device.isRealDevice, "Bluetooth devices should be accepted")
+    }
+    
+    func testIsRealDevice_excludesDriverEvenWithPhysicalTransport() {
+        // Driver UID prefix should exclude even if transport type looks physical
+        let device = AudioDevice(
+            id: 1,
+            uid: "Equaliser_driver",
+            name: "Equaliser",
+            isInput: true,
+            isOutput: true,
+            transportType: 0  // Unknown transport, but UID prefix should exclude
+        )
+        XCTAssertFalse(device.isRealDevice, "Driver should be excluded by UID prefix")
     }
 
-    @MainActor
-    func testSelectFallbackOutputDevice_builtinInName_returnsTrue() {
-        let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "builtin", name: "Built-in", isInput: false, isOutput: true, transportType: 0),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertEqual(fallback?.name, "Built-in")
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_noBuiltIn_returnsFirstNonVirtual() {
-        let devices = [
-            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertEqual(fallback?.name, "AirPods Pro")
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_onlyVirtual_returnsNil() {
-        let devices = [
-            AudioDevice(id: 1, uid: "Equaliser_UID", name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "BlackHole 2ch", name: "BlackHole 2ch", isInput: true, isOutput: true, transportType: 0),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertNil(fallback)
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_excludesAggregate_byTransportType() {
-        let devices = [
-            AudioDevice(id: 1, uid: "agg", name: "My Aggregate Device", isInput: false, isOutput: true, transportType: kAudioDeviceTransportTypeAggregate),
-            AudioDevice(id: 2, uid: "speaker", name: "External Speaker", isInput: false, isOutput: true, transportType: 0),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertEqual(fallback?.name, "External Speaker")
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_emptyArray_returnsNil() {
-        let devices: [AudioDevice] = []
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertNil(fallback)
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_allAggregate_byTransportType_returnsNil() {
-        let devices = [
-            AudioDevice(id: 1, uid: "agg1", name: "Aggregate 1", isInput: false, isOutput: true, transportType: kAudioDeviceTransportTypeAggregate),
-            AudioDevice(id: 2, uid: "agg2", name: "Multi-Output Device", isInput: false, isOutput: true, transportType: kAudioDeviceTransportTypeAggregate),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertNil(fallback)
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_excludesVirtualByTransportType() {
-        let devices = [
-            AudioDevice(id: 1, uid: "virtual1", name: "Virtual Device", isInput: true, isOutput: true, transportType: kAudioDeviceTransportTypeVirtual),
-            AudioDevice(id: 2, uid: "physical", name: "Real Speakers", isInput: false, isOutput: true, transportType: 0x626C744E),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertEqual(fallback?.name, "Real Speakers", "Should exclude virtual devices by transport type")
-    }
-
-    @MainActor
-    func testSelectFallbackOutputDevice_excludesAggregateByTransportType() {
-        let devices = [
-            AudioDevice(id: 1, uid: "agg1", name: "Combined Output", isInput: false, isOutput: true, transportType: kAudioDeviceTransportTypeAggregate),
-            AudioDevice(id: 2, uid: "speaker", name: "External Speaker", isInput: false, isOutput: true, transportType: 0),
-        ]
-
-        let fallback = DeviceManager.selectFallbackOutputDevice(from: devices)
-        XCTAssertEqual(fallback?.name, "External Speaker", "Should exclude aggregate devices by transport type")
+    // MARK: - AudioDevice.isValidForSelection Tests
+    
+    func testIsValidForSelection_excludesOnlyDriver() {
+        // Driver should be excluded
+        let driverDevice = AudioDevice(
+            id: 1,
+            uid: "Equaliser_UID",
+            name: "Equaliser",
+            isInput: true,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeVirtual
+        )
+        XCTAssertFalse(driverDevice.isValidForSelection, "Driver should be excluded from selection")
+        
+        // Virtual devices (BlackHole) should be accepted for selection
+        let blackholeDevice = AudioDevice(
+            id: 2,
+            uid: "BlackHole_2ch",
+            name: "BlackHole",
+            isInput: true,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeVirtual
+        )
+        XCTAssertTrue(blackholeDevice.isValidForSelection, "Virtual devices should be accepted for selection")
+        
+        // Aggregates should be accepted for selection
+        let aggregateDevice = AudioDevice(
+            id: 3,
+            uid: "my-aggregate",
+            name: "My Aggregate",
+            isInput: false,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeAggregate
+        )
+        XCTAssertTrue(aggregateDevice.isValidForSelection, "Aggregates should be accepted for selection")
+        
+        // Physical devices should be accepted
+        let physicalDevice = AudioDevice(
+            id: 4,
+            uid: "headphones",
+            name: "Headphones",
+            isInput: true,
+            isOutput: true,
+            transportType: kAudioDeviceTransportTypeBuiltIn
+        )
+        XCTAssertTrue(physicalDevice.isValidForSelection, "Physical devices should be accepted for selection")
     }
 }

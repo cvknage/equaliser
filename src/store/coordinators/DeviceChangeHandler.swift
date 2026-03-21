@@ -1,34 +1,66 @@
 // DeviceChangeHandler.swift
-// Handles device connect/disconnect events
+// Handles device connect/disconnect events with debouncing and state-based detection
 
 import Combine
+import CoreAudio
 import Foundation
 import OSLog
 
 /// Handles device enumeration changes (connect/disconnect).
-/// Manages output device history for automatic reconnection when devices disconnect.
+/// Uses debouncing to coalesce event storms and diff-based detection for built-in devices.
+/// Detects headphone plug events for built-in audio devices.
 @MainActor
 final class DeviceChangeHandler {
+    
+    // MARK: - Constants
+    
+    /// Debounce interval in milliseconds
+    private static let debounceIntervalMs: UInt64 = 100
     
     // MARK: - Properties
     
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "DeviceChangeHandler")
     private let deviceManager: DeviceManager
     
-    /// Stack of previous output device UIDs (most recent first).
-    /// Used to restore output when current device disconnects.
-    /// Only used in automatic mode. Never contains the driver UID.
-    private var outputDeviceHistory: [String] = []
+    /// Previous built-in output device UIDs.
+    /// Used to detect when built-in devices appear/disappear (Apple Silicon headphone detection).
+    private var previousBuiltInDeviceUIDs: Set<String> = []
     
-    /// Callback invoked when device list changes and current device is disconnected.
-    /// Parameter is a replacement device, or nil if no replacement found.
-    var onDeviceDisconnected: ((AudioDevice?) -> Void)?
+    /// Flag to indicate if tracking has been initialized.
+    /// First device enumeration establishes baseline state; subsequent callbacks detect changes.
+    private var hasInitializedTracking = false
     
-    /// Callback to check if routing is in progress.
-    var isReconfiguring: (() -> Bool)?
+    /// The last selected output UID that was reported as missing.
+    /// Used to avoid repeatedly calling the missing callback for the same UID.
+    private var lastReportedMissingSelectedUID: String?
     
-    /// Callback to check if in manual mode.
+    /// Pending debounce task
+    private var debounceTask: Task<Void, Never>?
+    
+    /// Latest device snapshot (updated on each Combine callback)
+    private var pendingDeviceSnapshot: [AudioDevice] = []
+    
+    // MARK: - Callbacks
+    
+    /// Called when a single built-in device is added (Apple Silicon: headphones plugged in).
+    /// Only fires when exactly one built-in device is added.
+    var onBuiltInDeviceAdded: ((AudioDevice) -> Void)?
+    
+    /// Called when the currently selected output device is missing from available devices.
+    /// Parameter is the missing device UID.
+    var onSelectedOutputMissing: ((String) -> Void)?
+    
+    /// Called when built-in devices are removed (headphones unplugged).
+    var onBuiltInDevicesRemoved: (() -> Void)?
+    
+    /// Closure to get the current selected output UID.
+    var currentSelectedOutputUID: (() -> String?)?
+    
+    /// Closure to check if manual mode is enabled.
     var isManualMode: (() -> Bool)?
+    
+    /// Closure to check if routing is in progress.
+    var isReconfiguring: (() -> Bool)?
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -40,84 +72,124 @@ final class DeviceChangeHandler {
         // Observe output device list changes
         deviceManager.$outputDevices
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.handleOutputDevicesChanged()
+            .sink { [weak self] devices in
+                self?.scheduleDeviceUpdate(devices)
             }
             .store(in: &cancellables)
     }
     
-    // MARK: - History Management
+    // MARK: - Debounced Processing
     
-    /// Adds a device to history (removes older occurrences first).
-    /// - Parameter uid: The device UID to add
-    func addToHistory(_ uid: String) {
-        outputDeviceHistory.removeAll { $0 == uid }
-        outputDeviceHistory.insert(uid, at: 0)
-        if outputDeviceHistory.count > 10 {
-            outputDeviceHistory.removeLast()
+    /// Schedules a debounced device update.
+    /// - Parameter devices: The latest device snapshot
+    private func scheduleDeviceUpdate(_ devices: [AudioDevice]) {
+        // Store latest snapshot
+        pendingDeviceSnapshot = devices
+        
+        // Cancel any existing pending task
+        debounceTask?.cancel()
+        
+        // Schedule new processing
+        debounceTask = Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            
+            // Small delay to coalesce rapid updates
+            try? await Task.sleep(nanoseconds: Self.debounceIntervalMs * 1_000_000)
+            
+            // Check if still valid (not cancelled)
+            guard !Task.isCancelled else { return }
+            
+            await self.processDeviceUpdate()
         }
-        logger.debug("Added to output history, count: \(self.outputDeviceHistory.count)")
     }
     
-    /// Clears history (e.g., when switching to manual mode).
-    func clearHistory() {
-        outputDeviceHistory.removeAll()
-    }
-    
-    // MARK: - Device Change Handling
-    
-    private func handleOutputDevicesChanged() {
+    /// Processes the pending device update.
+    private func processDeviceUpdate() async {
+        let devices = pendingDeviceSnapshot
+        
         // In manual mode, let user handle device selection
-        guard isManualMode?() == false else {
-            logger.debug("Manual mode: ignoring device list change")
-            return
-        }
+        guard isManualMode?() == false else { return }
         
-        // Don't react during reconfiguration
+        // Don't react during reconfiguration - reschedule
         guard isReconfiguring?() == false else {
-            logger.debug("Reconfiguring: ignoring device list change")
+            // Reschedule to process after reconfiguration completes
+            scheduleDeviceUpdate(devices)
             return
         }
         
-        // Callback will handle the rest
-        onDeviceDisconnected?(nil)
+        // Get built-in devices
+        let builtInDevices = devices.filter { $0.transportType == kAudioDeviceTransportTypeBuiltIn }
+        let currentBuiltInUIDs = Set(builtInDevices.map { $0.uid })
+        
+        // FIRST CALLBACK: Initialize tracking state from actual device list
+        if !hasInitializedTracking {
+            previousBuiltInDeviceUIDs = currentBuiltInUIDs
+            hasInitializedTracking = true
+            logger.debug("Initialized tracking with \(builtInDevices.count) built-in device(s)")
+            
+            // Still check for missing selected device on first run
+            checkForMissingSelectedDevice(devices: devices)
+            return
+        }
+        
+        // Compute diffs (Apple Silicon: headphone detection)
+        let addedBuiltInUIDs = currentBuiltInUIDs.subtracting(previousBuiltInDeviceUIDs)
+        let removedBuiltInUIDs = previousBuiltInDeviceUIDs.subtracting(currentBuiltInUIDs)
+        
+        // Log diff summary
+        if !addedBuiltInUIDs.isEmpty || !removedBuiltInUIDs.isEmpty {
+            logger.debug("Built-in device diff: +\(addedBuiltInUIDs.count), -\(removedBuiltInUIDs.count)")
+        }
+        
+        // Handle added built-in devices (exactly one)
+        if addedBuiltInUIDs.count == 1,
+           let addedUID = addedBuiltInUIDs.first,
+           let addedDevice = builtInDevices.first(where: { $0.uid == addedUID }) {
+            logger.info("Built-in device added: '\(addedDevice.name)'")
+            onBuiltInDeviceAdded?(addedDevice)
+        } else if addedBuiltInUIDs.count > 1 {
+            logger.debug("Multiple built-in devices added (\(addedBuiltInUIDs.count)), ignoring")
+        }
+        
+        // Handle removed built-in devices
+        if !removedBuiltInUIDs.isEmpty {
+            logger.info("Built-in device(s) removed: \(removedBuiltInUIDs.count)")
+            onBuiltInDevicesRemoved?()
+        }
+        
+        // Update tracking
+        previousBuiltInDeviceUIDs = currentBuiltInUIDs
+        
+        // Check for missing selected output device
+        checkForMissingSelectedDevice(devices: devices)
     }
     
-    /// Finds a replacement device from history or available devices.
-    /// - Parameter currentUID: The currently selected device UID (may be disconnected)
-    /// - Returns: A replacement device, or nil if current device is still valid
-    func findReplacementDevice(currentUID: String?) -> AudioDevice? {
-        // Check if current device still exists
-        if let uid = currentUID,
-           deviceManager.outputDevices.contains(where: { $0.uid == uid }) {
-            return nil // Current device still valid
-        }
+    /// Checks if the currently selected output device is missing.
+    /// - Parameter devices: Available output devices
+    private func checkForMissingSelectedDevice(devices: [AudioDevice]) {
+        guard let selectedUID = currentSelectedOutputUID?() else { return }
         
-        // Search history for first available device
-        for uid in outputDeviceHistory {
-            if let device = deviceManager.device(forUID: uid),
-               !device.isVirtual {
-                outputDeviceHistory.removeAll { $0 == uid }
-                return device
+        let deviceExists = devices.contains { $0.uid == selectedUID }
+        
+        if !deviceExists {
+            // Only report if not already reported
+            if lastReportedMissingSelectedUID != selectedUID {
+                lastReportedMissingSelectedUID = selectedUID
+                logger.info("Selected output device missing: \(selectedUID)")
+                onSelectedOutputMissing?(selectedUID)
+            }
+        } else {
+            // Clear tracking if device is back
+            if lastReportedMissingSelectedUID == selectedUID {
+                lastReportedMissingSelectedUID = nil
             }
         }
-        
-        // Fall back to macOS default
-        if let newDefault = deviceManager.defaultOutputDevice(),
-           newDefault.uid != DRIVER_DEVICE_UID,
-           !newDefault.isVirtual {
-            return newDefault
-        }
-        
-        // Last resort: first non-virtual output
-        return deviceManager.outputDevices.first(where: { !$0.isVirtual })
     }
     
-    /// Checks if the currently selected device still exists.
-    /// - Parameter currentUID: The currently selected device UID
-    /// - Returns: true if the device still exists in the device list
-    func deviceStillExists(_ currentUID: String?) -> Bool {
-        guard let uid = currentUID else { return false }
-        return deviceManager.outputDevices.contains { $0.uid == uid }
+    // MARK: - Manual History Management (deprecated - use OutputDeviceHistory)
+    
+    /// Clears the missing device tracking (call when device is restored)
+    func clearMissingTracking() {
+        lastReportedMissingSelectedUID = nil
     }
 }

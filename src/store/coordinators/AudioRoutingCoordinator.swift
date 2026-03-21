@@ -7,16 +7,6 @@ import CoreAudio
 import Foundation
 import OSLog
 
-/// Represents the result of automatic output device selection.
-enum OutputDeviceSelection: Equatable {
-    /// Use the existing selected device (it's still valid)
-    case preserveCurrent(String)
-    /// Use the current macOS default output device
-    case useMacDefault(String)
-    /// Need to find a fallback device (no valid selection available)
-    case useFallback
-}
-
 /// Coordinates audio routing between input and output devices.
 /// Manages the RenderPipeline and handles device selection, sample rate sync,
 /// and mode switching (automatic vs manual).
@@ -38,7 +28,10 @@ final class AudioRoutingCoordinator: ObservableObject {
     private let meterStore: MeterStore
     private let volumeSyncCoordinator: VolumeSyncCoordinator
     private let systemDefaultObserver: SystemDefaultObserver
-    private let deviceChangeHandler: DeviceChangeHandler
+    let deviceChangeHandler: DeviceChangeHandler
+    
+    /// Manages history of output devices for restoration on disconnect
+    let outputDeviceHistory = OutputDeviceHistory()
     
     // MARK: - Private Properties
     
@@ -70,8 +63,17 @@ final class AudioRoutingCoordinator: ObservableObject {
             self?.handleSystemDefaultChanged(device)
         }
         
-        deviceChangeHandler.onDeviceDisconnected = { [weak self] _ in
-            self?.handleDeviceDisconnected()
+        deviceChangeHandler.onSelectedOutputMissing = { [weak self] uid in
+            self?.handleSelectedOutputMissing(uid)
+        }
+        deviceChangeHandler.onBuiltInDeviceAdded = { [weak self] device in
+            self?.handleBuiltInDeviceAdded(device)
+        }
+        deviceChangeHandler.onBuiltInDevicesRemoved = { [weak self] in
+            self?.handleBuiltInDevicesRemoved()
+        }
+        deviceChangeHandler.currentSelectedOutputUID = { [weak self] in
+            self?.selectedOutputDeviceID
         }
         deviceChangeHandler.isReconfiguring = { [weak self] in
             self?.isReconfiguring ?? false
@@ -79,6 +81,14 @@ final class AudioRoutingCoordinator: ObservableObject {
         deviceChangeHandler.isManualMode = { [weak self] in
             self?.manualModeEnabled ?? false
         }
+        
+        // Observe jack connection changes (Intel Macs: headphone jack plug/unplug)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleJackConnectionChanged),
+            name: .jackConnectionChanged,
+            object: nil
+        )
     }
     
     // MARK: - Public Methods
@@ -87,11 +97,12 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// In automatic mode: derives devices from macOS default output.
     /// In manual mode: uses user-selected devices.
     func reconfigureRouting() {
-        logger.debug("reconfigureRouting called, manualMode=\(self.manualModeEnabled), isReconfiguring=\(self.isReconfiguring)")
+        let modeStr = manualModeEnabled ? "manual" : "automatic"
+        logger.debug("reconfigureRouting(mode=\(modeStr))")
         
         // Prevent re-entrant calls
         guard !isReconfiguring else {
-            logger.debug("reconfigureRouting: already reconfiguring, returning")
+            logger.debug("reconfigureRouting: skipped (already reconfiguring)")
             return
         }
         
@@ -171,7 +182,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             
             // Determine output device using pure selection logic
             let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID()
-            let selection = Self.determineAutomaticOutputDevice(
+            let selection = OutputDeviceSelection.determine(
                 currentSelected: selectedOutputDeviceID,
                 macDefault: macDefault,
                 availableDevices: deviceManager.outputDevices
@@ -243,7 +254,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.error("Failed to resolve device IDs")
             return
         }
-
+        
         logger.debug("Device IDs resolved: input=\(inputDeviceID), output=\(outputDeviceID)")
 
         // Sync driver sample rate to match output device (automatic mode only)
@@ -253,6 +264,14 @@ final class AudioRoutingCoordinator: ObservableObject {
 
         // Set up listener for output device sample rate changes
         setupSampleRateListener(for: outputDeviceID)
+
+        // Set up jack connection listener on built-in device (Intel Macs: headphone jack detection)
+        // Note: Apple Silicon uses device count change detection in DeviceChangeHandler instead
+        if !manualModeEnabled {
+            if let builtInDevice = deviceManager.enumerator.findBuiltInAudioDevice() {
+                deviceManager.enumerator.setupJackConnectionListener(for: builtInDevice.id)
+            }
+        }
 
         // Create and configure the render pipeline
         let outputName = outputDevice.name
@@ -369,7 +388,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     func switchToManualMode() {
         showDriverPrompt = false
         manualModeEnabled = true
-        deviceChangeHandler.clearHistory()
+        outputDeviceHistory.clear()
 
         // Rename driver back to default since it's no longer used in manual mode
         _ = updateDriverName()
@@ -446,45 +465,9 @@ final class AudioRoutingCoordinator: ObservableObject {
     func currentBandCapacity() -> Int {
         renderPipeline?.bandCapacity ?? 0
     }
-
     /// Reapplies the entire configuration to the render pipeline.
     func reapplyConfiguration() {
         renderPipeline?.reapplyConfiguration()
-    }
-    
-    // MARK: - Static Device Selection Logic
-    
-    /// Determines which output device to use in automatic mode.
-    /// Pure function — no side effects, testable with any inputs.
-    ///
-    /// - Parameters:
-    ///   - currentSelected: Currently selected output device UID (if any)
-    ///   - macDefault: Current macOS default output device UID (if any)
-    ///   - availableDevices: List of available output devices
-    /// - Returns: Selection decision indicating which device to use
-    static func determineAutomaticOutputDevice(
-        currentSelected: String?,
-        macDefault: String?,
-        availableDevices: [AudioDevice]
-    ) -> OutputDeviceSelection {
-        // If current selection is valid (not driver, exists, not virtual), preserve it
-        if let current = currentSelected,
-           current != DRIVER_DEVICE_UID,
-           let device = availableDevices.first(where: { $0.uid == current }),
-           !device.isVirtual {
-            return .preserveCurrent(current)
-        }
-        
-        // If macOS default exists and isn't the driver, use it
-        if let defaultUID = macDefault,
-           defaultUID != DRIVER_DEVICE_UID,
-           let device = availableDevices.first(where: { $0.uid == defaultUID }),
-           !device.isVirtual {
-            return .useMacDefault(defaultUID)
-        }
-        
-        // Otherwise need fallback
-        return .useFallback
     }
     
     // MARK: - Private Methods
@@ -500,6 +483,9 @@ final class AudioRoutingCoordinator: ObservableObject {
         // Clear callbacks and tear down volume sync
         volumeSyncCoordinator.onBoostGainChanged = nil
         volumeSyncCoordinator.tearDown()
+        
+        // Clean up jack connection listener (Intel Macs)
+        deviceManager.enumerator.cleanupJackConnectionListener()
     }
     
     private func syncDriverSampleRate(to outputDeviceID: AudioDeviceID) {
@@ -553,15 +539,16 @@ final class AudioRoutingCoordinator: ObservableObject {
     private func handleSystemDefaultChanged(_ device: AudioDevice) {
         // In manual mode, ignore macOS changes
         guard !manualModeEnabled else {
-            logger.debug("Manual mode: ignoring macOS output change notification")
+            logger.debug("handleSystemDefaultChanged: Manual mode - ignoring")
             return
         }
         
-        logger.debug("macOS default output changed to: \(device.name) (uid=\(device.uid))")
+        logger.info("handleSystemDefaultChanged: macOS default output changed to '\(device.name)' (uid=\(device.uid))")
+        logger.debug("handleSystemDefaultChanged: Current selected output: \(self.selectedOutputDeviceID ?? "nil")")
         
         // Check if same as currently selected output
         if device.uid == selectedOutputDeviceID {
-            logger.info("Same output device selected, reconfiguring to ensure driver visibility")
+            logger.info("handleSystemDefaultChanged: Same device already selected - reconfiguring")
             reconfigureRouting()
             return
         }
@@ -570,37 +557,34 @@ final class AudioRoutingCoordinator: ObservableObject {
         if let current = selectedOutputDeviceID,
            current != DRIVER_DEVICE_UID,
            current != device.uid {
-            deviceChangeHandler.addToHistory(current)
+            outputDeviceHistory.add(current)
+            logger.debug("handleSystemDefaultChanged: Saved previous output to history")
         }
         
         // Update output device
         selectedOutputDeviceID = device.uid
+        logger.info("handleSystemDefaultChanged: Switching to '\(device.name)'")
 
         // Reconfigure routing (this will rename the driver)
         reconfigureRouting()
     }
     
-    private func handleDeviceDisconnected() {
+    // MARK: - Device Change Handlers
+    
+    /// Called when the selected output device is missing from available devices.
+    private func handleSelectedOutputMissing(_ uid: String) {
         // Only handle in automatic mode (driver is used)
         guard !manualModeEnabled else {
-            logger.debug("Manual mode: ignoring device disconnect handling for driver")
-            return
-        }
-
-        // Check if our currently selected output device still exists
-        guard !deviceChangeHandler.deviceStillExists(selectedOutputDeviceID) else {
-            logger.debug("Selected output device still exists, no action needed")
+            logger.debug("Manual mode: ignoring missing device")
             return
         }
         
-        logger.info("Selected output device disconnected, finding replacement")
+        logger.info("Selected output device missing: \(uid)")
         
         // Find replacement device
-        if let replacement = deviceChangeHandler.findReplacementDevice(currentUID: selectedOutputDeviceID) {
+        if let replacement = outputDeviceHistory.findReplacementDevice(currentUID: selectedOutputDeviceID, deviceManager: deviceManager) {
             selectedOutputDeviceID = replacement.uid
             logger.info("Using replacement device: \(replacement.name)")
-
-            // Reconfigure routing (this will rename the driver)
             reconfigureRouting()
         } else {
             // No output device available
@@ -609,8 +593,101 @@ final class AudioRoutingCoordinator: ObservableObject {
         }
     }
     
+    /// Called when built-in devices are removed (Apple Silicon: headphones unplugged).
+    private func handleBuiltInDevicesRemoved() {
+        // Only handle in automatic mode
+        guard !manualModeEnabled else { return }
+        
+        // Clear missing tracking so we can detect if current device is missing
+        deviceChangeHandler.clearMissingTracking()
+    }
+    
+    /// Called when a single built-in device is added (Apple Silicon: headphones plugged in).
+    private func handleBuiltInDeviceAdded(_ device: AudioDevice) {
+        // Only handle in automatic mode
+        guard !manualModeEnabled else {
+            logger.debug("handleBuiltInDeviceAdded: Manual mode - ignoring")
+            return
+        }
+        
+        // Don't reconfigure during reconfiguration
+        guard !isReconfiguring else {
+            logger.debug("handleBuiltInDeviceAdded: Already reconfiguring - ignoring")
+            return
+        }
+        
+        // Only switch if currently routing to a built-in device
+        // (Never switch away from USB/Bluetooth/HDMI - matches macOS behaviour)
+        guard let currentUID = selectedOutputDeviceID,
+              let currentDevice = deviceManager.device(forUID: currentUID),
+              currentDevice.transportType == kAudioDeviceTransportTypeBuiltIn else {
+            logger.debug("handleBuiltInDeviceAdded: Current output is not built-in, not switching")
+            return
+        }
+        
+        logger.info("Headphones detected: '\(device.name)', switching output")
+        
+        // Save current device to history for restoration when headphones unplugged
+        if currentUID != DRIVER_DEVICE_UID,
+           currentUID != device.uid {
+            outputDeviceHistory.add(currentUID)
+        }
+        
+        // Switch to the new built-in device (headphones)
+        selectedOutputDeviceID = device.uid
+        reconfigureRouting()
+    }
+    
+    /// Called when jack connection state changes (Intel Macs: headphone jack plug/unplug).
+    @objc private func handleJackConnectionChanged() {
+        // Only handle in automatic mode
+        guard !manualModeEnabled else { return }
+        
+        // Don't reconfigure during reconfiguration
+        guard !isReconfiguring else { return }
+        
+        // Find the built-in audio device
+        guard let builtInDevice = deviceManager.enumerator.findBuiltInAudioDevice() else {
+            logger.warning("No built-in audio device found for jack detection")
+            return
+        }
+        
+        // Check if jack is connected
+        guard let jackConnected = isJackConnected(builtInDevice.id) else {
+            logger.warning("Could not determine jack connection state")
+            return
+        }
+        
+        if jackConnected {
+            // Only switch if currently routing to a built-in device
+            // (Never switch away from USB/Bluetooth/HDMI - matches macOS behaviour)
+            guard let currentUID = selectedOutputDeviceID,
+                  let currentDevice = deviceManager.device(forUID: currentUID),
+                  currentDevice.transportType == kAudioDeviceTransportTypeBuiltIn else {
+                logger.debug("handleJackConnectionChanged: Current output is not built-in, not switching")
+                return
+            }
+            
+            logger.info("Headphones plugged in (jack)")
+            
+            // Save current device to history
+            if currentUID != DRIVER_DEVICE_UID,
+               currentUID != builtInDevice.uid {
+                outputDeviceHistory.add(currentUID)
+            }
+            
+            // Switch to built-in device (now outputting to headphones)
+            selectedOutputDeviceID = builtInDevice.uid
+            reconfigureRouting()
+        } else {
+            logger.info("Headphones unplugged (jack)")
+            // Clear missing tracking so we can detect if current device is missing
+            deviceChangeHandler.clearMissingTracking()
+        }
+    }
+    
     private func findFallbackOutputDevice() -> AudioDevice? {
-        DeviceManager.selectFallbackOutputDevice(from: deviceManager.outputDevices)
+        deviceManager.selectFallbackOutputDevice()
     }
     
     // MARK: - Init-time Configuration

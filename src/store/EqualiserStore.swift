@@ -126,7 +126,7 @@ final class EqualiserStore: ObservableObject {
     let eqConfiguration: EQConfiguration
     let presetManager: PresetManager
     let meterStore: MeterStore
-    
+
     // MARK: - Coordinators
     
     private(set) var routingCoordinator: AudioRoutingCoordinator
@@ -191,6 +191,17 @@ final class EqualiserStore: ObservableObject {
             deviceChangeHandler: deviceChangeHandler
         )
         
+        // Log macOS system default output
+        if let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID() {
+            if let device = deviceManager.device(forUID: macDefault) {
+                logger.info("EqualiserStore.init: macOS default output: '\(device.name)' (uid=\(macDefault))")
+            } else {
+                logger.info("EqualiserStore.init: macOS default output uid=\(macDefault) (device not in list)")
+            }
+        } else {
+            logger.warning("EqualiserStore.init: No macOS default output device found")
+        }
+        
         // Wire up callbacks
         compareModeTimer.onRevert = { [weak self] in
             self?.compareMode = .eq
@@ -210,24 +221,33 @@ final class EqualiserStore: ObservableObject {
                 routingCoordinator.manualModeEnabled = true
                 logger.debug("Manual mode: loaded saved devices")
             } else {
-                // Automatic mode: derive from macOS default
+                // Automatic mode: use unified selection logic
                 routingCoordinator.manualModeEnabled = false
                 
                 let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID()
+                let selection = OutputDeviceSelection.determine(
+                    currentSelected: snapshot.outputDeviceID,
+                    macDefault: macDefault,
+                    availableDevices: deviceManager.outputDevices
+                )
                 
-                if macDefault == DRIVER_DEVICE_UID {
-                    // Driver was default (from crash) - use fallback
-                    logger.info("Driver was default on launch, using fallback output")
-                    if let fallback = findFallbackOutputDevice() {
-                        routingCoordinator.selectedOutputDeviceID = fallback.uid
+                switch selection {
+                case .preserveCurrent(let uid):
+                    routingCoordinator.selectedOutputDeviceID = uid
+                    logger.debug("Startup: preserving saved output device")
+                    
+                case .useMacDefault(let uid):
+                    routingCoordinator.selectedOutputDeviceID = uid
+                    if let device = deviceManager.device(forUID: uid) {
+                        logger.debug("Startup: using macOS default '\(device.name)'")
                     }
-                } else if let defaultUID = macDefault {
-                    routingCoordinator.selectedOutputDeviceID = defaultUID
-                    logger.debug("Automatic mode: using macOS default output")
-                } else {
-                    // No default - use fallback
-                    if let fallback = findFallbackOutputDevice() {
+                    
+                case .useFallback:
+                    if let fallback = deviceManager.selectFallbackOutputDevice() {
                         routingCoordinator.selectedOutputDeviceID = fallback.uid
+                        logger.info("Startup: using fallback output '\(fallback.name)'")
+                    } else {
+                        logger.error("Startup: no output device available")
                     }
                 }
                 
@@ -235,25 +255,34 @@ final class EqualiserStore: ObservableObject {
                 routingCoordinator.selectedInputDeviceID = DRIVER_DEVICE_UID
             }
         } else {
-            // First launch: automatic mode, derive from macOS default
+            // First launch: automatic mode, use unified selection logic
             logger.info("First launch, no snapshot")
             routingCoordinator.manualModeEnabled = false
             
             let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID()
+            let selection = OutputDeviceSelection.determine(
+                currentSelected: nil,
+                macDefault: macDefault,
+                availableDevices: deviceManager.outputDevices
+            )
             
-            if macDefault == DRIVER_DEVICE_UID {
-                // Driver was default - use fallback
-                logger.info("Driver was default, using fallback output")
-                if let fallback = findFallbackOutputDevice() {
-                    routingCoordinator.selectedOutputDeviceID = fallback.uid
+            switch selection {
+            case .preserveCurrent:
+                // Not possible with nil currentSelected
+                break
+                
+            case .useMacDefault(let uid):
+                routingCoordinator.selectedOutputDeviceID = uid
+                if let device = deviceManager.device(forUID: uid) {
+                    logger.debug("Startup: using macOS default '\(device.name)'")
                 }
-            } else if let defaultUID = macDefault {
-                routingCoordinator.selectedOutputDeviceID = defaultUID
-                logger.debug("Using macOS default output")
-            } else {
-                // No default - use fallback
-                if let fallback = findFallbackOutputDevice() {
+                
+            case .useFallback:
+                if let fallback = deviceManager.selectFallbackOutputDevice() {
                     routingCoordinator.selectedOutputDeviceID = fallback.uid
+                    logger.info("Startup: using fallback output '\(fallback.name)'")
+                } else {
+                    logger.error("Startup: no output device available")
                 }
             }
             
@@ -527,11 +556,7 @@ final class EqualiserStore: ObservableObject {
         presetManager.selectPreset(named: nil)
     }
     
-    // MARK: - Private Helpers
-    
-    private func findFallbackOutputDevice() -> AudioDevice? {
-        DeviceManager.selectFallbackOutputDevice(from: deviceManager.outputDevices)
-    }
+    // MARK: - Helpers
     
     static func clampGain(_ gain: Float) -> Float {
         min(max(gain, gainRange.lowerBound), gainRange.upperBound)
