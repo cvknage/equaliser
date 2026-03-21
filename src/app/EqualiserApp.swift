@@ -21,7 +21,10 @@ struct EqualiserMain: App {
     @Environment(\.openWindow) private var openWindow
 
     init() {
-        appDelegate.setStore(self.store)
+        // IMPORTANT: Do NOT access @StateObject (self.store) here.
+        // SwiftUI initializes @StateObject AFTER init() completes.
+        // Accessing it in init() causes SwiftUI to create two instances.
+        // Wire appDelegate.setStore(store) in body using .onAppear instead.
 
         // Hide dock icon permanently - this is a menu bar app
         // Defer until NSApp is available (it's nil during init)
@@ -75,6 +78,11 @@ struct EqualiserMain: App {
         MenuBarExtra("Equaliser", systemImage: "slider.vertical.3") {
             MenuBarContentView()
                 .environmentObject(store)
+                .onAppear {
+                    // Wire up appDelegate reference after @StateObject is initialized.
+                    // MenuBarExtra is always visible, so this will always fire.
+                    appDelegate.setStore(store)
+                }
         }
         .menuBarExtraStyle(.window)
 

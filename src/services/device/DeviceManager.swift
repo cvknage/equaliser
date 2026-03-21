@@ -4,13 +4,12 @@
 import Combine
 import Foundation
 import CoreAudio
-import os.log
+import OSLog
 
 // MARK: - Notification Extension
 
 extension Notification.Name {
     static let systemDefaultOutputDidChange = Notification.Name("net.knage.equaliser.systemDefaultOutputDidChange")
-    static let jackConnectionChanged = Notification.Name("net.knage.equaliser.jackConnectionChanged")
 }
 
 // MARK: - Audio Device Model
@@ -300,5 +299,37 @@ final class DeviceManager: ObservableObject {
     
     func stopObservingSampleRateChanges(on deviceID: AudioDeviceID) {
         sampleRate.stopObservingSampleRateChanges(on: deviceID)
+    }
+    
+    // MARK: - Device Change Events
+    
+    /// Publisher for device change events.
+    /// Emits when built-in devices are added/removed or selected device goes missing.
+    var changeEventPublisher: AnyPublisher<DeviceChangeEvent?, Never> {
+        _enumerator.$changeEvent.eraseToAnyPublisher()
+    }
+    
+    /// Sets the closure that provides the current selected output UID.
+    /// Used for missing device detection.
+    func setSelectedOutputUIDProvider(_ provider: @escaping () -> String?) {
+        _enumerator.selectedOutputUIDProvider = provider
+    }
+    
+    /// Sets the closure that indicates if manual mode is enabled.
+    /// When true, device change events are not emitted.
+    func setManualModeProvider(_ provider: @escaping () -> Bool) {
+        _enumerator.manualModeProvider = provider
+    }
+    
+    /// Sets the closure that indicates if routing is reconfiguring.
+    /// When true, device change events are not emitted.
+    func setReconfiguringProvider(_ provider: @escaping () -> Bool) {
+        _enumerator.isReconfiguringProvider = provider
+    }
+    
+    /// Clears tracking for missing selected device.
+    /// Call when device is restored or headphones unplugged.
+    func clearMissingTracking() {
+        _enumerator.clearMissingTracking()
     }
 }

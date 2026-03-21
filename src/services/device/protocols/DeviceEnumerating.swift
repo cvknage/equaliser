@@ -3,6 +3,7 @@
 
 import Foundation
 import CoreAudio
+import Combine
 
 /// Protocol for audio device enumeration services.
 /// Provides cached lists of audio input/output devices and device lookup.
@@ -13,6 +14,9 @@ protocol DeviceEnumerating: ObservableObject {
     
     /// Currently available output devices
     var outputDevices: [AudioDevice] { get }
+    
+    /// Latest device change event (nil if no event pending)
+    var changeEvent: DeviceChangeEvent? { get }
     
     /// Refreshes the device lists from CoreAudio
     func refreshDevices()
@@ -40,11 +44,15 @@ protocol DeviceEnumerating: ObservableObject {
     func findBuiltInAudioDevice() -> AudioDevice?
     
     /// Sets up a listener for jack connection changes on the specified built-in audio device.
-    /// Posts .jackConnectionChanged notification when jack state changes (Intel Macs only).
+    /// Emits .builtInDeviceAdded/.builtInDevicesRemoved events when jack state changes (Intel Macs only).
     func setupJackConnectionListener(for deviceID: AudioDeviceID)
     
     /// Cleans up the jack connection listener.
     func cleanupJackConnectionListener()
+    
+    /// Clears tracking for missing selected device.
+    /// Call when device is restored or headphones unplugged.
+    func clearMissingTracking()
 
     /// Filters a name to check if device should be included in enumeration
     func shouldIncludeDevice(name: String) -> Bool

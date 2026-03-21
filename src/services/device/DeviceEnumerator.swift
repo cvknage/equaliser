@@ -1,12 +1,14 @@
 // DeviceEnumerator.swift
 // Device enumeration and discovery service
 
-import Foundation
+import Combine
 import CoreAudio
-import os.log
+import Foundation
+import OSLog
 
 /// Device enumeration service.
 /// Provides cached lists of audio input/output devices and device lookup.
+/// Emits change events when device enumeration changes in meaningful ways.
 @MainActor
 final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
     
@@ -14,6 +16,30 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
     
     @Published private(set) var inputDevices: [AudioDevice] = []
     @Published private(set) var outputDevices: [AudioDevice] = []
+    
+    /// Latest device change event. Subscribers should read and clear.
+    @Published private(set) var changeEvent: DeviceChangeEvent?
+    
+    // MARK: - State Tracking
+    
+    /// Previous built-in output device UIDs for Apple Silicon headphone detection.
+    private var previousBuiltInDeviceUIDs: Set<String> = []
+    
+    /// Flag indicating if initial tracking state has been established.
+    private var hasInitializedTracking = false
+    
+    /// The last selected output UID reported as missing.
+    /// Used to avoid duplicate missing device reports.
+    private var lastReportedMissingSelectedUID: String?
+    
+    /// Closure to get current selected output UID for missing device detection.
+    var selectedOutputUIDProvider: (() -> String?)?
+    
+    /// Closure to check if manual mode is enabled (skips missing device detection).
+    var manualModeProvider: (() -> Bool)?
+    
+    /// Closure to check if routing is reconfiguring (skips event emission).
+    var isReconfiguringProvider: (() -> Bool)?
     
     // MARK: - Private Properties
     
@@ -149,7 +175,6 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
         }
         
         // Note: Jack connection listener is cleaned up separately via cleanupJackConnectionListener()
-        // which is called from AudioRoutingCoordinator.stopPipeline()
     }
     
     // MARK: - Device Enumeration
@@ -186,6 +211,93 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
 
         inputDevices = inputs.sorted { $0.name < $1.name }
         outputDevices = outputs.sorted { $0.name < $1.name }
+        
+        // Process device changes and emit events
+        processDeviceChanges()
+    }
+    
+    /// Processes device enumeration changes and emits appropriate events.
+    /// Detects built-in device additions/removals (Apple Silicon headphone detection)
+    /// and missing selected output device.
+    private func processDeviceChanges() {
+        // Skip event emission during reconfiguration
+        guard isReconfiguringProvider?() != true else { return }
+        
+        // Skip event emission in manual mode (user handles device selection)
+        guard manualModeProvider?() != true else { return }
+        
+        // Get built-in output devices
+        let builtInDevices = outputDevices.filter { $0.transportType == kAudioDeviceTransportTypeBuiltIn }
+        let currentBuiltInUIDs = Set(builtInDevices.map { $0.uid })
+        
+        // Initialize tracking on first run
+        if !hasInitializedTracking {
+            previousBuiltInDeviceUIDs = currentBuiltInUIDs
+            hasInitializedTracking = true
+            logger.debug("Initialized device tracking with \(builtInDevices.count) built-in device(s)")
+            
+            // Check for missing selected device on first run
+            checkForMissingSelectedDevice()
+            return
+        }
+        
+        // Compute built-in device diffs (Apple Silicon headphone detection)
+        let addedBuiltInUIDs = currentBuiltInUIDs.subtracting(previousBuiltInDeviceUIDs)
+        let removedBuiltInUIDs = previousBuiltInDeviceUIDs.subtracting(currentBuiltInUIDs)
+        
+        // Log diff summary
+        if !addedBuiltInUIDs.isEmpty || !removedBuiltInUIDs.isEmpty {
+            logger.debug("Built-in device diff: +\(addedBuiltInUIDs.count), -\(removedBuiltInUIDs.count)")
+        }
+        
+        // Handle single built-in device added (headphones plugged in)
+        if addedBuiltInUIDs.count == 1,
+           let addedUID = addedBuiltInUIDs.first,
+           let addedDevice = builtInDevices.first(where: { $0.uid == addedUID }) {
+            logger.info("Built-in device added: '\(addedDevice.name)'")
+            changeEvent = .builtInDeviceAdded(addedDevice)
+        } else if addedBuiltInUIDs.count > 1 {
+            logger.debug("Multiple built-in devices added (\(addedBuiltInUIDs.count)), ignoring")
+        }
+        
+        // Handle built-in devices removed (headphones unplugged)
+        if !removedBuiltInUIDs.isEmpty {
+            logger.info("Built-in device(s) removed: \(removedBuiltInUIDs.count)")
+            changeEvent = .builtInDevicesRemoved
+        }
+        
+        // Update tracking
+        previousBuiltInDeviceUIDs = currentBuiltInUIDs
+        
+        // Check for missing selected output device
+        checkForMissingSelectedDevice()
+    }
+    
+    /// Checks if the currently selected output device is missing.
+    private func checkForMissingSelectedDevice() {
+        guard let selectedUID = selectedOutputUIDProvider?() else { return }
+        
+        let deviceExists = outputDevices.contains { $0.uid == selectedUID }
+        
+        if !deviceExists {
+            // Only report if not already reported
+            if lastReportedMissingSelectedUID != selectedUID {
+                lastReportedMissingSelectedUID = selectedUID
+                logger.info("Selected output device missing: \(selectedUID)")
+                changeEvent = .selectedOutputMissing(uid: selectedUID)
+            }
+        } else {
+            // Clear tracking if device is back
+            if lastReportedMissingSelectedUID == selectedUID {
+                lastReportedMissingSelectedUID = nil
+            }
+        }
+    }
+    
+    /// Clears the missing device tracking.
+    /// Call when device is restored or headphones unplugged.
+    func clearMissingTracking() {
+        lastReportedMissingSelectedUID = nil
     }
     
     private func makeDevice(from id: AudioDeviceID) -> AudioDevice? {
@@ -352,7 +464,7 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
     // MARK: - Jack Connection Listener (Intel Macs)
     
     /// Sets up a listener for jack connection changes on the specified built-in audio device.
-    /// Posts .jackConnectionChanged notification when jack state changes.
+    /// Emits .builtInDeviceAdded/.builtInDevicesRemoved events when jack state changes (Intel Macs only).
     /// - Parameter deviceID: The audio device ID to monitor (should be built-in device)
     func setupJackConnectionListener(for deviceID: AudioDeviceID) {
         cleanupJackConnectionListener()
@@ -396,10 +508,24 @@ final class DeviceEnumerator: ObservableObject, DeviceEnumerating {
     }
     
     private func handleJackConnectionChange() {
-        guard observedJackDeviceID != nil else { return }
+        guard let deviceID = observedJackDeviceID else { return }
+        guard let jackConnected = isJackConnected(deviceID) else { return }
         
-        // Post notification for AudioRoutingCoordinator to handle
-        NotificationCenter.default.post(name: .jackConnectionChanged, object: nil)
+        // Find the built-in device by ID
+        guard let builtInDevice = outputDevices.first(where: { $0.id == deviceID }) else {
+            logger.warning("Jack connection changed but device not found in output list")
+            return
+        }
+        
+        if jackConnected {
+            logger.info("Headphones plugged in (jack) - '\(builtInDevice.name)'")
+            changeEvent = .builtInDeviceAdded(builtInDevice)
+        } else {
+            logger.info("Headphones unplugged (jack)")
+            changeEvent = .builtInDevicesRemoved
+            // Clear missing tracking so we can detect if current device is missing
+            clearMissingTracking()
+        }
     }
     
     func cleanupJackConnectionListener() {

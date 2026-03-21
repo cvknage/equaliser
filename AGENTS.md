@@ -59,9 +59,9 @@ swift test --filter TestClassName
 | `src/domain/device/HeadphoneSwitchPolicy.swift` | Headphone switch decision logic (pure) |
 | `src/services/meters/MeterStore.swift` | Meter state management |
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
-| `src/store/coordinators/DeviceChangeHandler.swift` | Headphone detection (Apple Silicon) |
 | `src/store/coordinators/OutputDeviceHistory.swift` | Output device history for reconnection |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
+| `src/services/device/DeviceChangeEvent.swift` | Device change event types |
 
 ### Views Structure
 
@@ -120,7 +120,6 @@ swift test --filter TestClassName
 │  Coordination Layer                                         │
 │  - EqualiserStore: thin coordinator                         │
 │  - AudioRoutingCoordinator: device selection, pipeline      │
-│  - DeviceChangeHandler: connect/disconnect events           │
 │  - SystemDefaultObserver: macOS default changes             │
 │  - VolumeSyncCoordinator: driver ↔ output volume sync       │
 │  - CompareModeTimer: auto-revert timer                      │
@@ -129,7 +128,7 @@ swift test --filter TestClassName
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Service Layer (via Protocols)                              │
-│  - DeviceManager: device enumeration (DeviceEnumerating)    │
+│  - DeviceManager: device enumeration, change events         │
 │  - DriverManager: driver lifecycle (DriverLifecycleManaging)│
 │  - PresetManager: preset file management                    │
 │  - MeterStore: 30 FPS meter updates                         │
@@ -154,14 +153,15 @@ swift test --filter TestClassName
 EqualiserStore
 ├── AudioRoutingCoordinator (device selection, pipeline lifecycle)
 │   ├── SystemDefaultObserver (macOS default changes)
-│   ├── DeviceChangeHandler (connect/disconnect)
 │   └── VolumeSyncCoordinator (volume sync)
 ├── CompareModeTimer (auto-revert)
-├── DeviceManager (device enumeration)
+├── DeviceManager (device enumeration, change events)
 ├── EQConfiguration (band data)
 ├── MeterStore (meter updates)
 └── PresetManager (preset files)
 ```
+
+**Note:** Device change detection (headphone plug/unplug, missing device) is now handled by `DeviceEnumerator` which emits `DeviceChangeEvent` via Combine publisher. `AudioRoutingCoordinator` subscribes to these events.
 
 ### Protocol-Based DI
 
@@ -306,9 +306,9 @@ The app automatically switches output to headphones when plugged in, matching ma
 | Intel Mac | `kAudioDevicePropertyJackIsConnected` property |
 
 **Implementation:**
-- `DeviceChangeHandler` tracks `previousBuiltInDeviceUIDs` and detects `+1` built-in device
+- `DeviceEnumerator` tracks `previousBuiltInDeviceUIDs` and emits `DeviceChangeEvent.builtInDeviceAdded` when `+1` built-in device detected
+- `DeviceEnumerator.setupJackConnectionListener()` handles Intel Mac jack detection, emitting events directly
 - `AudioRoutingCoordinator.handleBuiltInDeviceAdded()` only switches if current output is built-in
-- Intel Macs use `DeviceEnumerator.setupJackConnectionListener()` for jack detection
 
 **Key behaviour:**
 - Only switches when current output is built-in (never steals from USB/Bluetooth/HDMI)

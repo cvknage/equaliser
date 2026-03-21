@@ -131,7 +131,6 @@ final class EqualiserStore: ObservableObject {
     
     private(set) var routingCoordinator: AudioRoutingCoordinator
     private let systemDefaultObserver: SystemDefaultObserver
-    private let deviceChangeHandler: DeviceChangeHandler
     private let compareModeTimer = CompareModeTimer()
     private let volumeSyncCoordinator: VolumeSyncCoordinator
     
@@ -181,14 +180,12 @@ final class EqualiserStore: ObservableObject {
         // Create coordinators
         self.volumeSyncCoordinator = VolumeSyncCoordinator(deviceManager: deviceManager)
         self.systemDefaultObserver = SystemDefaultObserver(deviceManager: deviceManager)
-        self.deviceChangeHandler = DeviceChangeHandler(deviceManager: deviceManager)
         self.routingCoordinator = AudioRoutingCoordinator(
             deviceManager: deviceManager,
             eqConfiguration: eqConfiguration,
             meterStore: meterStore,
             volumeSyncCoordinator: volumeSyncCoordinator,
-            systemDefaultObserver: systemDefaultObserver,
-            deviceChangeHandler: deviceChangeHandler
+            systemDefaultObserver: systemDefaultObserver
         )
         
         // Log macOS system default output
