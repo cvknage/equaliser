@@ -135,7 +135,6 @@ final class EqualiserStore: ObservableObject {
     private(set) var routingCoordinator: AudioRoutingCoordinator
     private let systemDefaultObserver: SystemDefaultObserver
     private let compareModeTimer = CompareModeTimer()
-    private let volumeSyncCoordinator: VolumeSyncCoordinator
     
     // MARK: - Private Properties
     
@@ -185,7 +184,6 @@ final class EqualiserStore: ObservableObject {
         self.sampleRateService = DeviceSampleRateService()
         
         // Create coordinators
-        self.volumeSyncCoordinator = VolumeSyncCoordinator(volumeService: volumeService)
         self.systemDefaultObserver = SystemDefaultObserver(deviceManager: deviceManager)
         self.deviceChangeCoordinator = DeviceChangeCoordinator(
             deviceEnumerator: deviceManager.enumerator
@@ -195,7 +193,7 @@ final class EqualiserStore: ObservableObject {
             deviceChangeCoordinator: deviceChangeCoordinator,
             eqConfiguration: eqConfiguration,
             meterStore: meterStore,
-            volumeSyncCoordinator: volumeSyncCoordinator,
+            volumeService: volumeService,
             systemDefaultObserver: systemDefaultObserver,
             sampleRateService: sampleRateService
         )

@@ -27,13 +27,14 @@ final class AudioRoutingCoordinator: ObservableObject {
     let deviceChangeCoordinator: DeviceChangeCoordinator
     private let eqConfiguration: EQConfiguration
     private let meterStore: MeterStore
-    private let volumeSyncCoordinator: VolumeSyncCoordinator
+    private let volumeService: VolumeControlling
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
     
     // MARK: - Private Properties
     
     private var renderPipeline: RenderPipeline?
+    private var volumeManager: VolumeManager?
     private var observedOutputDeviceID: AudioDeviceID?
     private var isReconfiguring = false
     private var cancellables = Set<AnyCancellable>()
@@ -47,7 +48,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         deviceChangeCoordinator: DeviceChangeCoordinator,
         eqConfiguration: EQConfiguration,
         meterStore: MeterStore,
-        volumeSyncCoordinator: VolumeSyncCoordinator,
+        volumeService: VolumeControlling,
         systemDefaultObserver: SystemDefaultObserver,
         sampleRateService: SampleRateObserving
     ) {
@@ -55,7 +56,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         self.deviceChangeCoordinator = deviceChangeCoordinator
         self.eqConfiguration = eqConfiguration
         self.meterStore = meterStore
-        self.volumeSyncCoordinator = volumeSyncCoordinator
+        self.volumeService = volumeService
         self.systemDefaultObserver = systemDefaultObserver
         self.sampleRateService = sampleRateService
         
@@ -318,11 +319,11 @@ final class AudioRoutingCoordinator: ObservableObject {
             
             // Set up volume sync between driver and output device (automatic mode only)
             if !manualModeEnabled, let driverID = DriverManager.shared.deviceID {
-                // Wire up boost gain callback before setting up volume sync
-                volumeSyncCoordinator.onBoostGainChanged = { [weak self] boostGain in
+                volumeManager = VolumeManager(volumeService: volumeService)
+                volumeManager?.onBoostGainChanged = { [weak self] boostGain in
                     self?.renderPipeline?.updateBoostGain(linear: boostGain)
                 }
-                volumeSyncCoordinator.setup(driverID: driverID, outputID: outputDeviceID)
+                volumeManager?.setupVolumeSync(driverID: driverID, outputID: outputDeviceID)
             }
             
         case .failure(let error):
@@ -394,7 +395,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         // Reset driver volume to 100% for clean state when returning to automatic mode
         if let driverID = DriverManager.shared.deviceID {
             // Note: This uses DeviceManager's volume method directly since we need
-            // to reset driver volume, and volumeService is a protocol that VolumeSyncCoordinator
+            // to reset driver volume, and volumeService is a protocol that VolumeManager
             // uses internally. The driver reset is a one-time operation, not ongoing sync.
             deviceManager.setDeviceVolumeScalar(deviceID: driverID, volume: 1.0)
         }
@@ -482,8 +483,9 @@ final class AudioRoutingCoordinator: ObservableObject {
         }
         
         // Clear callbacks and tear down volume sync
-        volumeSyncCoordinator.onBoostGainChanged = nil
-        volumeSyncCoordinator.tearDown()
+        volumeManager?.onBoostGainChanged = nil
+        volumeManager?.tearDown()
+        volumeManager = nil
         
         // Clean up jack connection listener (Intel Macs)
         deviceChangeCoordinator.cleanupJackConnectionListener()

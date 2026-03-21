@@ -61,6 +61,7 @@ swift test --filter TestClassName
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
 | `src/store/coordinators/DeviceChangeCoordinator.swift` | Device change events, history, headphone detection |
 | `src/store/coordinators/OutputDeviceHistory.swift` | Output device history for reconnection |
+| `src/store/VolumeManager.swift` | Volume sync between driver and output device |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
 | `src/services/device/DeviceEnumerationService.swift` | Device enumeration and change events |
 | `src/services/device/DeviceManager.swift` | Device model and selection logic |
@@ -122,8 +123,9 @@ swift test --filter TestClassName
 │  Coordination Layer                                         │
 │  - EqualiserStore: thin coordinator                         │
 │  - AudioRoutingCoordinator: device selection, pipeline      │
+│  - DeviceChangeCoordinator: device events, history          │
 │  - SystemDefaultObserver: macOS default changes             │
-│  - VolumeSyncCoordinator: driver ↔ output volume sync       │
+│  - VolumeManager: driver ↔ output volume sync               │
 │  - CompareModeTimer: auto-revert timer                      │
 └─────────────────────────────────────────────────────────────┘
                               │
@@ -160,7 +162,7 @@ EqualiserStore
 │   └── OutputDeviceHistory
 ├── AudioRoutingCoordinator (device selection, pipeline lifecycle)
 │   ├── SystemDefaultObserver (macOS default changes)
-│   └── VolumeSyncCoordinator (volume sync)
+│   └── VolumeManager (volume sync, created lazily)
 ├── CompareModeTimer (auto-revert)
 ├── DeviceManager (device enumeration, selection logic)
 │   └── DeviceEnumerationService
@@ -169,16 +171,16 @@ EqualiserStore
 └── PresetManager (preset files)
 ```
 
-**Key coordinators:**
+**Key coordinators and managers:**
 
 - `DeviceChangeCoordinator`: Subscribes to `DeviceEnumerationService.$changeEvent`, manages `OutputDeviceHistory`, emits callbacks for headphone detection and missing devices
-- `AudioRoutingCoordinator`: Handles pipeline lifecycle, delegates device change handling to `DeviceChangeCoordinator`
-- `VolumeSyncCoordinator`: Coordinates volume sync between driver and output device
+- `AudioRoutingCoordinator`: Handles pipeline lifecycle, delegates device change handling to `DeviceChangeCoordinator`, creates `VolumeManager` when routing starts
+- `VolumeManager`: Owns volume sync state (gain, muted, device IDs), syncs volume between driver and output device
 
 **Service dependencies via protocols:**
 
 - `VolumeManager` depends on `VolumeControlling` protocol
-- `AudioRoutingCoordinator` depends on `SampleRateObserving` protocol
+- `AudioRoutingCoordinator` depends on `VolumeControlling` and `SampleRateObserving` protocols
 
 ### Protocol-Based DI
 
