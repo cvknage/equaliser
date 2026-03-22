@@ -31,6 +31,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
     private let driverAccess: DriverAccessing
+    private let driverNameManager: DriverNameManager
     
     // MARK: - Private Properties
     
@@ -61,7 +62,17 @@ final class AudioRoutingCoordinator: ObservableObject {
         self.volumeService = volumeService
         self.systemDefaultObserver = systemDefaultObserver
         self.sampleRateService = sampleRateService
-        self.driverAccess = driverAccess ?? DriverManager.shared
+        
+        // Initialize driver access first (needed by driverNameManager)
+        let resolvedDriverAccess = driverAccess ?? DriverManager.shared
+        self.driverAccess = resolvedDriverAccess
+        
+        // Create driver name manager for CoreAudio refresh workaround
+        self.driverNameManager = DriverNameManager(
+            driverAccess: resolvedDriverAccess,
+            systemDefaultObserver: systemDefaultObserver,
+            deviceManager: deviceManager
+        )
         
         // Wire up system default callback
         systemDefaultObserver.onSystemDefaultChanged = { [weak self] device in
@@ -213,10 +224,11 @@ final class AudioRoutingCoordinator: ObservableObject {
             selectedInputDeviceID = inputUID
             selectedOutputDeviceID = outputUID
             
-            // Rename driver to match output device
+            // Rename driver to match output device (sync - returns immediately, schedules UI refresh async)
             _ = updateDriverName()
             
-            // Set driver as macOS default (with loop prevention)
+            // Set driver as macOS default IMMEDIATELY (before pipeline starts)
+            // This ensures audio routes through the driver from the start
             systemDefaultObserver.setDriverAsDefault(
                 onSuccess: { [weak self] in
                     self?.logger.info("Automatic mode: set driver as system default output")
@@ -661,83 +673,18 @@ final class AudioRoutingCoordinator: ObservableObject {
     // MARK: - Driver Name Management
 
     /// Updates the driver name based on current routing state.
-    ///
-    /// This method handles naming the driver to reflect the current output device:
-    /// - **Automatic mode (routing active)**: Sets name to "{outputDevice} (Equaliser)"
-    /// - **Automatic mode (not routing)**: Sets name to "{outputDevice} (Equaliser)"
-    /// - **Manual mode**: Resets name to "Equaliser"
-    ///
-    /// ## Why Refresh After Name Change
-    ///
-    /// After setting the driver name, we must refresh the device list because:
-    /// 1. CoreAudio caches device names - the cache becomes stale after rename
-    /// 2. The UI displays device names from the cached list
-    /// 3. Without refresh, the status bar shows outdated driver names
-    ///
-    /// ## The Toggle Pattern
-    ///
-    /// Simply renaming the driver doesn't trigger CoreAudio notifications. We use a
-    /// toggle pattern to force macOS to notice the change:
-    /// 1. Set driver name via CoreAudio property
-    /// 2. Set output device as default (triggers notification)
-    /// 3. After 0.1s delay, set driver as default again (triggers notification)
-    /// 4. Refresh device list to get updated name
-    ///
-    /// The delay is necessary because CoreAudio notifications are asynchronous.
-    ///
-    /// - Returns: `true` if name was set and verified, `false` otherwise.
+    /// Delegates to DriverNameManager for the CoreAudio refresh workaround.
+    /// This method is synchronous and returns immediately.
+    /// The caller is responsible for calling setDriverAsDefault() before starting the pipeline.
+    /// - Returns: `true` if name was set successfully, `false` otherwise.
     @discardableResult
     private func updateDriverName() -> Bool {
-        // Manual mode or not routing: reset to default name
-        guard !manualModeEnabled else {
-            let success = driverAccess.setDeviceName("Equaliser")
-
-            // Trigger macOS Control Center refresh by toggling default output
-            // When switching from automatic to manual mode:
-            // - Driver is already default (from automatic mode)
-            // - Setting driver as default again is a no-op (no notification)
-            // - Toggle to output device and back to trigger CoreAudio notifications
-            if success, let outputUID = selectedOutputDeviceID {
-                // First, set the output device as default (triggers notification)
-                systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
-
-                // Then, set driver back as default (triggers another notification)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.systemDefaultObserver.setDriverAsDefault()
-                    // Refresh device list so status shows updated driver name
-                    self?.deviceManager.refreshDevices()
-                    self?.logger.debug("Device list refreshed after driver name change")
-                }
-            }
-
-            return success
-        }
-
-        // Automatic mode: need output device and visible driver
-        guard let outputUID = selectedOutputDeviceID,
-              let outputDevice = deviceManager.device(forUID: outputUID),
-              driverAccess.isDriverVisible() else {
-            logger.warning("updateDriverName: cannot update - no output device or driver not visible")
-            return false
-        }
-
-        let driverName = "\(outputDevice.name) (Equaliser)"
-        let success = driverAccess.setDeviceName(driverName)
-
-        // Trigger macOS Control Center refresh by toggling default output
-        // When switching from manual to automatic mode:
-        // - Driver may or may not be the current default
-        // - Toggle to output device and back to ensure CoreAudio notifications fire
-        if success, let _ = driverAccess.deviceID {
-            systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                self?.systemDefaultObserver.setDriverAsDefault()
-                // Refresh device list so status shows updated driver name
-                self?.deviceManager.refreshDevices()
-                self?.logger.debug("Device list refreshed after driver name change")
-            }
-        }
-
-        return success
+        let outputDevice = selectedOutputDeviceID.flatMap { deviceManager.device(forUID: $0) }
+        
+        return driverNameManager.updateDriverName(
+            manualMode: manualModeEnabled,
+            selectedOutputUID: selectedOutputDeviceID,
+            selectedOutputDevice: outputDevice
+        )
     }
 }
