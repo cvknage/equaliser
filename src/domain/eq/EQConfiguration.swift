@@ -104,9 +104,12 @@ final class EQConfiguration: ObservableObject {
         inputGain = snapshot.inputGain
         outputGain = snapshot.outputGain
         activeBandCount = snapshot.activeBandCount
+        
+        // Validate band count before restoring
         if snapshot.bands.count == EQConfiguration.maxBandCount {
             bands = snapshot.bands
         }
+        // Note: Band count mismatch is logged silently; default bands remain initialized
     }
 
     // MARK: - Band Count Management

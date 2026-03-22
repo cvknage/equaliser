@@ -12,7 +12,7 @@ private let log = Logger(subsystem: "net.knage.equaliser", category: "DriverMana
 /// Facade for driver-related services.
 /// Maintains backward compatibility while delegating to specialised services.
 @MainActor
-public final class DriverManager: ObservableObject {
+public final class DriverManager: ObservableObject, DriverAccessing {
     
     // MARK: - Singleton
     

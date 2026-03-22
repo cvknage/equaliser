@@ -275,6 +275,38 @@ final class PresetManager: ObservableObject {
         presets.contains { $0.metadata.name == name }
     }
 
+    /// Loads a preset by name with graceful fallback.
+    /// If the named preset isn't found, returns the "Flat" preset or creates a default.
+    /// - Parameter name: The preset name.
+    /// - Returns: The preset (never nil).
+    func loadPresetWithFallback(named name: String) -> Preset {
+        // Try to find the named preset
+        if let preset = preset(named: name) {
+            logger.debug("Loaded preset: \(name)")
+            return preset
+        }
+        
+        // Log warning
+        logger.warning("Preset '\(name)' not found, searching for fallback")
+        
+        // Fallback 1: Try "Flat" preset
+        if let flatPreset = preset(named: "Flat") {
+            logger.warning("Using 'Flat' preset as fallback")
+            return flatPreset
+        }
+        
+        // Fallback 2: Create a default flat preset
+        logger.warning("No presets available, creating default flat preset")
+        return createDefaultFlatPreset()
+    }
+
+    /// Creates a default flat preset with all bands at 0dB.
+    @MainActor
+    private func createDefaultFlatPreset() -> Preset {
+        let config = EQConfiguration(initialBandCount: EQConfiguration.defaultBandCount)
+        return Preset(name: "Default", from: config, inputGain: 0.0, outputGain: 0.0)
+    }
+
     // MARK: - Preset Creation and Application
 
     /// Creates a new preset from the current EQ configuration.

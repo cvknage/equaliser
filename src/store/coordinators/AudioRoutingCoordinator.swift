@@ -30,6 +30,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     private let volumeService: VolumeControlling
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
+    private let driverAccess: DriverAccessing
     
     // MARK: - Private Properties
     
@@ -50,7 +51,8 @@ final class AudioRoutingCoordinator: ObservableObject {
         meterStore: MeterStore,
         volumeService: VolumeControlling,
         systemDefaultObserver: SystemDefaultObserver,
-        sampleRateService: SampleRateObserving
+        sampleRateService: SampleRateObserving,
+        driverAccess: DriverAccessing? = nil
     ) {
         self.deviceManager = deviceManager
         self.deviceChangeCoordinator = deviceChangeCoordinator
@@ -59,6 +61,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         self.volumeService = volumeService
         self.systemDefaultObserver = systemDefaultObserver
         self.sampleRateService = sampleRateService
+        self.driverAccess = driverAccess ?? DriverManager.shared
         
         // Wire up system default callback
         systemDefaultObserver.onSystemDefaultChanged = { [weak self] device in
@@ -152,7 +155,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.debug("Automatic mode: deriving from macOS default")
             
             // Check if driver is installed (required for automatic mode)
-            guard DriverManager.shared.isReady else {
+            guard driverAccess.isReady else {
                 routingStatus = .driverNotInstalled
                 logger.warning("Routing cannot start: driver not installed")
                 showDriverPrompt = true
@@ -160,11 +163,11 @@ final class AudioRoutingCoordinator: ObservableObject {
             }
             
             // Check if driver is currently visible in CoreAudio
-            if !DriverManager.shared.isDriverVisible() {
+            if !driverAccess.isDriverVisible() {
                 logger.warning("Driver not immediately visible, waiting for reconnection...")
                 
                 Task { @MainActor in
-                    if await DriverManager.shared.findDriverDeviceWithRetry() != nil {
+                    if await driverAccess.findDriverDeviceWithRetry(initialDelayMs: 100, maxAttempts: 6) != nil {
                         logger.info("Driver became visible, retrying routing configuration")
                         self.reconfigureRouting()
                     } else {
@@ -221,7 +224,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                 onFailure: { [weak self] in
                     self?.routingStatus = .error("Failed to set system default output device")
                     self?.logger.error("Automatic mode: failed to set driver as system default")
-                    DriverManager.shared.restoreToBuiltInSpeakers()
+                    self?.driverAccess.restoreToBuiltInSpeakers()
                 }
             )
         }
@@ -229,11 +232,11 @@ final class AudioRoutingCoordinator: ObservableObject {
         // Get device IDs and names
         // For automatic mode, ensure driver is still visible before proceeding
         if !manualModeEnabled && inputUID == DRIVER_DEVICE_UID {
-            if !DriverManager.shared.isDriverVisible() {
+            if !driverAccess.isDriverVisible() {
                 logger.warning("Driver became hidden during configuration, waiting...")
 
                 Task { @MainActor in
-                    if await DriverManager.shared.findDriverDeviceWithRetry() != nil {
+                    if await driverAccess.findDriverDeviceWithRetry(initialDelayMs: 100, maxAttempts: 6) != nil {
                         logger.info("Driver became visible, retrying routing configuration")
                         self.reconfigureRouting()
                     } else {
@@ -318,7 +321,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             meterStore.startMeterUpdates()
             
             // Set up volume sync between driver and output device (automatic mode only)
-            if !manualModeEnabled, let driverID = DriverManager.shared.deviceID {
+            if !manualModeEnabled, let driverID = driverAccess.deviceID {
                 volumeManager = VolumeManager(volumeService: volumeService)
                 volumeManager?.onBoostGainChanged = { [weak self] boostGain in
                     self?.renderPipeline?.updateBoostGain(linear: boostGain)
@@ -351,7 +354,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                     if let fallback = findFallbackOutputDevice() {
                         systemDefaultObserver.restoreSystemDefaultOutput(to: fallback.uid)
                     } else {
-                        DriverManager.shared.restoreToBuiltInSpeakers()
+                        driverAccess.restoreToBuiltInSpeakers()
                     }
                 }
             } else {
@@ -359,7 +362,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                 if let fallback = findFallbackOutputDevice() {
                     systemDefaultObserver.restoreSystemDefaultOutput(to: fallback.uid)
                 } else {
-                    DriverManager.shared.restoreToBuiltInSpeakers()
+                    driverAccess.restoreToBuiltInSpeakers()
                 }
             }
             
@@ -393,7 +396,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         _ = updateDriverName()
 
         // Reset driver volume to 100% for clean state when returning to automatic mode
-        if let driverID = DriverManager.shared.deviceID {
+        if let driverID = driverAccess.deviceID {
             // Note: This uses DeviceManager's volume method directly since we need
             // to reset driver volume, and volumeService is a protocol that VolumeManager
             // uses internally. The driver reset is a one-time operation, not ongoing sync.
@@ -411,7 +414,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// Switches to automatic mode from manual mode.
     /// Shows driver and starts routing.
     func switchToAutomaticMode() {
-        guard DriverManager.shared.isReady else {
+        guard driverAccess.isReady else {
             logger.warning("Cannot switch to automatic mode: driver not installed")
             return
         }
@@ -502,7 +505,7 @@ final class AudioRoutingCoordinator: ObservableObject {
         }
         
         // Set driver to closest supported rate
-        guard let setRate = DriverManager.shared.setDriverSampleRate(matching: targetRate) else {
+        guard let setRate = driverAccess.setDriverSampleRate(matching: targetRate) else {
             logger.error("Failed to sync driver sample rate")
             return
         }
@@ -528,7 +531,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             self.logger.info("Output device sample rate changed to \(newRate) Hz, re-syncing driver")
             
             // Sync driver to new rate
-            if let setRate = DriverManager.shared.setDriverSampleRate(matching: newRate) {
+            if let setRate = driverAccess.setDriverSampleRate(matching: newRate) {
                 self.logger.info("Driver re-synced to \(setRate) Hz")
                 
                 // Reconfigure pipeline after rate change settles
@@ -687,7 +690,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     private func updateDriverName() -> Bool {
         // Manual mode or not routing: reset to default name
         guard !manualModeEnabled else {
-            let success = DriverManager.shared.setDeviceName("Equaliser")
+            let success = driverAccess.setDeviceName("Equaliser")
 
             // Trigger macOS Control Center refresh by toggling default output
             // When switching from automatic to manual mode:
@@ -713,19 +716,19 @@ final class AudioRoutingCoordinator: ObservableObject {
         // Automatic mode: need output device and visible driver
         guard let outputUID = selectedOutputDeviceID,
               let outputDevice = deviceManager.device(forUID: outputUID),
-              DriverManager.shared.isDriverVisible() else {
+              driverAccess.isDriverVisible() else {
             logger.warning("updateDriverName: cannot update - no output device or driver not visible")
             return false
         }
 
         let driverName = "\(outputDevice.name) (Equaliser)"
-        let success = DriverManager.shared.setDeviceName(driverName)
+        let success = driverAccess.setDeviceName(driverName)
 
         // Trigger macOS Control Center refresh by toggling default output
         // When switching from manual to automatic mode:
         // - Driver may or may not be the current default
         // - Toggle to output device and back to ensure CoreAudio notifications fire
-        if success, let _ = DriverManager.shared.deviceID {
+        if success, let _ = driverAccess.deviceID {
             systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.systemDefaultObserver.setDriverAsDefault()
