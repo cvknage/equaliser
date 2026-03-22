@@ -11,10 +11,6 @@ struct EQBandSliderView: View {
     let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
-    /// Gain range in dB - references centralized range from EqualiserStore.
-    private var minGain: Float { EqualiserStore.gainRange.lowerBound }
-    private var maxGain: Float { EqualiserStore.gainRange.upperBound }
-
     @State private var isShowingDetail = false
 
     var body: some View {
@@ -29,7 +25,7 @@ struct EQBandSliderView: View {
                 width: 56,
                 alignment: .center,
                 onCommit: { newGain in
-                    gain = min(max(newGain, minGain), maxGain)
+                    gain = AudioConstants.clampGain(newGain)
                 }
             )
             .font(.system(size: 10, weight: .bold, design: .monospaced))
@@ -58,7 +54,7 @@ struct EQBandSliderView: View {
                 EQBandDetailPopover(
                     band: band,
                     gainUpdate: { newGain in
-                        gain = min(max(newGain, minGain), maxGain)
+                        gain = AudioConstants.clampGain(newGain)
                     },
                     frequencyUpdate: frequencyUpdate,
                     bandwidthUpdate: bandwidthUpdate,
@@ -82,7 +78,7 @@ struct EQBandSliderView: View {
     private var slider: some View {
         GeometryReader { geo in
             let height = geo.size.height
-            let normalizedGain = CGFloat((gain - minGain) / (maxGain - minGain))
+            let normalizedGain = CGFloat((gain - AudioConstants.minGain) / (AudioConstants.maxGain - AudioConstants.minGain))
             let thumbOffset = (0.5 - normalizedGain) * height
 
             ZStack {
@@ -100,11 +96,11 @@ struct EQBandSliderView: View {
                     Rectangle()
                         .fill(Color.gray.opacity(0.35))
                         .frame(width: 10, height: 1)
-                        .offset(x: -15, y: (0.5 - CGFloat((Float(db) - minGain) / (maxGain - minGain))) * height)
+                        .offset(x: -15, y: (0.5 - CGFloat((Float(db) - AudioConstants.minGain) / (AudioConstants.maxGain - AudioConstants.minGain))) * height)
                 }
 
                 // Single fill from bottom to thumb (always green, gray when near zero)
-                let fillHeight = CGFloat((gain - minGain) / (maxGain - minGain)) * height
+                let fillHeight = CGFloat((gain - AudioConstants.minGain) / (AudioConstants.maxGain - AudioConstants.minGain)) * height
                 let fillOffset = height - fillHeight / 2
 
                 RoundedRectangle(cornerRadius: 2)
@@ -126,7 +122,7 @@ struct EQBandSliderView: View {
                     .onChanged { value in
                         let fraction = 1 - (value.location.y / geo.size.height)
                         let clamped = min(max(fraction, 0), 1)
-                        gain = Float(clamped) * (maxGain - minGain) + minGain
+                        gain = Float(clamped) * (AudioConstants.maxGain - AudioConstants.minGain) + AudioConstants.minGain
                     }
             )
             .onTapGesture(count: 2) {
@@ -196,7 +192,7 @@ struct EQBandDetailPopover: View {
                     .multilineTextAlignment(.trailing)
                     .onSubmit {
                         if let value = Float(gainText) {
-                            let clamped = min(max(value, EqualiserStore.gainRange.lowerBound), EqualiserStore.gainRange.upperBound)
+                            let clamped = AudioConstants.clampGain(value)
                             gain = clamped
                             gainText = String(format: "%.1f", clamped)
                             gainUpdate(clamped)
@@ -214,7 +210,7 @@ struct EQBandDetailPopover: View {
                     .multilineTextAlignment(.trailing)
                     .onSubmit {
                         if let value = Float(frequencyText) {
-                            let clamped = min(max(value, 20), 20000)
+                            let clamped = AudioConstants.clampFrequency(value)
                             frequency = clamped
                             frequencyText = String(format: "%.0f", clamped)
                             frequencyUpdate(clamped)

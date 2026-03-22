@@ -59,10 +59,12 @@ final class RenderPipeline {
     private nonisolated(unsafe) var latestMeters: LevelMeterSnapshot = .silent
 
     /// Maximum frames per render callback.
-    private let maxFrameCount: UInt32 = 4096
-
-    /// Ring buffer capacity in samples per channel (~85ms at 96kHz).
-    private let ringBufferCapacity: Int = 8192
+    /// See AudioConstants.maxFrameCount for rationale.
+    private let maxFrameCount: UInt32 = AudioConstants.maxFrameCount
+    
+    /// Ring buffer capacity in samples per channel.
+    /// See AudioConstants.ringBufferCapacity for rationale.
+    private let ringBufferCapacity: Int = AudioConstants.ringBufferCapacity
 
     // MARK: - Static Logging (for audio thread)
 

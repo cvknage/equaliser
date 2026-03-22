@@ -141,7 +141,6 @@ final class EqualiserStore: ObservableObject {
     let persistence: AppStatePersistence
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "EqualiserStore")
     private var cancellables = Set<AnyCancellable>()
-    public static let gainRange: ClosedRange<Float> = -36...36
     
     // MARK: - Snapshot
     
@@ -566,6 +565,6 @@ final class EqualiserStore: ObservableObject {
     // MARK: - Helpers
     
     static func clampGain(_ gain: Float) -> Float {
-        min(max(gain, gainRange.lowerBound), gainRange.upperBound)
+        AudioConstants.clampGain(gain)
     }
 }

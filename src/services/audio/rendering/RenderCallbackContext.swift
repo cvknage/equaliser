@@ -159,13 +159,13 @@ final class RenderCallbackContext: @unchecked Sendable {
     ///   - renderContext: The render context for EQ processing.
     ///   - channelCount: Number of audio channels.
     ///   - maxFrameCount: Maximum frames per callback (used for buffer sizing).
-    ///   - ringBufferCapacity: Capacity of each ring buffer in samples (default 8192).
+    ///   - ringBufferCapacity: Capacity of each ring buffer in samples (default from AudioConstants).
     init(
         inputHALUnit: AudioComponentInstance?,
         renderContext: AudioRenderContext?,
         channelCount: UInt32,
         maxFrameCount: UInt32,
-        ringBufferCapacity: Int = 8192
+        ringBufferCapacity: Int = AudioConstants.ringBufferCapacity
     ) {
         self.inputHALUnit = inputHALUnit
         self.renderContext = renderContext

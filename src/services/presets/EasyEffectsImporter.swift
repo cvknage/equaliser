@@ -255,27 +255,40 @@ enum EasyEffectsImporter {
     }
 
     private static func parseBand(_ data: [String: Any], index: Int, warnings: inout [String]) -> PresetBand {
-        // Extract values with defaults
-        let frequency = (data["frequency"] as? NSNumber)?.floatValue ?? defaultFrequency(for: index)
-        let gain = (data["gain"] as? NSNumber)?.floatValue ?? 0
-        let q = (data["q"] as? NSNumber)?.floatValue ?? 1.41 // Default ~1 octave
+        // Extract raw values with defaults
+        let rawFrequency = (data["frequency"] as? NSNumber)?.floatValue ?? defaultFrequency(for: index)
+        let rawGain = (data["gain"] as? NSNumber)?.floatValue ?? 0
+        let rawQ = (data["q"] as? NSNumber)?.floatValue ?? 1.41 // Default ~1 octave
         let mute = data["mute"] as? Bool ?? false
         let typeString = data["type"] as? String ?? "Bell"
-
-        // Convert Q to bandwidth
-        let bandwidth = BandwidthConverter.qToBandwidth(q)
-
+        
+        // Validate and clamp values using AudioConstants (single source of truth)
+        let frequency = AudioConstants.clampFrequency(rawFrequency)
+        let gain = AudioConstants.clampGain(rawGain)
+        
+        // Convert Q to bandwidth and clamp
+        let rawBandwidth = BandwidthConverter.qToBandwidth(rawQ)
+        let bandwidth = AudioConstants.clampBandwidth(rawBandwidth)
+        
         // Convert filter type
         let filterType = mapFilterType(typeString)
-
-        // Check for ignored parameters
-        if data["slope"] != nil || data["mode"] != nil {
-            // Only warn once per preset, not per band
+        
+        // Warn if values were clamped
+        if frequency != rawFrequency {
+            warnings.append("Band \(index): frequency clamped from \(rawFrequency) Hz to \(frequency) Hz")
         }
+        if gain != rawGain {
+            warnings.append("Band \(index): gain clamped from \(rawGain) dB to \(gain) dB")
+        }
+        if bandwidth != rawBandwidth {
+            warnings.append("Band \(index): bandwidth adjusted from \(rawBandwidth) to \(bandwidth) octaves")
+        }
+        
+        // Check for ignored parameters
         if data["solo"] as? Bool == true {
             warnings.append("Band \(index): Solo mode is ignored")
         }
-
+        
         return PresetBand(
             frequency: frequency,
             bandwidth: BandwidthConverter.clampBandwidth(bandwidth),
