@@ -235,11 +235,12 @@ final class RenderPipeline {
             ringBufferCapacity: ringBufferCapacity
         )
 
-        // Apply initial gains from EQConfiguration
+        // Apply initial gains from EQConfiguration (atomically)
         let inputGainLinear = AudioMath.dbToLinear(eqConfiguration.inputGain)
         let outputGainLinear = AudioMath.dbToLinear(eqConfiguration.outputGain)
-        context.targetInputGainLinear = inputGainLinear
-        context.targetOutputGainLinear = outputGainLinear
+        context.setTargetInputGain(inputGainLinear)
+        context.setTargetOutputGain(outputGainLinear)
+        // Initialize current gains (audio thread uses these as starting point)
         context.inputGainLinear = inputGainLinear
         context.outputGainLinear = outputGainLinear
 
@@ -387,12 +388,12 @@ final class RenderPipeline {
 
     /// Updates the input gain applied before EQ processing.
     func updateInputGain(linear: Float) {
-        callbackContext?.targetInputGainLinear = max(0, linear)
+        callbackContext?.setTargetInputGain(linear)
     }
 
     /// Updates the output gain applied after EQ processing.
     func updateOutputGain(linear: Float) {
-        callbackContext?.targetOutputGainLinear = max(0, linear)
+        callbackContext?.setTargetOutputGain(linear)
     }
 
     /// Updates the boost gain applied before input gain.
@@ -401,7 +402,7 @@ final class RenderPipeline {
     func updateBoostGain(linear: Float) {
         let context = callbackContext
         logger.debug("updateBoostGain: linear=\(linear), callbackContext=\(context != nil ? "exists" : "nil")")
-        context?.targetBoostGainLinear = max(1, linear)
+        context?.setTargetBoostGain(linear)
     }
 
     // MARK: - EQ Control
@@ -517,20 +518,24 @@ final class RenderPipeline {
 
         // Apply boost gain before input gain (for volume > 100%)
         // Boost compensates for driver volume attenuation and should always be applied.
+        // Load target gain atomically (relaxed ordering is sufficient for audio)
+        let targetBoostGain = context.getTargetBoostGain()
         context.applyGain(
             to: context.inputSampleBuffers,
             frameCount: frameCount,
             currentGain: &context.boostGainLinear,
-            targetGain: context.targetBoostGainLinear
+            targetGain: targetBoostGain
         )
 
         // Apply input gain before writing to ring buffers (skip in full bypass mode)
         if context.processingMode != 0 {
+            // Load target gain atomically (relaxed ordering is sufficient for audio)
+            let targetInputGain = context.getTargetInputGain()
             context.applyGain(
                 to: context.inputSampleBuffers,
                 frameCount: frameCount,
                 currentGain: &context.inputGainLinear,
-                targetGain: context.targetInputGainLinear
+                targetGain: targetInputGain
             )
         }
 
@@ -601,11 +606,13 @@ final class RenderPipeline {
 
         // 5. Apply output gain after EQ rendering (skip in full bypass mode)
         if context.processingMode != 0 {
+            // Load target gain atomically (relaxed ordering is sufficient for audio)
+            let targetOutputGain = context.getTargetOutputGain()
             context.applyGain(
                 to: ioData,
                 frameCount: frameCount,
                 currentGain: &context.outputGainLinear,
-                targetGain: context.targetOutputGainLinear
+                targetGain: targetOutputGain
             )
         }
 

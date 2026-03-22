@@ -1,3 +1,4 @@
+import Atomics
 import Foundation
 import os.log
 
@@ -26,11 +27,12 @@ final class AudioRingBuffer: @unchecked Sendable {
     private let mask: Int
 
     /// Write position (only modified by producer).
-    /// Using UnsafeMutablePointer for atomic access.
-    private let writeIndex: UnsafeMutablePointer<Int>
+    /// Uses ManagedAtomic for thread-safe access without locks.
+    private let writeIndex: ManagedAtomic<Int> = ManagedAtomic(0)
 
     /// Read position (only modified by consumer).
-    private let readIndex: UnsafeMutablePointer<Int>
+    /// Uses ManagedAtomic for thread-safe access without locks.
+    private let readIndex: ManagedAtomic<Int> = ManagedAtomic(0)
 
     /// Logger for diagnostics (used sparingly to avoid audio thread overhead).
     private static let logger = Logger(
@@ -63,13 +65,6 @@ final class AudioRingBuffer: @unchecked Sendable {
         self.buffer = UnsafeMutablePointer<Float>.allocate(capacity: self.capacity)
         self.buffer.initialize(repeating: 0.0, count: self.capacity)
 
-        // Allocate atomic indices
-        self.writeIndex = UnsafeMutablePointer<Int>.allocate(capacity: 1)
-        self.writeIndex.initialize(to: 0)
-
-        self.readIndex = UnsafeMutablePointer<Int>.allocate(capacity: 1)
-        self.readIndex.initialize(to: 0)
-
         Self.logger.info(
             "Ring buffer created: requested=\(requestedCapacity), actual=\(self.capacity)"
         )
@@ -78,12 +73,6 @@ final class AudioRingBuffer: @unchecked Sendable {
     deinit {
         buffer.deinitialize(count: capacity)
         buffer.deallocate()
-
-        writeIndex.deinitialize(count: 1)
-        writeIndex.deallocate()
-
-        readIndex.deinitialize(count: 1)
-        readIndex.deallocate()
     }
 
     // MARK: - Producer API (Input Callback)
@@ -99,12 +88,12 @@ final class AudioRingBuffer: @unchecked Sendable {
     /// - Returns: The number of samples actually written (may be less than `count` if buffer is full).
     @inline(__always)
     func write(_ samples: UnsafePointer<Float>, count: Int) -> Int {
-        // Load indices with memory barrier
-        let currentWrite = OSAtomicAdd64Barrier(0, writeIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
-        let currentRead = OSAtomicAdd64Barrier(0, readIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
+        // Load indices atomically with acquire semantics
+        let currentWrite = writeIndex.load(ordering: .acquiring)
+        let currentRead = readIndex.load(ordering: .acquiring)
 
-        let write = Int(currentWrite)
-        let read = Int(currentRead)
+        let write = currentWrite
+        let read = currentRead
 
         // Calculate available space
         let available = capacity - (write - read)
@@ -132,8 +121,8 @@ final class AudioRingBuffer: @unchecked Sendable {
             buffer.update(from: samples.advanced(by: firstChunk), count: secondChunk)
         }
 
-        // Update write index with memory barrier (release semantics)
-        OSAtomicAdd64Barrier(Int64(toWrite), writeIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
+        // Update write index atomically with release semantics
+        writeIndex.store(write + toWrite, ordering: .releasing)
 
         return toWrite
     }
@@ -151,12 +140,12 @@ final class AudioRingBuffer: @unchecked Sendable {
     /// - Returns: The number of samples actually read (may be less than `count` if buffer is empty).
     @inline(__always)
     func read(into destination: UnsafeMutablePointer<Float>, count: Int) -> Int {
-        // Load indices with memory barrier
-        let currentWrite = OSAtomicAdd64Barrier(0, writeIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
-        let currentRead = OSAtomicAdd64Barrier(0, readIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
+        // Load indices atomically with acquire semantics
+        let currentWrite = writeIndex.load(ordering: .acquiring)
+        let currentRead = readIndex.load(ordering: .acquiring)
 
-        let write = Int(currentWrite)
-        let read = Int(currentRead)
+        let write = currentWrite
+        let read = currentRead
 
         // Calculate available samples
         let available = write - read
@@ -191,8 +180,8 @@ final class AudioRingBuffer: @unchecked Sendable {
             destination.advanced(by: toRead).initialize(repeating: 0.0, count: count - toRead)
         }
 
-        // Update read index with memory barrier (release semantics)
-        OSAtomicAdd64Barrier(Int64(toRead), readIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
+        // Update read index atomically with release semantics
+        readIndex.store(read + toRead, ordering: .releasing)
 
         return toRead
     }
@@ -204,9 +193,9 @@ final class AudioRingBuffer: @unchecked Sendable {
     /// - Note: This is a snapshot and may change immediately after the call.
     @inline(__always)
     func availableToRead() -> Int {
-        let currentWrite = OSAtomicAdd64Barrier(0, writeIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
-        let currentRead = OSAtomicAdd64Barrier(0, readIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
-        return Int(currentWrite - currentRead)
+        let currentWrite = writeIndex.load(ordering: .relaxed)
+        let currentRead = readIndex.load(ordering: .relaxed)
+        return currentWrite - currentRead
     }
 
     /// Returns the number of samples that can be written.
@@ -214,17 +203,17 @@ final class AudioRingBuffer: @unchecked Sendable {
     /// - Note: This is a snapshot and may change immediately after the call.
     @inline(__always)
     func availableToWrite() -> Int {
-        let currentWrite = OSAtomicAdd64Barrier(0, writeIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
-        let currentRead = OSAtomicAdd64Barrier(0, readIndex.withMemoryRebound(to: Int64.self, capacity: 1) { $0 })
-        return capacity - Int(currentWrite - currentRead)
+        let currentWrite = writeIndex.load(ordering: .relaxed)
+        let currentRead = readIndex.load(ordering: .relaxed)
+        return capacity - (currentWrite - currentRead)
     }
 
     /// Resets the buffer to empty state.
     ///
     /// - Warning: Only call this when no audio is running.
     func reset() {
-        writeIndex.pointee = 0
-        readIndex.pointee = 0
+        writeIndex.store(0, ordering: .releasing)
+        readIndex.store(0, ordering: .releasing)
         buffer.initialize(repeating: 0.0, count: capacity)
         underrunCount = 0
         overflowCount = 0

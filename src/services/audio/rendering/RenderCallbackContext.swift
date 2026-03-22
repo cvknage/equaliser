@@ -1,4 +1,5 @@
 import AudioToolbox
+import Atomics
 import CoreAudio
 import os.log
 
@@ -54,25 +55,80 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// One per channel.
     private let outputReadBuffers: [UnsafeMutablePointer<Float>]
 
-    /// Current linear gain applied to input samples before they enter the ring buffer.
+    // MARK: - Atomic Target Gains
+    // Target gains are written by the main thread and read by the audio thread.
+    // We use atomic Int32 storage with Float bit-casting for thread-safe access.
+    // Float is not directly supported by Swift Atomics, so we use Int32 bit patterns.
+    // Relaxed memory ordering is sufficient for single-writer/single-reader scenarios
+    // where slight staleness is acceptable for audio processing.
+
+    /// Target linear gain for input (stored as Int32 bit pattern of Float).
+    /// Written by main thread, read by audio thread.
+    private let targetInputGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(1065353216) // Float 1.0 as Int32 bits (0x3F800000)
+
+    /// Target linear gain for output (stored as Int32 bit pattern of Float).
+    /// Written by main thread, read by audio thread.
+    private let targetOutputGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(1065353216) // Float 1.0 as Int32 bits (0x3F800000)
+
+    /// Target boost gain (stored as Int32 bit pattern of Float).
+    /// Written by main thread, read by audio thread.
+    private let targetBoostGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(1065353216) // Float 1.0 as Int32 bits (0x3F800000)
+
+    // MARK: - Current Gains (Audio Thread Only)
+    // Current gains are ONLY written by the audio thread during gain ramping.
+    // They can be read for diagnostics, but should not be written from any other thread.
+
+    /// Current linear gain for input (audio thread only).
     nonisolated(unsafe) var inputGainLinear: Float = 1.0
 
-    /// Target linear gain applied to input samples before they enter the ring buffer.
-    nonisolated(unsafe) var targetInputGainLinear: Float = 1.0
-
-    /// Current linear gain applied to output samples after EQ rendering.
+    /// Current linear gain for output (audio thread only).
     nonisolated(unsafe) var outputGainLinear: Float = 1.0
 
-    /// Target linear gain applied to output samples after EQ rendering.
-    nonisolated(unsafe) var targetOutputGainLinear: Float = 1.0
-    
-    /// Current boost gain applied to input samples before input gain.
-    /// Used for volume boost when macOS volume > 100%.
-    /// Linear scale: 1.0 = unity (no boost), 2.0 = 2x boost (6dB).
+    /// Current boost gain (audio thread only).
     nonisolated(unsafe) var boostGainLinear: Float = 1.0
-    
-    /// Target boost gain applied to input samples before input gain.
-    nonisolated(unsafe) var targetBoostGainLinear: Float = 1.0
+
+    // MARK: - Gain Update API (Main Thread)
+
+    /// Updates the target input gain (called from main thread).
+    /// - Parameter linear: Linear gain value (will be clamped to >= 0).
+    func setTargetInputGain(_ linear: Float) {
+        let clamped = max(0, linear)
+        let bits = Int32(bitPattern: clamped.bitPattern)
+        targetInputGainAtomic.store(bits, ordering: .relaxed)
+    }
+
+    /// Updates the target output gain (called from main thread).
+    /// - Parameter linear: Linear gain value (will be clamped to >= 0).
+    func setTargetOutputGain(_ linear: Float) {
+        let clamped = max(0, linear)
+        let bits = Int32(bitPattern: clamped.bitPattern)
+        targetOutputGainAtomic.store(bits, ordering: .relaxed)
+    }
+
+    /// Updates the target boost gain (called from main thread).
+    /// - Parameter linear: Linear gain value (will be clamped to >= 1).
+    func setTargetBoostGain(_ linear: Float) {
+        let clamped = max(1, linear)
+        let bits = Int32(bitPattern: clamped.bitPattern)
+        targetBoostGainAtomic.store(bits, ordering: .relaxed)
+    }
+
+    // MARK: - Gain Read API (Audio Thread or Diagnostics)
+
+    /// Returns the current target input gain.
+    func getTargetInputGain() -> Float {
+        Float(bitPattern: UInt32(bitPattern: targetInputGainAtomic.load(ordering: .relaxed)))
+    }
+
+    /// Returns the current target output gain.
+    func getTargetOutputGain() -> Float {
+        Float(bitPattern: UInt32(bitPattern: targetOutputGainAtomic.load(ordering: .relaxed)))
+    }
+
+    /// Returns the current target boost gain.
+    func getTargetBoostGain() -> Float {
+        Float(bitPattern: UInt32(bitPattern: targetBoostGainAtomic.load(ordering: .relaxed)))
+    }
 
     /// Processing mode for audio thread:
     /// 0 = full bypass (System EQ OFF) - skip gains, bypass EQ
@@ -351,6 +407,14 @@ final class RenderCallbackContext: @unchecked Sendable {
         with channels: [UnsafePointer<Float>],
         frameCount: Int
     ) {
+        // Assert that frameCount doesn't exceed pre-allocated buffer capacity.
+        // CoreAudio guarantees frameCount <= maxFrameCount, but we validate for safety.
+        // This catches any edge cases during development/testing.
+        precondition(
+            frameCount <= framesPerBuffer,
+            "frameCount (\(frameCount)) exceeds framesPerBuffer (\(framesPerBuffer))"
+        )
+
         guard frameCount > 0 else {
             for index in 0..<meterChannelCount {
                 storage[index] = Self.silenceDB
