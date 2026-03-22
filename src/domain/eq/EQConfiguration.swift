@@ -68,6 +68,10 @@ final class EQConfiguration: ObservableObject {
     nonisolated static let defaultBandCount: Int = 10
     nonisolated static let defaultBandwidth: Float = 0.67
 
+    // MARK: - Private Properties
+
+    private static let logger = Logger(subsystem: "net.knage.equaliser", category: "EQConfiguration")
+
     // MARK: - Published Properties
 
     /// Global bypass for all EQ bands.
@@ -104,12 +108,13 @@ final class EQConfiguration: ObservableObject {
         inputGain = snapshot.inputGain
         outputGain = snapshot.outputGain
         activeBandCount = snapshot.activeBandCount
-        
+
         // Validate band count before restoring
         if snapshot.bands.count == EQConfiguration.maxBandCount {
             bands = snapshot.bands
+        } else {
+            Self.logger.warning("Snapshot has \(snapshot.bands.count) bands, expected \(EQConfiguration.maxBandCount). Using default bands.")
         }
-        // Note: Band count mismatch is logged silently; default bands remain initialized
     }
 
     // MARK: - Band Count Management

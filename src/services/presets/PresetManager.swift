@@ -80,7 +80,13 @@ final class PresetManager: ObservableObject {
 
     /// The directory where presets are stored.
     private var presetsDirectory: URL {
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+            // Fallback to Documents directory if Application Support is unavailable
+            logger.warning("Application Support directory not found, falling back to Documents")
+            return fileManager.urls(for: .documentDirectory, in: .userDomainMask)
+                .first!
+                .appendingPathComponent("Equaliser/Presets", isDirectory: true)
+        }
         return appSupport.appendingPathComponent("Equaliser/Presets", isDirectory: true)
     }
 

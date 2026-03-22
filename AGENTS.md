@@ -20,7 +20,7 @@ A macOS menu bar equalizer application built with Swift 6 and SwiftUI.
 ```bash
 swift build              # Debug build
 swift build -c release   # Release build
-swift test               # Run all tests (189 tests)
+swift test               # Run all tests
 swift test --filter TestClassName
 ```
 
@@ -59,12 +59,15 @@ swift test --filter TestClassName
 | `src/domain/device/DeviceChangeEvent.swift` | Device change event types (pure) |
 | `src/domain/device/HeadphoneSwitchPolicy.swift` | Headphone switch decision logic (pure) |
 | `src/domain/device/OutputDeviceHistory.swift` | Output device history for reconnection |
+| `src/services/audio/AudioConstants.swift` | Centralized audio/EQ constants and validation |
+| `src/services/audio/DriverNameManager.swift` | Driver naming with CoreAudio refresh workaround |
+| `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
+| `src/services/driver/protocols/DriverAccessing.swift` | Protocol for driver lifecycle access |
 | `src/services/meters/MeterStore.swift` | Meter state management |
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
 | `src/store/coordinators/DeviceChangeCoordinator.swift` | Device change events, headphone detection |
 | `src/store/VolumeManager.swift` | Volume sync between driver and output device |
 | `src/store/CompareModeTimer.swift` | Auto-revert timer for compare mode |
-| `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
 | `src/services/device/DeviceEnumerationService.swift` | Device enumeration and change events |
 | `src/services/device/DeviceManager.swift` | Device model and selection logic |
 
@@ -164,7 +167,8 @@ EqualiserStore
 │   └── OutputDeviceHistory
 ├── AudioRoutingCoordinator (device selection, pipeline lifecycle)
 │   ├── SystemDefaultObserver (macOS default changes)
-│   └── VolumeManager (volume sync, created lazily)
+│   ├── VolumeManager (volume sync, created lazily)
+│   └── DriverNameManager (driver naming)
 ├── CompareModeTimer (auto-revert)
 ├── DeviceManager (device enumeration, selection logic)
 │   └── DeviceEnumerationService
@@ -229,6 +233,17 @@ View models hold `unowned` store references and derive presentation state:
 
 - `MeterConstants`: silence threshold (-90 dB), range (-36...0), gamma (0.5), normalizedPosition()
 - `MeterMath`: linearToDB, dbToLinear, calculatePeak
+
+### Audio Constants
+
+`AudioConstants` provides centralized constants for audio pipeline configuration:
+
+- `maxFrameCount` (4096): Maximum frames per render callback
+- `ringBufferCapacity` (8192): Ring buffer samples per channel
+- `minGain` / `maxGain` (-36...+36 dB): UI slider range
+- `clampGain()`, `clampFrequency()`, `clampBandwidth()`: Validation helpers
+
+All preset imports and UI sliders use these constants for consistent validation.
 
 ### Audio Pipeline
 
@@ -325,6 +340,44 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
 
 **If driver names aren't updating in UI**: Check that `refreshDevices()` is called after `setDeviceName()`.
 
+### DriverNameManager Call Site Responsibility
+
+`DriverNameManager.updateDriverName()` is **synchronous** and returns immediately. The caller is responsible for calling `setDriverAsDefault()` synchronously before starting the audio pipeline:
+
+```swift
+// CORRECT: Caller sets driver as default before starting pipeline
+let success = driverNameManager.updateDriverName(...)
+if success {
+    systemDefaultObserver.setDriverAsDefault()  // Synchronous, before pipeline
+}
+renderPipeline.start()
+
+// WRONG: Delayed setDriverAsDefault causes audio through wrong output
+// The fire-and-forget GCD inside updateDriverName() is for UI refresh only
+```
+
+### Fire-and-Forget Scheduled Work
+
+For scheduled work on the main thread that doesn't need to block the caller, use `DispatchQueue.main.asyncAfter`, not `Task.sleep`:
+
+```swift
+// CORRECT: Returns immediately, schedules work asynchronously
+func updateDriverName() -> Bool {
+    driverAccess.setDeviceName(name)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        self.setDriverAsDefault()  // Fire-and-forget
+    }
+    return true  // Caller proceeds immediately
+}
+
+// WRONG: Blocks caller, causes audio to play through wrong device
+func updateDriverName() async -> Bool {
+    driverAccess.setDeviceName(name)
+    try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms delay!
+    return true
+}
+```
+
 ### Headphone Auto-Switch
 
 The app automatically switches output to headphones when plugged in, matching macOS behaviour.
@@ -420,9 +473,9 @@ Use British English throughout:
 ### Testing
 
 - Test through **public API only**
-- Use **real instances** (no mocking framework)
-- Protocols enable **test implementations** (`MockCompareModeTimer`, etc.)
-- View models are tested with real store
+- Use **real instances** for integration tests
+- Mock implementations removed when they only tested mocks (not real code)
+- Protocols enable focused test implementations when needed
 
 **Pure Function Testing Pattern:**
 
