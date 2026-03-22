@@ -4,14 +4,21 @@ import Combine
 /// The main EQ settings window - detailed controls.
 struct EQWindowView: View {
     @EnvironmentObject var store: EqualiserStore
+    @StateObject private var driverManager = DriverManager.shared
     @State private var showCompareHelp = false
     @State private var metersEnabledUI = false
-    
+    @State private var showDriverSheet = true
+
+    /// Whether the driver installation overlay should be shown.
+    private var needsDriverInstallation: Bool {
+        !driverManager.isReady && !store.routingCoordinator.manualModeEnabled
+    }
+
     /// View model for routing status.
     private var routingViewModel: RoutingViewModel {
         RoutingViewModel(store: store)
     }
-    
+
     /// View model for EQ configuration.
     private var eqViewModel: EQViewModel {
         EQViewModel(store: store)
@@ -188,6 +195,24 @@ struct EQWindowView: View {
         }
         .onDisappear {
             store.meterStore.windowBecameHidden()
+        }
+        .sheet(isPresented: $showDriverSheet) {
+            DriverInstallationView(
+                onInstall: {
+                    store.handleDriverInstalled()
+                },
+                onQuit: {
+                    NSApplication.shared.terminate(nil)
+                }
+            )
+            .environmentObject(store)
+            .frame(minWidth: 500, minHeight: 400)
+        }
+        .onChange(of: needsDriverInstallation) { _, newValue in
+            showDriverSheet = newValue
+        }
+        .onAppear {
+            showDriverSheet = needsDriverInstallation
         }
     }
 }
