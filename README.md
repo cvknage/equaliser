@@ -43,83 +43,61 @@ All settings — including device routing, EQ state, and presets — are remembe
 
 ## How It Works
 
-Equaliser uses **BlackHole**, a free virtual audio driver, to capture and process system audio.
+Equaliser includes a **custom audio driver** that captures and processes system audio.
 
-Your Mac sends audio to BlackHole, Equaliser applies the EQ, and the processed signal is then sent to your speakers or headphones.
+Your Mac sends audio through the Equaliser driver, where the EQ is applied, and the processed signal is sent to your speakers or headphones.
 
 ```
-Apps → BlackHole → Equaliser → Speakers / Headphones
+Apps → Equaliser Driver → EQ Processing → Speakers / Headphones
 ```
 
 
 ## Getting Started
-
-### Install BlackHole
-
-Download the free **2-channel version**:
-
-https://existential.audio/blackhole/
-
-Or install with Homebrew:
-
-```bash
-brew install blackhole-2ch
-```
 
 ### Get Equaliser
 
 Download the latest version from [**Releases**](https://github.com/cvknage/equaliser/releases), or build from source:
 
 ```bash
-swift build -c release
 ./bundle.sh
 ```
 
-### Set Up Audio Routing
+### First Launch
 
-1. Open **System Settings → Sound**
-2. Set the system output to **BlackHole 2ch**
-3. Open **Equaliser** from the menu bar
-4. Select:
-   * **Input:** BlackHole 2ch
-   * **Output:** your speakers or headphones
-5. Click **Start**
+1. Open Equaliser from your menu bar
+2. If prompted, install the audio driver
+3. Grant microphone permission when requested
 
-Audio from all applications will now pass through Equaliser.
+Equaliser handles all audio routing automatically — no configuration needed.
 
 ## Uninstall
 
 To remove Equaliser from your Mac:
 
-1. **Quit the app** — Click the menu bar icon and choose **Quit**
-2. **Restore system audio** — Open **System Settings → Sound** and change the output from **BlackHole 2ch** back to your speakers or headphones
+1. **Uninstall the driver** — Open **Settings** from the menu bar and click **Uninstall Driver**
+2. **Quit the app** — Click the menu bar icon and choose **Quit**
 3. **Delete the app** — Drag Equaliser from your Applications folder to the Trash
-4. **Uninstall BlackHole** (optional) — See [uninstall instructions](https://github.com/ExistentialAudio/BlackHole/wiki/Uninstallation)
 
 **Optional cleanup:**
 
 Equaliser stores data in your user Library:
 
 - Presets: `~/Library/Application Support/Equaliser/`
-- Settings: `~/Library/Containers/net.knage.equaliser/`
+- Settings: `~/Library/Preferences/net.knage.equaliser.plist`
 
 These files are small and harmless — remove them only if you do not plan to reinstall Equaliser.
-
-No other system changes are made.
 
 
 ## Requirements
 
 * macOS 15 (Sequoia) or later
 * Apple Silicon Mac
-* BlackHole 2ch
 
 ## Privacy & Permissions
 
 Equaliser requires **Microphone access** on macOS.
 
-This is necessary because macOS treats virtual audio devices (such as **BlackHole**) as microphone inputs. 
-Granting this permission allows Equaliser to receive system audio from BlackHole so it can apply the equaliser.
+This is necessary because macOS treats the virtual audio driver as a microphone input. Granting this permission allows Equaliser to receive system audio so it can apply the equaliser.
 
 All audio processing happens **locally on your Mac**.
 
