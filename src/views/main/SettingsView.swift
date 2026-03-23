@@ -95,7 +95,6 @@ struct DisplaySettingsTab: View {
 struct DriverSettingsTab: View {
     @StateObject private var driverManager = DriverManager.shared
     @State private var showUninstallConfirm = false
-    @State private var isRefreshing = false
     
     var body: some View {
         ScrollView {
@@ -105,23 +104,7 @@ struct DriverSettingsTab: View {
                 Divider()
                 
                 contentView
-                
-                // Refresh button
-                Button {
-                    isRefreshing = true
-                    driverManager.checkInstallationStatus()
-                    // Delay to allow status update
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        isRefreshing = false
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.clockwise")
-                        Text("Refresh Status")
-                    }
-                }
-                .disabled(driverManager.isInstalling || isRefreshing)
-                
+
                 if driverManager.isInstalling {
                     ProgressView("Please wait...")
                         .padding()
@@ -205,7 +188,7 @@ struct DriverSettingsTab: View {
                     .fontWeight(.medium)
             }
             
-            Text("Install the driver to route audio through the equaliser without third-party tools.")
+            Text("Install the driver to route audio through the equaliser.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -236,23 +219,24 @@ struct DriverSettingsTab: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            
+
             if let sampleRate = driverManager.driverSampleRate {
                 HStack {
-                    Image(systemName: "waveform")
-                        .foregroundStyle(.secondary)
-                    Text("Sample Rate: \(Int(sampleRate).formatted()) Hz")
+                    Text("Sample Rate")
                         .font(.callout)
+                        .foregroundStyle(.secondary)
                     Spacer()
+                    Text("\(Int(sampleRate).formatted()) Hz")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .foregroundStyle(.secondary)
             }
-            
-            Text("The driver is ready. Select \"Equaliser\" as your input device to route audio through the equaliser.")
+
+            Text("The driver is ready to use.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            
+
             Button("Uninstall", role: .destructive) {
                 showUninstallConfirm = true
             }

@@ -3,6 +3,7 @@
 
 import Foundation
 import CoreAudio
+import Combine
 import OSLog
 
 private let log = Logger(subsystem: "net.knage.equaliser", category: "DriverManager")
@@ -19,10 +20,11 @@ public final class DriverManager: ObservableObject, DriverAccessing {
     public static let shared = DriverManager()
     
     // MARK: - Services (internal for testing)
-    
+
     let lifecycleService: DriverLifecycleService
     let propertyService: DriverPropertyService
     let deviceRegistry: DriverDeviceRegistry
+    private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Published Properties (forwarded from services)
     
@@ -68,6 +70,15 @@ public final class DriverManager: ObservableObject, DriverAccessing {
         self.deviceRegistry = registry
         self.lifecycleService = DriverLifecycleService()
         self.propertyService = DriverPropertyService(registry: registry)
+
+        // Forward lifecycle service changes to DriverManager's objectWillChange
+        lifecycleService.objectWillChange
+            .sink { [weak self] _ in
+                Task { @MainActor in
+                    self?.objectWillChange.send()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Lifecycle (pass-through)
