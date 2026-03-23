@@ -9,7 +9,7 @@ Equaliser runs quietly in your **menu bar**, keeping your Dock uncluttered.
 
 ## Menu Bar Control
 
-Equaliser lives in the macOS menu bar, where you can quickly enable or disable system EQ, select output device, and access presets.
+Equaliser lives in the macOS menu bar, where you can quickly enable or disable system EQ, and access presets.
 
 <p align="center">
   <img src="./docs/user/images/equalisaer-menu-bar.png" alt="Equaliser Menu Bar" width="320">
@@ -25,30 +25,29 @@ Each band allows precise control over **frequency**, **gain**, and **bandwidth**
   <img src="./docs/user/images/equalisaer-main-window.png" alt="Equaliser Main Window">
 </p>
 
-Level meters allow you to monitor both **input and output signals** in real time, with clip indicators to help you detect and avoid distortion. **Compare Mode** lets you instantly switch between your EQ curve and a flat response at matched volume.
-
-All settings — including device routing, EQ state, and presets — are remembered automatically between launches.
+Level meters allow you to monitor both **input and output signals** in real time, with clip indicators to help you detect and avoid distortion. 
+**Compare Mode** lets you instantly switch between your EQ curve and a flat response at matched volume.
 
 
 ## Features
 
 - **Up to 64 bands of parametric EQ** — precise frequency, gain, and bandwidth control.  
 - **Compare Mode** — quickly A/B your EQ curve against a flat response.  
-- **Real-time level meters with clip indicators** — monitor input/output and avoid distortion.  
-- **Presets** — built-in options like Bass Boost and Vocal Presence; save your own.  
+- **Presets** — 11 carefully crafted presets for music, movies, and more.  
+- **Real-time level meters** — monitor input/output and avoid distortion.  
+- **System EQ toggle** — bypass EQ processing instantly.  
+- **Automatic Audio Routing** — automatically captures macOS selected output device.  
 - **EasyEffects import/export** — share presets with Linux users.  
-- **System EQ toggle** — bypass all processing instantly.  
-- **Persistent settings** — device routing, EQ state, and preferences are remembered.
 
 
 ## How It Works
 
-Equaliser includes a **custom audio driver** that captures and processes system audio.
+Equaliser includes a **custom audio driver** that captures system audio and routes it through the Equaliser app for processing.
 
-Your Mac sends audio through the Equaliser driver, where the EQ is applied, and the processed signal is sent to your speakers or headphones.
+Your Mac sends audio through the Equaliser driver to the Equaliser app, where the EQ is applied, and the processed signal is sent to your speakers or headphones.
 
 ```
-Apps → Equaliser Driver → EQ Processing → Speakers / Headphones
+Apps → Equaliser Driver → Equaliser App (EQ) → Speakers / Headphones
 ```
 
 
@@ -59,6 +58,7 @@ Apps → Equaliser Driver → EQ Processing → Speakers / Headphones
 Download the latest version from [**Releases**](https://github.com/cvknage/equaliser/releases), or build from source:
 
 ```bash
+nix develop
 ./bundle.sh
 ```
 
@@ -74,7 +74,7 @@ Equaliser handles all audio routing automatically — no configuration needed.
 
 To remove Equaliser from your Mac:
 
-1. **Uninstall the driver** — Open **Settings** from the menu bar and click **Uninstall Driver**
+1. **Uninstall the driver** — Open **Settings** (gear icon - top right) and click **Uninstall Driver**
 2. **Quit the app** — Click the menu bar icon and choose **Quit**
 3. **Delete the app** — Drag Equaliser from your Applications folder to the Trash
 
@@ -85,7 +85,7 @@ Equaliser stores data in your user Library:
 - Presets: `~/Library/Application Support/Equaliser/`
 - Settings: `~/Library/Preferences/net.knage.equaliser.plist`
 
-These files are small and harmless — remove them only if you do not plan to reinstall Equaliser.
+These files are small and harmless — remove them if you do not plan to reinstall Equaliser.
 
 
 ## Requirements
