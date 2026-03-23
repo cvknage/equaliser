@@ -131,6 +131,12 @@ h1 {
     box-shadow: 0 0 50px rgba(0, 115, 242, 0.5);
 }
 
+.version-below {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
 .badges {
     display: flex;
     justify-content: center;

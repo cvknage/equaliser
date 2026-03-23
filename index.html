@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Equaliser - System-wide Audio Equaliser for macOS</title>
     <meta name="description" content="A professional 64-band parametric equaliser for macOS. Process all system audio with low latency and minimal CPU usage.">
-    <link rel="stylesheet" href="style.css?d6db879">
-    <link rel="icon" href="assets/AppIcon.svg?d6db879" type="image/svg+xml">
+    <link rel="stylesheet" href="style.css?db2f298">
+    <link rel="icon" href="assets/AppIcon.svg?d6db879?db2f298" type="image/svg+xml">
 </head>
 <body>
     <header class="hero">
-        <img src="assets/AppIcon.svg?d6db879" alt="Equaliser App Icon" class="app-icon">
+        <img src="assets/AppIcon.svg?d6db879?db2f298" alt="Equaliser App Icon" class="app-icon">
         <h1>Equaliser</h1>
         <p class="tagline">System-wide audio equaliser for macOS</p>
-        <a href="https://github.com/cvknage/equaliser/releases/latest" class="download-btn">
-            Download for macOS
-        </a>
+        <a id="download-btn" href="#" class="download-btn">Download for macOS</a>
+        <div id="version" class="version-below"></div>
         <div class="badges">
             <span class="badge">macOS 15+</span>
             <span class="badge">Apple Silicon</span>
@@ -55,8 +54,8 @@
     <section class="screenshots">
         <h2>Screenshots</h2>
         <div class="screenshot-grid">
-            <img src="assets/menu-bar.png?d6db879" alt="Equaliser menu bar interface showing quick controls" class="screenshot small">
-            <img src="assets/main-window.png?d6db879" alt="Equaliser main window with EQ bands" class="screenshot large">
+            <img src="assets/menu-bar.png?d6db879?db2f298" alt="Equaliser menu bar interface showing quick controls" class="screenshot small">
+            <img src="assets/main-window.png?d6db879?db2f298" alt="Equaliser main window with EQ bands" class="screenshot large">
         </div>
     </section>
 
@@ -83,9 +82,42 @@
             <a href="https://github.com/cvknage/equaliser">GitHub Repository</a>
             <span class="separator">·</span>
             <a href="https://github.com/cvknage/equaliser/blob/main/LICENSE">GPL-3.0 License</a>
-            <span class="separator">·</span>
-            <span>Version 1.2.0</span>
         </p>
     </footer>
+    <script>
+async function initDownload() {
+    const btn = document.getElementById('download-btn');
+    const versionSpan = document.getElementById('version');
+
+    try {
+        const response = await fetch('https://api.github.com/repos/cvknage/equaliser/releases/latest');
+        const data = await response.json();
+
+        // Populate version subtext
+        if (versionSpan && data.tag_name) {
+            versionSpan.textContent = data.tag_name;
+        }
+
+        // Set up download handler
+        btn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const dmgAsset = data.assets.find(asset => asset.name.endsWith('.dmg'));
+            if (dmgAsset) {
+                window.location.href = dmgAsset.browser_download_url;
+            } else {
+                window.location.href = 'https://github.com/cvknage/equaliser/releases/latest';
+            }
+        });
+    } catch (error) {
+        // Fallback - remove version span, keep button working
+        if (versionSpan) versionSpan.remove();
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.location.href = 'https://github.com/cvknage/equaliser/releases/latest';
+        });
+    }
+}
+initDownload();
+    </script>
 </body>
 </html>
