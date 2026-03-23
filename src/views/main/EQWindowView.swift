@@ -3,6 +3,7 @@ import Combine
 
 /// The main EQ settings window - detailed controls.
 struct EQWindowView: View {
+    @Environment(\.openSettings) private var openSettings
     @EnvironmentObject var store: EqualiserStore
     @StateObject private var driverManager = DriverManager.shared
     @State private var showCompareHelp = false
@@ -185,6 +186,16 @@ struct EQWindowView: View {
         }
         .padding(12)
         .frame(minWidth: 1060, minHeight: 530)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    openSettings()
+                } label: {
+                    Image(systemName: "gearshape")
+                }
+                .help("Settings (⌘,)")
+            }
+        }
         .background(
             WindowAccessor { window in
                 store.setEqualiserWindow(window)
