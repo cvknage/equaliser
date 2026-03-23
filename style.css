@@ -1,0 +1,394 @@
+:root {
+    /* Background from app icon */
+    --bg-dark: #18141A;
+    --bg-gradient: linear-gradient(135deg, #18141A 0%, #0A080C 100%);
+
+    /* Primary accent - meter blue */
+    --accent: #0073F2;
+    --accent-light: #4A9AF5;
+
+    --text: #FAFAFC;
+    --text-muted: #d0c8d8;
+    --border: rgba(192, 184, 200, 0.2);
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg-dark: #FAFAFC;
+        --bg-gradient: linear-gradient(135deg, #FAFAFC 0%, #F0F0F4 50%, #E8E8EC 100%);
+        --text: #18141A;
+        --text-muted: #6B6570;
+        --border: rgba(24, 20, 26, 0.1);
+        --accent: #0073F2;
+        --accent-light: #4A9AF5;
+        --glass-bg: rgba(0, 0, 0, 0.03);
+        --glass-border: rgba(0, 0, 0, 0.08);
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    background: var(--bg-gradient);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+/* Animations */
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(0, 115, 242, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(0, 115, 242, 0.5); }
+}
+
+/* Glassmorphism */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+}
+
+/* Hero Section */
+.hero {
+    text-align: center;
+    padding: 80px 24px 60px;
+    position: relative;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(0, 115, 242, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.app-icon {
+    width: 160px;
+    height: 160px;
+    margin-bottom: 24px;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 10px 30px rgba(0, 115, 242, 0.3));
+}
+
+h1 {
+    font-size: 48px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+}
+
+.tagline {
+    font-size: 20px;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+}
+
+.download-btn {
+    display: inline-block;
+    background: linear-gradient(90deg, #0073F2, #00CC00);
+    color: #fff;
+    padding: 16px 36px;
+    border-radius: 12px;
+    border: none;
+    text-decoration: none;
+    font-size: 17px;
+    font-weight: 600;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: glow 2s ease-in-out infinite;
+}
+
+.download-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 0 50px rgba(0, 115, 242, 0.5);
+}
+
+.badges {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.badge {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-muted);
+}
+
+/* Features Section */
+.features {
+    padding: 80px 24px;
+    position: relative;
+}
+
+.features::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 115, 242, 0.3), transparent);
+}
+
+.features h2 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 40px;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.feature {
+    padding: 28px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.feature:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0, 115, 242, 0.2);
+    border-color: rgba(0, 115, 242, 0.3);
+}
+
+.feature h3 {
+    font-size: 18px;
+    margin-bottom: 10px;
+    color: var(--accent);
+}
+
+.feature p {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+/* Screenshots Section */
+.screenshots {
+    padding: 80px 24px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    position: relative;
+}
+
+.screenshots::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 115, 242, 0.3), transparent);
+}
+
+.screenshots h2 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 40px;
+}
+
+.screenshot-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.screenshot {
+    max-width: 100%;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.screenshot:hover {
+    transform: scale(1.02);
+    box-shadow: 0 12px 48px rgba(0, 115, 242, 0.2);
+}
+
+/* Menu bar is naturally small - let it stay compact */
+.screenshot.small {
+    max-width: 400px;
+}
+
+/* Main window is large - give it more space */
+.screenshot.large {
+    max-width: 900px;
+}
+
+/* Installation Section */
+.installation {
+    padding: 80px 24px;
+    position: relative;
+}
+
+.installation::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0, 115, 242, 0.3), transparent);
+}
+
+.installation h2 {
+    text-align: center;
+    font-size: 28px;
+    margin-bottom: 40px;
+}
+
+.steps {
+    max-width: 500px;
+    margin: 0 auto;
+    list-style: none;
+    counter-reset: list-item;
+}
+
+.steps li {
+    margin-bottom: 24px;
+    padding-left: 40px;
+    position: relative;
+}
+
+.steps li::before {
+    content: counter(list-item);
+    counter-increment: list-item;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.steps strong {
+    display: block;
+    font-size: 17px;
+    margin-bottom: 4px;
+}
+
+.steps p {
+    color: var(--text-muted);
+    font-size: 15px;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 40px 24px;
+    border-top: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+}
+
+footer p {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+footer a {
+    color: var(--text);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+footer a:hover {
+    color: #0073F2;
+    text-decoration: none;
+}
+
+.separator {
+    margin: 0 8px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    h1 {
+        font-size: 36px;
+    }
+
+    .tagline {
+        font-size: 18px;
+    }
+
+    .app-icon {
+        width: 96px;
+        height: 96px;
+    }
+
+    .features h2,
+    .screenshots h2,
+    .installation h2 {
+        font-size: 24px;
+    }
+
+    .feature-grid {
+        gap: 16px;
+    }
+
+    .screenshot-grid {
+        gap: 24px;
+    }
+
+    .screenshot.small {
+        max-width: 100%;
+    }
+
+    .screenshot.large {
+        max-width: 100%;
+    }
+}
