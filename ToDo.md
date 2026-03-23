@@ -105,21 +105,15 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Target 30 FPS smooth animations with minimal CPU overhead
 - [x] Use observer pattern for direct meter updates bypassing SwiftUI re-rendering
 
-## 12. Built-in Virtual Audio Device
-- [x] Bundle an AudioServerPlugIn driver (userspace, not kernel extension)
-- [x] Create Driver/ directory with build script (no Xcode project)
-- [x] Adapt BlackHole.c for Equaliser with custom property (eqnm) and client-based visibility
-- [x] Create DriverConstants.swift for bundle IDs and property selectors
-- [x] Create DriverManager.swift for installation/uninstallation management
-- [x] Create DriverInstallationView.swift for installation UI
-- [x] Integrate with EqualiserStore for automatic device selection (bestInputDeviceForEQ)
-- [x] Update DeviceManager to filter driver from output devices
-- [x] Bundle driver with app (copy Driver/build/ to app bundle)
-- [x] Test driver installation on clean macOS system
-- [x] Add driver uninstall option in settings UI
-- [x] Auto select driver on start up and name it after current active physical device
-- [x] Add driver icon (EqualiserDriver.icns)
-- [ ] Volume sync on Bluetooth devices
+## 12. Built-in Virtual Audio Device (Completed)
+- [x] Bundle custom virtual audio driver with the app (no external dependency like BlackHole)
+- [x] In-app driver installation with authentication prompt and status feedback
+- [x] Automatic driver selection on startup with transparent device naming
+- [x] Volume sync: system volume slider controls both driver and output device
+- [x] Bluetooth volume support with VirtualMasterVolume fallback
+- [x] Sample rate sync: driver matches output device sample rate
+- [x] Driver uninstall option in settings
+- [x] Driver visibility: only appears when Equaliser is running
 
 ## 13. Application-Specific Routing
 - [ ] Allow users to select which applications route through the EQ (e.g., Spotify, Safari)
