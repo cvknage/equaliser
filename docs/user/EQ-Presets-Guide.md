@@ -305,7 +305,7 @@ xychart-beta
 
 5. **Gradual high-frequency rolloff**: The curve naturally returns to neutral above 1 kHz, preserving the original tonal balance of vocals and instruments.
 
-6. **Input gain -5 dB**: This compensation prevents digital clipping when the bass boost is applied to already-loud content.
+6. **Input gain -8 dB**: This compensation prevents digital clipping from the +8 dB peak at 63 Hz.
 
 **Audio Engineering Principles:**
 - **Complementary EQ**: The bass boost is balanced by mud reduction (400 Hz cut)
@@ -402,7 +402,7 @@ xychart-beta
 
 5. **Narrow bandwidths at peaks (0.8-0.9)**: The presence frequencies use narrow bandwidths for focused clarity without affecting adjacent frequencies.
 
-6. **Input gain -3 dB**: Compensation prevents clipping from the high-frequency boost.
+6. **Input gain -6 dB**: Compensation prevents clipping from the +6 dB peak at 4 kHz.
 
 **Audio Engineering Principles:**
 - **Presence peak**: 4 kHz is the sweet spot for clarity without harshness
@@ -504,7 +504,7 @@ xychart-beta
 
 5. **Gentle high-frequency rolloff**: Above 5 kHz, the boost gradually decreases to avoid harshness and sibilance while still adding air and sparkle.
 
-6. **Input gain -1 dB**: Minimal compensation needed because the cuts and boosts are balanced.
+6. **Input gain -6 dB**: Compensation prevents clipping from the +6 dB peak at 2 kHz.
 
 **Audio Engineering Principles:**
 - **High-pass filtering**: Essential for clean vocals
@@ -602,7 +602,7 @@ xychart-beta
 
 5. **Neutral mids**: The midrange (500-1000 Hz) is left untouched because human hearing is most sensitive in this range, even at low volumes.
 
-6. **Input gain -4 dB**: Compensation prevents clipping from the significant bass and treble boosts.
+6. **Input gain -8 dB**: Compensation prevents clipping from the +8 dB peak at 50 Hz.
 
 **Audio Engineering Principles:**
 - **Fletcher-Munson curve**: Based on 1933 research on human hearing sensitivity
@@ -700,7 +700,7 @@ xychart-beta
 
 5. **High shelf at 8 kHz**: Adds gentle air and sparkle without harshness. The wide bandwidth creates a smooth, natural top end.
 
-6. **Input gain -2 dB**: Compensation prevents clipping from the warmth and presence boosts.
+6. **Input gain -3 dB**: Compensation prevents clipping from the +3 dB warmth boost.
 
 **Audio Engineering Principles:**
 - **Warmth without mud**: Low shelf adds body, mid scoop prevents buildup
@@ -799,7 +799,7 @@ xychart-beta
 
 5. **Narrow bandwidths (0.9)**: The scoop and peak frequencies use narrow bandwidths for focused, surgical control.
 
-6. **Input gain -2 dB**: Compensation prevents clipping from the significant boosts.
+6. **Input gain -6 dB**: Compensation prevents clipping from the +6 dB peaks at 80 Hz and 6.3 kHz.
 
 **Audio Engineering Principles:**
 - **V-shaped EQ**: Classic rock curve (boosted lows/highs, scooped mids)
@@ -899,7 +899,7 @@ xychart-beta
 
 5. **Very narrow bandwidths (0.7-0.8)**: The peak frequencies use very narrow bandwidths for surgical precision. This is critical for electronic music where precision matters.
 
-6. **Input gain -3.5 dB**: Significant compensation prevents clipping from the substantial bass and treble boosts.
+6. **Input gain -7 dB**: Compensation prevents clipping from the +7 dB peak at 50 Hz.
 
 **Audio Engineering Principles:**
 - **Surgical bass**: Narrow bandwidth for tight, controlled low end
@@ -997,7 +997,7 @@ xychart-beta
 
 5. **Subtle adjustments**: All adjustments are small (±1-2 dB) to maintain the natural character of the music while enhancing warmth.
 
-6. **Input gain -1.5 dB**: Compensation prevents clipping from the warmth boosts.
+6. **Input gain -2 dB**: Compensation prevents clipping from the +2 dB warmth boost.
 
 **Audio Engineering Principles:**
 - **Warmth emphasis**: Low-mid boost for jazz character
@@ -1096,7 +1096,7 @@ xychart-beta
 
 5. **Narrow bandwidths (0.7-0.8)**: The presence frequencies use narrow bandwidths for surgical precision.
 
-6. **Input gain -0.5 dB**: Minimal compensation needed because cuts and boosts are balanced.
+6. **Input gain -5 dB**: Compensation prevents clipping from the +5 dB peak at 2 kHz.
 
 **Audio Engineering Principles:**
 - **High-pass filtering**: Essential for clean speech
@@ -1195,7 +1195,7 @@ xychart-beta
 
 6. **Wide bandwidths (1.1-1.3)**: The curve uses wide bandwidths for smooth, natural transitions.
 
-7. **Input gain -0.5 dB**: Minimal compensation needed for the subtle adjustments.
+7. **Input gain -1 dB**: Compensation prevents clipping from the +1 dB gentle boost.
 
 **Audio Engineering Principles:**
 - **Minimal intervention**: Preserve natural character

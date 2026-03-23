@@ -53,7 +53,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Bass Boost", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -5,
+                inputGain: -8,
                 outputGain: 0,
                 activeBandCount: 12,
                 bands: bands
@@ -79,7 +79,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Treble Boost", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -3,
+                inputGain: -6,
                 outputGain: 0,
                 activeBandCount: 10,
                 bands: bands
@@ -109,7 +109,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Vocal Presence", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -1,
+                inputGain: -6,
                 outputGain: 0,
                 activeBandCount: 14,
                 bands: bands
@@ -135,7 +135,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Loudness", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -4,
+                inputGain: -8,
                 outputGain: 0,
                 activeBandCount: 10,
                 bands: bands
@@ -162,7 +162,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Acoustic", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -2,
+                inputGain: -3,
                 outputGain: 0,
                 activeBandCount: 11,
                 bands: bands
@@ -190,7 +190,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Rock", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -2,
+                inputGain: -6,
                 outputGain: 0,
                 activeBandCount: 12,
                 bands: bands
@@ -219,7 +219,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Electronic", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -3.5,
+                inputGain: -7,
                 outputGain: 0,
                 activeBandCount: 13,
                 bands: bands
@@ -245,7 +245,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Jazz", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -1.5,
+                inputGain: -2,
                 outputGain: 0,
                 activeBandCount: 10,
                 bands: bands
@@ -273,7 +273,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Podcast", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -0.5,
+                inputGain: -5,
                 outputGain: 0,
                 activeBandCount: 12,
                 bands: bands
@@ -298,7 +298,7 @@ enum FactoryPresets {
             metadata: PresetMetadata(name: "Classical", isFactoryPreset: true),
             settings: PresetSettings(
                 globalBypass: false,
-                inputGain: -0.5,
+                inputGain: -1,
                 outputGain: 0,
                 activeBandCount: 9,
                 bands: bands
@@ -326,7 +326,7 @@ enum FactoryPresets {
 // MARK: - PresetManager Extension
 
 extension PresetManager {
-    private static let factoryPresetVersion = 7  // Bump when factory presets change
+    private static let factoryPresetVersion = 8  // Bump when factory presets change
     private static let factoryVersionKey = "equalizer.factoryPresetVersion"
 
     /// Installs factory presets if they don't exist or version changed.
