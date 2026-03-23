@@ -22,31 +22,51 @@ struct SettingsView: View {
 struct DisplaySettingsTab: View {
     @EnvironmentObject var store: EqualiserStore
     @State private var showDriverRequiredAlert = false
-    
+
+    private enum Mode {
+        case automatic
+        case manual
+    }
+
     var body: some View {
         Form {
-            Section("Device Selection Mode") {
-                Toggle("Manual Device Selection", isOn: Binding(
-                    get: { store.manualModeEnabled },
-                    set: { newValue in
-                        if !newValue {
-                            // Switching to automatic mode - check if driver is installed
-                            if !DriverManager.shared.isReady {
-                                showDriverRequiredAlert = true
-                                return
+            Section {
+                HStack {
+                    Spacer()
+                    Picker("Mode", selection: Binding(
+                        get: { store.manualModeEnabled ? Mode.manual : Mode.automatic },
+                        set: { newValue in
+                            switch newValue {
+                            case .automatic:
+                                if !DriverManager.shared.isReady {
+                                    showDriverRequiredAlert = true
+                                    return
+                                }
+                                store.switchToAutomaticMode()
+                            case .manual:
+                                store.switchToManualMode()
                             }
-                            store.switchToAutomaticMode()
-                        } else {
-                            store.switchToManualMode()
                         }
+                    )) {
+                        Text("Automatic").tag(Mode.automatic)
+                        Text("Manual").tag(Mode.manual)
                     }
-                ))
-                
-                Text(store.manualModeEnabled
-                    ? "Manually select input and output devices. macOS Sound settings will not be changed."
-                    : "Devices are automatically derived from macOS Sound output selection.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    Spacer()
+                }
+
+                if store.manualModeEnabled {
+                    Text("You have full control over input and output device selection. Use this mode when integrating Equaliser into a custom audio chain with other applications, or when you want precise control over audio routing.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Equaliser automatically configures itself based on your output device selection in macOS Sound settings. This is the recommended mode for most users.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Device Selection Mode")
             }
             
             Section("Bandwidth Display") {
@@ -56,6 +76,10 @@ struct DisplaySettingsTab: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+
+                Text("Choose how bandwidth is displayed. \nOctaves: think \"how wide?\" — bigger numbers affect more frequencies. \nQ Factor: think \"how precise?\" — higher values are more surgical.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
