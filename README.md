@@ -112,6 +112,7 @@ Equaliser:
 
 Some other macOS system audio tools you might consider:
 
+* **[Radioform](https://www.radioform.app/)** — Free, Open Source, Gratis
 * **[SoundMax](https://snap-sites.github.io/SoundMax/)** — Free, Open Source, Gratis
 * **[eqMac (older version without Pro Features)](https://github.com/bitgapp/eqMac)** — Free, Open Source, Gratis
 * **[Vizzdom Analyzer with EQ](https://www.krisdigital.com/en/blog/2018/08/23/vizzdom-mac-system-audio-spectrum-level-analyzer/)** — Proprietary, Gratis
