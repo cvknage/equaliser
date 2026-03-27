@@ -6,8 +6,8 @@
     <title>How It Works - Equaliser Documentation</title>
     <meta name="description" content="A detailed explanation of how Equaliser processes audio on your Mac, including the virtual audio driver, capture methods, parametric EQ engine, and privacy considerations.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/how-it-works.html">
-    <link rel="stylesheet" href="../style.css?cde03e3">
-    <link rel="icon" href="../assets/AppIcon.svg?cde03e3" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?a2efbc0">
+    <link rel="icon" href="../assets/AppIcon.svg?a2efbc0" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -35,7 +35,7 @@
 <table>
 <colgroup>
 <col style="width: 33%" />
-<col style="width: 66%" />
+<col style="width: 67%" />
 </colgroup>
 <thead>
 <tr>
@@ -72,7 +72,7 @@
 <hr />
 <h2 id="the-virtual-audio-driver">The Virtual Audio Driver</h2>
 <h3 id="what-is-it">What Is It?</h3>
-<p>The <strong>Equaliser Driver</strong> is a virtual audio device that installs into macOS's audio system. It appears alongside your real audio devices (built-in speakers, headphones, etc.) but has no physical hardware — it exists purely to capture audio for processing.</p>
+<p>The <strong>Equaliser Driver</strong> is a virtual audio device that installs into macOS's audio system. It appears alongside your real audio devices (built-in speakers, headphones, etc.) but has no physical hardware — it exists purely to capture audio for processing. It's based on <a href="https://github.com/ExistentialAudio/BlackHole">BlackHole</a> by Existential Audio Inc., customised with dynamic device naming and shared memory capture for seamless integration with Equaliser.</p>
 <h3 id="why-is-it-needed">Why Is It Needed?</h3>
 <p>macOS doesn't allow apps to intercept each other's audio. Each app can only access its own audio stream. The virtual driver solves this by becoming the system-wide output device, creating a common point where all audio converges.</p>
 <h3 id="installation">Installation</h3>
@@ -170,6 +170,10 @@
 <h3 id="shared-memory-default">Shared Memory (Default)</h3>
 <p>The default and recommended capture method.</p>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
 <thead>
 <tr>
 <th>Aspect</th>
@@ -199,6 +203,10 @@
 <h3 id="hal-input">HAL Input</h3>
 <p>An alternative capture method for specific use cases.</p>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
 <thead>
 <tr>
 <th>Aspect</th>
@@ -231,7 +239,7 @@
 <li>Advanced audio routing setups</li>
 </ul>
 <details>
-<summary>🔧 Technical Details: How Shared Memory Capture Works</summary>
+<summary>⚙️ Technical Details: How Shared Memory Capture Works</summary>
 <p>The shared memory capture uses a <strong>lock-free ring buffer</strong>:</p>
 <ol type="1">
 <li>The driver writes audio samples to a memory-mapped ring buffer</li>
@@ -243,7 +251,7 @@
 <p>The ring buffer also handles <strong>clock drift</strong> between the driver and output device. Since the driver and output device may run at slightly different rates, the buffer absorbs timing differences without artefacts.</p>
 </details>
 <details>
-<summary>🔧 Technical Details: HAL Input Capture</summary>
+<summary>⚙️ Technical Details: HAL Input Capture</summary>
 <p>HAL Input uses macOS's standard audio input mechanism:</p>
 <ol type="1">
 <li>Equaliser opens an input stream on the selected device</li>
@@ -255,11 +263,12 @@
 </details>
 <hr />
 <h2 id="the-equaliser-engine">The Equaliser Engine</h2>
+<p>Equaliser uses <strong>Apple's AVAudioUnitEQ</strong> — the system's built-in N-Band Parametric Equalizer — for audio processing. This provides native performance and tight Core Audio integration, supporting up to 64 bands of parametric EQ.</p>
 <h3 id="parametric-eq">Parametric EQ</h3>
 <p>Equaliser provides <strong>up to 64 bands</strong> of parametric equalisation. Each band gives you precise control over:</p>
 <table>
 <colgroup>
-<col style="width: 39%" />
+<col style="width: 40%" />
 <col style="width: 60%" />
 </colgroup>
 <thead>
@@ -290,6 +299,11 @@
 <h3 id="standard-band-frequencies">Standard Band Frequencies</h3>
 <p>The default 10-band configuration uses logarithmically-spaced frequencies:</p>
 <table>
+<colgroup>
+<col style="width: 15%" />
+<col style="width: 25%" />
+<col style="width: 60%" />
+</colgroup>
 <thead>
 <tr>
 <th>Band</th>
@@ -355,7 +369,7 @@
 <table>
 <colgroup>
 <col style="width: 25%" />
-<col style="width: 28%" />
+<col style="width: 30%" />
 <col style="width: 20%" />
 <col style="width: 25%" />
 </colgroup>
@@ -389,6 +403,10 @@
 <h3 id="compare-mode">Compare Mode</h3>
 <p>Compare Mode lets you A/B test your EQ settings against a flat response:</p>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
 <thead>
 <tr>
 <th>Mode</th>
@@ -412,6 +430,10 @@
 <h3 id="factory-presets">Factory Presets</h3>
 <p>Equaliser includes 11 carefully crafted presets for common use cases:</p>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
 <thead>
 <tr>
 <th>Preset</th>
@@ -486,6 +508,10 @@
 <h3 id="headphone-auto-switch">Headphone Auto-Switch</h3>
 <p>When headphones are connected, Equaliser automatically switches output:</p>
 <table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
 <thead>
 <tr>
 <th>Condition</th>
@@ -506,6 +532,10 @@
 <p>This matches macOS behaviour and prevents audio from unexpectedly playing through speakers.</p>
 <p><strong>How it works:</strong></p>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
 <thead>
 <tr>
 <th>Platform</th>
@@ -532,7 +562,7 @@
 <li>History is limited to prevent stale device references</li>
 </ul>
 <details>
-<summary>🔧 Technical Details: Device Selection Logic</summary>
+<summary>⚙️ Technical Details: Device Selection Logic</summary>
 <p>Equaliser uses a prioritised selection algorithm:</p>
 <ol type="1">
 <li><strong>Preserve current</strong>: If your saved device is still available, keep it</li>
@@ -542,9 +572,13 @@
 <p>This pure function approach avoids calling CoreAudio with potentially-stale UIDs, which can cause crashes on device disconnection.</p>
 </details>
 <hr />
-<h2 id="privacy-permissions">Privacy & Permissions</h2>
+<h2 id="privacy-permissions">Privacy &amp; Permissions</h2>
 <h3 id="what-equaliser-does-not-do">What Equaliser Does NOT Do</h3>
 <table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 75%" />
+</colgroup>
 <thead>
 <tr>
 <th>Not Done</th>
@@ -575,9 +609,9 @@
 <p>macOS may request microphone permission when Equaliser launches. Here's why:</p>
 <table>
 <colgroup>
-<col style="width: 34%" />
-<col style="width: 53%" />
+<col style="width: 35%" />
 <col style="width: 12%" />
+<col style="width: 53%" />
 </colgroup>
 <thead>
 <tr>

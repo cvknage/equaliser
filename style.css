@@ -195,6 +195,11 @@
     padding: 0 16px 16px;
 }
 
+.docs-content details ol,
+.docs-content details ul {
+    padding-left: 40px;
+}
+
 /* Code blocks */
 .docs-content pre {
     background: var(--bg-dark);
