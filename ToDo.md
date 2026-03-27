@@ -129,7 +129,5 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 
 ## 15. Remove Microphone Indicator
 - [x] Eliminate the orange microphone indicator and microphone permission requirement.
-- [ ] App does not appear in System Settings → Privacy & Security → Microphone
 - [x] No orange menu bar dot appears while audio routing is active
-- [ ] Users are not prompted for microphone permission
 

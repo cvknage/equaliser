@@ -446,10 +446,35 @@ final class EqualiserStore: ObservableObject {
         routingCoordinator.handleDriverInstalled()
     }
     
+    /// Switches to manual mode after requesting microphone permission.
+    /// Manual mode uses HAL input capture, which requires microphone permission.
+    /// - Returns: True if permission was granted and mode switched, false otherwise.
+    @discardableResult
+    @MainActor
+    func switchToManualMode() async -> Bool {
+        let granted = await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+
+        if granted {
+            routingCoordinator.switchToManualMode()
+            logger.info("Microphone permission granted, switched to manual mode")
+        } else {
+            logger.warning("Microphone permission denied, manual mode requires microphone access")
+        }
+
+        return granted
+    }
+    
+    /// Switches to manual mode synchronously (for compatibility).
+    /// Note: This should only be used when permission is already known to be granted.
     func switchToManualMode() {
         routingCoordinator.switchToManualMode()
     }
     
+    /// Switches to automatic mode (uses shared memory capture by default).
     func switchToAutomaticMode() {
         routingCoordinator.switchToAutomaticMode()
     }

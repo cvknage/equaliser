@@ -1,4 +1,3 @@
-import AVFoundation
 import SwiftUI
 
 // MARK: - Cleanup Delegate
@@ -30,13 +29,9 @@ struct EqualiserMain: App {
         DispatchQueue.main.async {
             NSApp.setActivationPolicy(.accessory)
         }
-
-        // Request microphone access for audio routing
-        AVAudioApplication.requestRecordPermission { granted in
-            if !granted {
-                assertionFailure("Microphone access denied. Audio routing will be unavailable.")
-            }
-        }
+        // Note: Microphone permission is NOT requested here.
+        // It's only requested when needed (HAL input capture mode or manual mode).
+        // Shared memory capture (default) does NOT require microphone permission.
     }
 
     var body: some Scene {

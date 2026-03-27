@@ -241,9 +241,4 @@ final class RoutingViewModel {
     func handleDriverInstalled() {
         store.handleDriverInstalled()
     }
-    
-    /// Switches to manual mode.
-    func switchToManualMode() {
-        store.switchToManualMode()
-    }
 }

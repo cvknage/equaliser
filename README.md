@@ -96,9 +96,9 @@ These files are small and harmless — remove them if you do not plan to reinsta
 
 ## Privacy & Permissions
 
-Equaliser requires **Microphone access** on macOS.
+Equaliser requests **Microphone permission** at launch.
 
-This is necessary because macOS treats the virtual audio driver as a microphone input. Granting this permission allows Equaliser to receive system audio so it can apply the equaliser.
+This is required because macOS requires the `audio-input` entitlement for HAL input capture (a supported feature). Even though the default capture mode uses shared memory (which doesn't access the microphone), macOS shows the permission dialog when both the entitlement and usage description are present.
 
 All audio processing happens **locally on your Mac**.
 

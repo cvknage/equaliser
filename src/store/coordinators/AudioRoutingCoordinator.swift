@@ -127,6 +127,20 @@ final class AudioRoutingCoordinator: ObservableObject {
         isReconfiguring = true
         defer { isReconfiguring = false }
         
+        // In manual mode, verify microphone permission before starting
+        // (HAL input capture requires TCC permission)
+        // Also check for automatic mode with HAL input capture preference
+        let needsPermission = manualModeEnabled || (!manualModeEnabled && self.captureMode == .halInput)
+        if needsPermission {
+            let permission = AVAudioApplication.shared.recordPermission
+            guard permission == .granted else {
+                let modeDesc = manualModeEnabled ? "Manual mode" : "HAL Input capture"
+                routingStatus = .error("\(modeDesc) requires microphone permission. Open System Settings to enable it.")
+                logger.error("\(modeDesc) requires microphone permission (current: \(permission.rawValue))")
+                return
+            }
+        }
+        
         // Stop existing pipeline if running
         stopPipeline()
         

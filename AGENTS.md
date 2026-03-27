@@ -247,6 +247,49 @@ nonisolated func setDeviceVolumeScalar(deviceID: AudioDeviceID, volume: Float) -
 
 This prevents `AudioObjectSetPropertyData` from blocking the UI thread.
 
+### Microphone Permission Handling
+
+The app does **NOT** request microphone permission on launch. Permission is only requested when needed:
+
+| Mode | When Permission Required |
+|------|-------------------------|
+| Automatic + Shared Memory | NEVER (default) |
+| Automatic + HAL Input | When user switches capture mode in Settings |
+| Manual | When user switches to manual mode |
+
+**Implementation pattern:**
+
+```swift
+// Check permission before starting HAL input capture
+let needsPermission = manualModeEnabled || (!manualModeEnabled && captureMode == .halInput)
+if needsPermission {
+    let permission = AVAudioApplication.shared.recordPermission
+    guard permission == .granted else {
+        routingStatus = .error("Microphone permission required")
+        return
+    }
+}
+
+// Request permission when user explicitly enables HAL input
+func requestMicPermissionAndSwitchToHALCapture() async -> Bool {
+    let granted = await withCheckedContinuation { continuation in
+        AVAudioApplication.requestRecordPermission { granted in
+            continuation.resume(returning: granted)
+        }
+    }
+    if granted {
+        captureMode = .halInput
+    }
+    return granted
+}
+```
+
+**Key points:**
+- Shared memory capture is the default (no TCC permission)
+- User must explicitly opt in to HAL input capture
+- Permission check is sync (`recordPermission`), request is async
+- Error shown in UI if permission denied while attempting to start routing
+
 ## Naming Conventions
 
 | Element | Convention | Example |
@@ -330,7 +373,12 @@ DriverManager.shared.setDeviceName("My EQ")
 
 ## Entitlements
 
-- `com.apple.security.device.audio-input` (audio routing)
+- `com.apple.security.device.audio-input` (audio routing - required for HAL input capture mode)
 - `com.apple.security.files.user-selected.read-write` (presets)
 
-**Note:** App is not sandboxed (required for driver installation).
+**Note:** 
+- App is not sandboxed (required for driver installation).
+- The `audio-input` entitlement is required for HAL input capture mode to work.
+- Shared memory capture (default) does NOT trigger the TCC microphone dialog on its own.
+- However, macOS proactively shows the microphone permission dialog at app launch when the entitlement + usage description are both present.
+- This means new installs will see the permission dialog before using the app, even in shared memory mode.

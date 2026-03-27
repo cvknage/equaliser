@@ -22,6 +22,7 @@ struct SettingsView: View {
 struct DisplaySettingsTab: View {
     @EnvironmentObject var store: EqualiserStore
     @State private var showDriverRequiredAlert = false
+    @State private var showPermissionDeniedAlert = false
 
     private enum Mode {
         case automatic
@@ -44,7 +45,13 @@ struct DisplaySettingsTab: View {
                                 }
                                 store.switchToAutomaticMode()
                             case .manual:
-                                store.switchToManualMode()
+                                // Manual mode uses HAL input, requires microphone permission
+                                Task {
+                                    let granted = await store.switchToManualMode()
+                                    if !granted {
+                                        showPermissionDeniedAlert = true
+                                    }
+                                }
                             }
                         }
                     )) {
@@ -89,6 +96,16 @@ struct DisplaySettingsTab: View {
         } message: {
             Text("Automatic mode requires the virtual audio driver. Please install it from the Driver tab in Settings.")
         }
+        .alert("Permission Required", isPresented: $showPermissionDeniedAlert) {
+            Button("Open System Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Manual mode requires microphone permission.\n\nOpen System Settings to enable it.")
+        }
     }
 }
 
@@ -96,6 +113,7 @@ struct DriverSettingsTab: View {
     @EnvironmentObject var store: EqualiserStore
     @StateObject private var driverManager = DriverManager.shared
     @State private var showUninstallConfirm = false
+    @State private var showHALPermissionDeniedAlert = false
     
     var body: some View {
         ScrollView {
@@ -145,6 +163,16 @@ struct DriverSettingsTab: View {
             }
         } message: {
             Text("This will remove the Equaliser virtual audio driver from your system. You may need to restart coreaudiod.")
+        }
+        .alert("Permission Required", isPresented: $showHALPermissionDeniedAlert) {
+            Button("Open System Settings") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("HAL Input capture requires microphone permission.\n\nOpen System Settings to enable it.")
         }
     }
     
@@ -202,7 +230,10 @@ struct DriverSettingsTab: View {
                         Task {
                             let granted = await store.requestMicPermissionAndSwitchToHALCapture()
                             if !granted {
-                                // Permission denied - UI stays on sharedMemory
+                                // Permission denied - show alert
+                                await MainActor.run {
+                                    showHALPermissionDeniedAlert = true
+                                }
                             }
                         }
                     } else {

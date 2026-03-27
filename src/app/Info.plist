@@ -27,6 +27,6 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Equaliser needs access to capture and process audio.</string>
+	<string>Microphone permission is optional.&#10;&#10;Grant only for advanced features.</string>
 </dict>
 </plist>
