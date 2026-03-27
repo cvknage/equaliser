@@ -45,7 +45,7 @@ macOS treats the Equaliser Driver as a real audio device. When you set it as you
 
 ### What Is It?
 
-The **Equaliser Driver** is a virtual audio device that installs into macOS's audio system. It appears alongside your real audio devices (built-in speakers, headphones, etc.) but has no physical hardware — it exists purely to capture audio for processing.
+The **Equaliser Driver** is a virtual audio device that installs into macOS's audio system. It appears alongside your real audio devices (built-in speakers, headphones, etc.) but has no physical hardware — it exists purely to capture audio for processing. It's based on [BlackHole](https://github.com/ExistentialAudio/BlackHole) by Existential Audio Inc., customised with dynamic device naming and shared memory capture for seamless integration with Equaliser.
 
 ### Why Is It Needed?
 
@@ -180,6 +180,8 @@ macOS shows an orange microphone icon in Control Center whenever an app has an o
 ---
 
 ## The Equaliser Engine
+
+Equaliser uses **Apple's AVAudioUnitEQ** — the system's built-in N-Band Parametric Equalizer — for audio processing. This provides native performance and tight Core Audio integration, supporting up to 64 bands of parametric EQ.
 
 ### Parametric EQ
 
