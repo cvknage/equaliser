@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EQ Presets Guide - Equaliser Documentation</title>
+    <meta name="description" content="Complete guide to Equaliser's audio presets. Learn how to use and customize EQ settings for music, podcasts, movies, and more.">
+    <link rel="canonical" href="https://equaliser.knage.net/docs/eq-presets-guide.html">
+    <link rel="stylesheet" href="../style.css?864152a">
+    <link rel="icon" href="../assets/AppIcon.svg?864152a" type="image/svg+xml">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: isDark ? 'dark' : 'default'
+        });
+    </script>
+</head>
+<body>
+    <nav class="site-nav">
+        <div class="nav-links">
+            <a href="../index.html">Equaliser</a>
+            <a href="../docs.html">Documentation</a>
+        </div>
+    </nav>
+
+    <main class="docs-content">
+<h1 id="eq-presets-guide-understanding-your-audio">EQ Presets Guide: Understanding Your Audio</h1>
+<p>Welcome to the Equaliser presets guide. This document explains each factory preset in detail, helping you understand when and how to use them for the best audio experience.</p>
+<p>Whether you’re a casual user looking for the right sound or someone who wants to understand the technical reasoning behind each curve, this guide has you covered.</p>
+<hr />
+<h2 id="quick-reference">Quick Reference</h2>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 15%" />
+<col style="width: 20%" />
+<col style="width: 22%" />
+<col style="width: 24%" />
+</colgroup>
+<thead>
+<tr>
+<th>Preset</th>
+<th>Bands</th>
+<th>Purpose</th>
+<th>Best For</th>
+<th>Avoid For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Flat</strong></td>
+<td>10</td>
+<td>Neutral baseline</td>
+<td>Reference, testing</td>
+<td>N/A</td>
+</tr>
+<tr>
+<td><strong>Bass Boost</strong></td>
+<td>12</td>
+<td>Deep, punchy bass</td>
+<td>Hip-hop, EDM, action movies</td>
+<td>Podcasts, audiobooks</td>
+</tr>
+<tr>
+<td><strong>Treble Boost</strong></td>
+<td>10</td>
+<td>Brightness &amp; clarity</td>
+<td>Classical, acoustic, podcasts</td>
+<td>Already bright content</td>
+</tr>
+<tr>
+<td><strong>Vocal Presence</strong></td>
+<td>14</td>
+<td>Clear, intelligible vocals</td>
+<td>Podcasts, voice calls, audiobooks</td>
+<td>Bass-heavy music</td>
+</tr>
+<tr>
+<td><strong>Loudness</strong></td>
+<td>10</td>
+<td>Low-volume compensation</td>
+<td>Night listening, quiet environments</td>
+<td>Normal/loud volumes</td>
+</tr>
+<tr>
+<td><strong>Acoustic</strong></td>
+<td>11</td>
+<td>Warm, natural tone</td>
+<td>Acoustic music, singer-songwriter</td>
+<td>Electronic, rock</td>
+</tr>
+<tr>
+<td><strong>Rock</strong></td>
+<td>12</td>
+<td>Aggressive, scooped mids</td>
+<td>Rock, metal, alternative</td>
+<td>Jazz, classical</td>
+</tr>
+<tr>
+<td><strong>Electronic</strong></td>
+<td>13</td>
+<td>Tight bass, bright highs</td>
+<td>EDM, techno, house</td>
+<td>Acoustic, jazz</td>
+</tr>
+<tr>
+<td><strong>Jazz</strong></td>
+<td>10</td>
+<td>Warm, smooth sound</td>
+<td>Jazz, blues, soul</td>
+<td>Electronic, metal</td>
+</tr>
+<tr>
+<td><strong>Podcast</strong></td>
+<td>12</td>
+<td>Optimised for speech</td>
+<td>Podcasts, audiobooks, voice</td>
+<td>Music</td>
+</tr>
+<tr>
+<td><strong>Classical</strong></td>
+<td>9</td>
+<td>Neutral, refined</td>
+<td>Orchestral, chamber music</td>
+<td>Bass-heavy genres</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="eq-fundamentals">EQ Fundamentals</h2>
+<h3 id="what-is-eq">What is EQ?</h3>
+<p>EQ (equalisation) lets you adjust the volume of different frequency ranges in your audio. Think of it like a sophisticated tone control that can target specific parts of the sound spectrum.</p>
+<h3 id="filter-types">Filter Types</h3>
+<p><strong>Parametric EQ</strong> - The most versatile type. You choose: - <strong>Frequency</strong>: Which part of the spectrum to adjust - <strong>Gain</strong>: How much to boost or cut - <strong>Bandwidth</strong>: How wide or narrow the adjustment is</p>
+<p><strong>Shelf EQ</strong> - Adjusts all frequencies above or below a point: - <strong>Low Shelf</strong>: Boosts or cuts bass frequencies gradually - <strong>High Shelf</strong>: Boosts or cuts treble frequencies gradually</p>
+<p><strong>High-Pass Filter</strong> - Removes frequencies below a cutoff point. Used to clean up rumble and unwanted low-frequency noise.</p>
+<details>
+<summary>
+🔧 Technical Details: Filter Types (click to expand)
+</summary>
+<p><strong>Parametric EQ</strong> provides surgical control with three parameters: - <strong>Frequency (Hz)</strong>: The centre point of the adjustment - <strong>Gain (dB)</strong>: The amount of boost (+) or cut (-) - <strong>Bandwidth (octaves)</strong>: The range of frequencies affected. Also expressed as Q factor, where Q = centre frequency / bandwidth. Higher Q = narrower bandwidth.</p>
+<p><strong>Shelf EQ</strong> creates gradual transitions: - <strong>Low Shelf</strong>: All frequencies below the shelf frequency are boosted/cut by the specified amount, with a gradual transition around the shelf frequency - <strong>High Shelf</strong>: All frequencies above the shelf frequency are boosted/cut, with gradual transition - The transition slope is typically 6-12 dB per octave</p>
+<p><strong>High-Pass Filter</strong> (also called low-cut): - Attenuates frequencies below the cutoff point - Slope typically 12-24 dB per octave - Used to remove rumble, handling noise, and unnecessary low-frequency content</p>
+</details>
+<h3 id="bandwidth-explained">Bandwidth Explained</h3>
+<p><strong>Simple explanation</strong>: Bandwidth controls how “focused” or “wide” an EQ adjustment is.</p>
+<ul>
+<li><strong>Narrow bandwidth</strong> (0.7-0.9): Precise, surgical adjustment. Affects only the target frequency and its immediate neighbors.</li>
+<li><strong>Medium bandwidth</strong> (1.0): Balanced adjustment. Affects a moderate range around the target.</li>
+<li><strong>Wide bandwidth</strong> (1.1-1.5): Musical, smooth adjustment. Affects a broad range, creating natural transitions.</li>
+</ul>
+<details>
+<summary>
+🔧 Technical Details: Bandwidth &amp; Q Factor (click to expand)
+</summary>
+<p><strong>Bandwidth</strong> is measured in octaves. One octave = doubling of frequency (e.g., 100 Hz to 200 Hz is one octave).</p>
+<p><strong>Q Factor</strong> (Quality Factor) is the inverse relationship: - Q = Centre Frequency / Bandwidth (in Hz) - Higher Q = Narrower bandwidth - Lower Q = Wider bandwidth</p>
+<p><strong>Conversion examples:</strong> - Bandwidth 0.7 octaves ≈ Q 2.0 (very narrow, surgical) - Bandwidth 1.0 octaves ≈ Q 1.4 (medium, balanced) - Bandwidth 1.4 octaves ≈ Q 1.0 (wide, musical)</p>
+<p><strong>When to use narrow bandwidth:</strong> - Correcting specific problem frequencies - Notching out resonance - Precise tonal shaping</p>
+<p><strong>When to use wide bandwidth:</strong> - Broad tonal adjustments - Musical, natural-sounding EQ - Gentle presence or warmth enhancement</p>
+</details>
+<h3 id="frequency-ranges">Frequency Ranges</h3>
+<pre><code>   20 Hz        100 Hz       500 Hz       2 kHz        8 kHz       20 kHz
+   |             |            |            |            |            |
+   SUB-BASS      BASS         LOW-MIDS     MIDS         HIGH-MIDS    HIGHS
+   (Rumble)      (Punch)      (Body)       (Presence)   (Clarity)    (Air)
+   
+   Felt more     Foundation   Can cause    Vocals cut   Definition   Sparkle
+   than heard    of rhythm    mud if       through      and edge     and space
+                 and music    excessive                  harsh if
+                                                         excessive</pre>
+<details>
+<summary>
+🔧 Technical Details: Frequency Range Breakdown (click to expand)
+</summary>
+<p><strong>Sub-bass (20-60 Hz)</strong> - Felt more than heard - Adds power and rumble - Can cause speaker distortion if excessive - Key frequencies: 30-50 Hz</p>
+<p><strong>Bass (60-250 Hz)</strong> - Foundation of rhythm and music - Punch and warmth live here - 80-100 Hz: Kick drum punch - 100-200 Hz: Bass guitar body - Excessive boost causes boominess</p>
+<p><strong>Low-mids (250-500 Hz)</strong> - Body and warmth of instruments - 250-400 Hz: “Mud zone” - buildup causes boomy, unclear sound - 400-500 Hz: Boxiness if excessive - Often needs careful control</p>
+<p><strong>Mids (500-2000 Hz)</strong> - Presence and intelligibility - 800-1000 Hz: Nasal quality if excessive - 1-2 kHz: Vocal presence, instrument definition - Critical for speech clarity</p>
+<p><strong>Upper-mids (2000-6000 Hz)</strong> - Clarity and definition - 2-3 kHz: Vocal presence peak - 3-5 kHz: Definition and edge - 5-6 kHz: Sibilance risk (“s” sounds) - Excessive boost causes harshness and fatigue</p>
+<p><strong>Highs (6000-20000 Hz)</strong> - Air, sparkle, space - 6-10 kHz: Brilliance and presence - 10-16 kHz: Air and shimmer - 16-20 kHz: Extreme highs, mostly felt - Excessive boost causes harshness</p>
+</details>
+<hr />
+<h2 id="preset-deep-dives">Preset Deep Dives</h2>
+<hr />
+<h2 id="flat">1. Flat</h2>
+<p><strong>Purpose:</strong> Neutral baseline with no colouration</p>
+<p><strong>Best for:</strong> - Reference listening - Testing audio systems - Starting point for custom presets - Hearing audio as it was mixed</p>
+<p><strong>Band count:</strong> 10</p>
+<h3 id="what-it-does">What It Does</h3>
+<p>The Flat preset leaves all frequencies untouched at 0 dB. This gives you the most accurate representation of your audio source without any colouration or enhancement.</p>
+<p>Use this when you want to hear music or content exactly as it was recorded and mixed, or when you need a neutral starting point for creating your own custom EQ curve.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Flat EQ Curve"
+    x-axis "Frequency (Hz)" [31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+    y-axis "Gain (dB)" -1 --> 1
+    line [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 17%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1-10</td>
+<td>Standard distribution</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral reference</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<p>The Flat preset is intentionally neutral. All bands are set to 0 dB gain with standard parametric filters and medium bandwidth (1.0 octaves). This provides:</p>
+<ol type="1">
+<li><strong>Accurate monitoring</strong>: Hear the source material without colouration</li>
+<li><strong>Reference point</strong>: Compare other presets against this baseline</li>
+<li><strong>Clean slate</strong>: Start here when building custom curves</li>
+</ol>
+<p><strong>Technical Notes:</strong> - Uses logarithmic frequency distribution (standard for EQ) - All filters are parametric for consistency - No input/output gain adjustment needed (0 dB) - Active band count: 10 (standard configuration)</p>
+</details>
+<h3 id="usage-tips">Usage Tips</h3>
+<p><strong>Best with:</strong> - High-quality source material - Reference monitoring - Audio production work - Comparing different audio systems</p>
+<p><strong>Avoid with:</strong> - N/A (flat is always a valid choice)</p>
+<p><strong>Common modifications:</strong> - Use as starting point for custom presets - Add small adjustments to taste (e.g., +2 dB at 8 kHz for more air)</p>
+<hr />
+<h2 id="bass-boost">2. Bass Boost</h2>
+<p><strong>Purpose:</strong> Add deep, punchy bass without muddiness</p>
+<p><strong>Best for:</strong> - Hip-hop and rap - EDM and electronic music - Action movies and gaming - Bass-heavy genres - Speakers/headphones with good bass response</p>
+<p><strong>Band count:</strong> 12</p>
+<h3 id="what-it-does-1">What It Does</h3>
+<p>The Bass Boost preset enhances low frequencies to give your audio more impact and depth. It focuses on the “punch” frequencies (around 60-100 Hz) that you feel in your chest, while carefully controlling the low-midrange to prevent the sound from becoming muddy or boomy.</p>
+<p>The curve uses a combination of low shelf filters and surgical parametric EQ to create tight, focused bass rather than a broad, muddy boost. A subtle cut in the low-mids (400 Hz) prevents bass buildup from bleeding into the midrange.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Bass Boost EQ Curve"
+    x-axis "Frequency (Hz)" [25, 40, 63, 100, 160, 250, 400, 630, 1000, 2500, 6300, 12000]
+    y-axis "Gain (dB)" -2 --> 10
+    line [4, 6, 8, 7, 4, 1, -1, 0, 0, 1, 0, 0]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>25 Hz</td>
+<td>+4 dB</td>
+<td>1.2</td>
+<td>Low Shelf</td>
+<td>Sub-bass foundation</td>
+</tr>
+<tr>
+<td>2</td>
+<td>40 Hz</td>
+<td>+6 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Deep bass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>63 Hz</td>
+<td>+8 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td><strong>Bass punch (peak)</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td>100 Hz</td>
+<td>+7 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Bass body</td>
+</tr>
+<tr>
+<td>5</td>
+<td>160 Hz</td>
+<td>+4 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Upper bass</td>
+</tr>
+<tr>
+<td>6</td>
+<td>250 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Transition</td>
+</tr>
+<tr>
+<td>7</td>
+<td>400 Hz</td>
+<td>-1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce mud</td>
+</tr>
+<tr>
+<td>8</td>
+<td>630 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>9</td>
+<td>1000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>10</td>
+<td>2500 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Slight presence</td>
+</tr>
+<tr>
+<td>11</td>
+<td>6300 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>12</td>
+<td>12000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Peak at 63 Hz</strong>: This is the sweet spot for bass punch—the frequency you feel in your chest rather than just hear. It’s the main impact frequency for kick drums and bass guitars.</p></li>
+<li><p><strong>Low shelf at 25 Hz</strong>: Adds sub-bass rumble (the “felt” bass below 30 Hz) without boosting problematic frequencies. The wide bandwidth (1.2) ensures a natural, gradual transition.</p></li>
+<li><p><strong>Surgical cuts at 400 Hz</strong>: Bass boost naturally pushes energy into the low-mids, which can create “mud” (boomy, unclear sound). The -1 dB cut at 400 Hz prevents this buildup while maintaining warmth.</p></li>
+<li><p><strong>Narrow bandwidths (0.8-0.9)</strong>: The peak frequencies use narrow bandwidths for focused, tight bass. This prevents the boost from bleeding into adjacent frequencies where it’s not wanted.</p></li>
+<li><p><strong>Gradual high-frequency rolloff</strong>: The curve naturally returns to neutral above 1 kHz, preserving the original tonal balance of vocals and instruments.</p></li>
+<li><p><strong>Input gain -8 dB</strong>: This compensation prevents digital clipping from the +8 dB peak at 63 Hz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Complementary EQ</strong>: The bass boost is balanced by mud reduction (400 Hz cut) - <strong>Targeted boost</strong>: Peak frequency chosen based on human perception (chest punch) - <strong>Bandwidth control</strong>: Narrow at peaks for focus, wide at shelves for natural sound - <strong>Gain staging</strong>: Input compensation prevents clipping</p>
+</details>
+<h3 id="usage-tips-1">Usage Tips</h3>
+<p><strong>Best with:</strong> - Bass-capable speakers or headphones - Genres that rely on low-end impact - Movies and games with action sequences - Music that needs more “weight”</p>
+<p><strong>Avoid with:</strong> - Already bass-heavy content (risk of muddiness) - Small speakers that can’t reproduce low frequencies - Audiobooks or podcasts (vocals will sound boomy) - Bass-weak headphones (will sound thin, not punchy)</p>
+<p><strong>Common modifications:</strong> - Want less bass? Reduce bands 2-4 by 2-3 dB - Want deeper bass? Increase band 1 to +6 dB - Too muddy? Increase the cut at band 7 to -2 dB - Want more punch? Increase band 3 to +10 dB</p>
+<hr />
+<h2 id="treble-boost">3. Treble Boost</h2>
+<p><strong>Purpose:</strong> Add brightness, clarity, and air without harshness</p>
+<p><strong>Best for:</strong> - Classical and orchestral music - Acoustic music - Podcasts and audiobooks - Older recordings that sound dull - Small speakers that lack treble</p>
+<p><strong>Band count:</strong> 10</p>
+<h3 id="what-it-does-2">What It Does</h3>
+<p>The Treble Boost preset enhances high frequencies to add brightness, clarity, and “air” to your audio. It focuses on the presence region (2-6 kHz) where clarity and definition live, while using a high shelf to add sparkle and space above 10 kHz.</p>
+<p>The curve is carefully shaped to avoid harshness by using gradual transitions and avoiding excessive boost in the sibilance range (5-8 kHz). A subtle cut at 500 Hz reduces boxiness and prevents the boosted highs from sounding disconnected.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Treble Boost EQ Curve"
+    x-axis "Frequency (Hz)" [80, 200, 500, 1000, 1600, 2500, 4000, 6300, 10000, 16000]
+    y-axis "Gain (dB)" -2 --> 7
+    line [0, 0, -1, 0, 2, 4, 6, 5, 4, 3]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>80 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>2</td>
+<td>200 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>3</td>
+<td>500 Hz</td>
+<td>-1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce boxiness</td>
+</tr>
+<tr>
+<td>4</td>
+<td>1000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>5</td>
+<td>1600 Hz</td>
+<td>+2 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Presence start</td>
+</tr>
+<tr>
+<td>6</td>
+<td>2500 Hz</td>
+<td>+4 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Clarity</td>
+</tr>
+<tr>
+<td>7</td>
+<td>4000 Hz</td>
+<td>+6 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td><strong>Presence (peak)</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td>6300 Hz</td>
+<td>+5 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Brilliance</td>
+</tr>
+<tr>
+<td>9</td>
+<td>10000 Hz</td>
+<td>+4 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>10</td>
+<td>16000 Hz</td>
+<td>+3 dB</td>
+<td>1.3</td>
+<td>High Shelf</td>
+<td>Sparkle</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Peak at 4 kHz</strong>: This is the primary presence frequency where clarity and definition live. It’s high enough to add brightness but not so high as to cause harshness.</p></li>
+<li><p><strong>High shelf at 16 kHz</strong>: Adds air and sparkle above the audible presence region. The wide bandwidth (1.3) creates a smooth, natural transition that sounds like “opening up” the sound rather than a harsh treble boost.</p></li>
+<li><p><strong>Gradual approach</strong>: The boost starts gently at 1.6 kHz (+2 dB) and builds to the peak at 4 kHz. This prevents the treble from sounding disconnected or artificial.</p></li>
+<li><p><strong>Cut at 500 Hz</strong>: A subtle -1 dB cut reduces boxiness and prevents the low-mids from competing with the boosted highs. This creates better separation and clarity.</p></li>
+<li><p><strong>Narrow bandwidths at peaks (0.8-0.9)</strong>: The presence frequencies use narrow bandwidths for focused clarity without affecting adjacent frequencies.</p></li>
+<li><p><strong>Input gain -6 dB</strong>: Compensation prevents clipping from the +6 dB peak at 4 kHz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Presence peak</strong>: 4 kHz is the sweet spot for clarity without harshness - <strong>Complementary EQ</strong>: Low-mid cut (500 Hz) balances high boost - <strong>Gradual transitions</strong>: Prevents harsh, artificial sound - <strong>Shelf for air</strong>: High shelf creates natural sparkle</p>
+</details>
+<h3 id="usage-tips-2">Usage Tips</h3>
+<p><strong>Best with:</strong> - Classical and acoustic music - Podcasts and audiobooks - Older recordings that sound “dull” - Small speakers or earbuds - Music that needs more “life”</p>
+<p><strong>Avoid with:</strong> - Already bright or harsh content - Recordings with excessive sibilance - Low-quality MP3s (will reveal artifacts) - Bright headphones (risk of harshness)</p>
+<p><strong>Common modifications:</strong> - Too bright? Reduce bands 7-8 by 2-3 dB - Want more air? Increase band 10 to +5 dB - Too harsh? Reduce band 8 to +3 dB - Need more warmth? Increase band 2 to +2 dB</p>
+<hr />
+<h2 id="vocal-presence">4. Vocal Presence</h2>
+<p><strong>Purpose:</strong> Make vocals cut through clearly with enhanced intelligibility</p>
+<p><strong>Best for:</strong> - Podcasts and audiobooks - Voice calls and video conferencing - Vocal-heavy music - Dialogue in movies - Any content where speech clarity matters</p>
+<p><strong>Band count:</strong> 14</p>
+<h3 id="what-it-does-3">What It Does</h3>
+<p>The Vocal Presence preset is designed to make speech and vocals clear, present, and easy to understand. It uses a high-pass filter to remove low-frequency rumble, surgical cuts in the low-mids to reduce boominess, and precise boosts in the presence frequencies (1-4 kHz) where vocal clarity lives.</p>
+<p>This is the most surgical of all presets, using 14 bands with narrow bandwidths to precisely shape the frequency response for optimal speech intelligibility.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Vocal Presence EQ Curve"
+    x-axis "Frequency (Hz)" [50, 80, 125, 200, 315, 500, 800, 1250, 2000, 3150, 5000, 8000, 12000, 16000]
+    y-axis "Gain (dB)" -9 --> 7
+    line [-8, -6, -4, -2, 0, 1, 3, 5, 6, 5, 3, 2, 1, 0]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>50 Hz</td>
+<td>-8 dB</td>
+<td>1.5</td>
+<td>High Pass</td>
+<td>Remove rumble</td>
+</tr>
+<tr>
+<td>2</td>
+<td>80 Hz</td>
+<td>-6 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce boom</td>
+</tr>
+<tr>
+<td>3</td>
+<td>125 Hz</td>
+<td>-4 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce mud</td>
+</tr>
+<tr>
+<td>4</td>
+<td>200 Hz</td>
+<td>-2 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Reduce boxiness</td>
+</tr>
+<tr>
+<td>5</td>
+<td>315 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral (body)</td>
+</tr>
+<tr>
+<td>6</td>
+<td>500 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Warmth</td>
+</tr>
+<tr>
+<td>7</td>
+<td>800 Hz</td>
+<td>+3 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td>Presence start</td>
+</tr>
+<tr>
+<td>8</td>
+<td>1250 Hz</td>
+<td>+5 dB</td>
+<td>0.7</td>
+<td>Parametric</td>
+<td>Presence</td>
+</tr>
+<tr>
+<td>9</td>
+<td>2000 Hz</td>
+<td>+6 dB</td>
+<td>0.7</td>
+<td>Parametric</td>
+<td><strong>Clarity (peak)</strong></td>
+</tr>
+<tr>
+<td>10</td>
+<td>3150 Hz</td>
+<td>+5 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td>Definition</td>
+</tr>
+<tr>
+<td>11</td>
+<td>5000 Hz</td>
+<td>+3 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Cut-through</td>
+</tr>
+<tr>
+<td>12</td>
+<td>8000 Hz</td>
+<td>+2 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>13</td>
+<td>12000 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Sparkle</td>
+</tr>
+<tr>
+<td>14</td>
+<td>16000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>High-pass filter at 50 Hz</strong>: Removes sub-bass rumble and handling noise that can make vocals sound muddy. The wide bandwidth (1.5) creates a gentle slope.</p></li>
+<li><p><strong>Surgical low-mid cuts (80-200 Hz)</strong>: These frequencies cause “boom” and “mud” in vocals. The progressive cuts (-6, -4, -2 dB) create a natural high-pass shape without sounding thin.</p></li>
+<li><p><strong>Peak at 2 kHz</strong>: This is the primary vocal presence frequency. It’s where the human ear is most sensitive to speech, and where vocals “cut through” a mix.</p></li>
+<li><p><strong>Narrow bandwidths (0.7-0.8)</strong>: The presence frequencies use very narrow bandwidths for surgical precision. This boosts exactly what’s needed without affecting adjacent frequencies.</p></li>
+<li><p><strong>Gentle high-frequency rolloff</strong>: Above 5 kHz, the boost gradually decreases to avoid harshness and sibilance while still adding air and sparkle.</p></li>
+<li><p><strong>Input gain -6 dB</strong>: Compensation prevents clipping from the +6 dB peak at 2 kHz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>High-pass filtering</strong>: Essential for clean vocals - <strong>Presence peak</strong>: 2 kHz is the vocal clarity frequency - <strong>Surgical EQ</strong>: Narrow bandwidths for precise control - <strong>Balanced curve</strong>: Cuts and boosts complement each other - <strong>Sibilance control</strong>: Gentle rolloff above 5 kHz</p>
+</details>
+<h3 id="usage-tips-3">Usage Tips</h3>
+<p><strong>Best with:</strong> - Podcasts and audiobooks - Voice calls and video conferencing - Dialogue-heavy content - Vocal-heavy music - Any content where speech clarity is critical</p>
+<p><strong>Avoid with:</strong> - Bass-heavy music (will sound thin) - Electronic music (removes the “weight”) - Content with significant low-frequency effects - Music where bass instruments are important</p>
+<p><strong>Common modifications:</strong> - Too thin? Reduce the cuts at bands 2-3 - Need more warmth? Increase band 6 to +2 dB - Too harsh? Reduce band 9 to +4 dB - Sibilance issues? Reduce band 11 to +1 dB</p>
+<hr />
+<h2 id="loudness">5. Loudness</h2>
+<p><strong>Purpose:</strong> Compensate for human hearing sensitivity at low volumes</p>
+<p><strong>Best for:</strong> - Night listening at low volumes - Quiet environments - Background music - Any low-volume listening scenario</p>
+<p><strong>Band count:</strong> 10</p>
+<h3 id="what-it-does-4">What It Does</h3>
+<p>The Loudness preset implements the classic “Fletcher-Munson” compensation curve. Human ears are less sensitive to bass and treble at low volumes, so this preset boosts both ends of the frequency spectrum to restore the perceived balance.</p>
+<p>The result is a “smile curve” (boosted lows and highs) that makes low-volume listening sound more natural and full, rather than thin and mid-heavy.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Loudness EQ Curve"
+    x-axis "Frequency (Hz)" [32, 50, 80, 125, 200, 500, 1000, 2500, 6300, 12000]
+    y-axis "Gain (dB)" -1 --> 9
+    line [6, 8, 6, 3, 1, 0, 0, 2, 4, 5]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>32 Hz</td>
+<td>+6 dB</td>
+<td>1.4</td>
+<td>Low Shelf</td>
+<td>Deep bass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>50 Hz</td>
+<td>+8 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td><strong>Bass (peak)</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>80 Hz</td>
+<td>+6 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Upper bass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>125 Hz</td>
+<td>+3 dB</td>
+<td>1.2</td>
+<td>Parametric</td>
+<td>Transition</td>
+</tr>
+<tr>
+<td>5</td>
+<td>200 Hz</td>
+<td>+1 dB</td>
+<td>1.3</td>
+<td>Parametric</td>
+<td>Gentle rolloff</td>
+</tr>
+<tr>
+<td>6</td>
+<td>500 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>7</td>
+<td>1000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>8</td>
+<td>2500 Hz</td>
+<td>+2 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Presence start</td>
+</tr>
+<tr>
+<td>9</td>
+<td>6300 Hz</td>
+<td>+4 dB</td>
+<td>1.2</td>
+<td>Parametric</td>
+<td>Brilliance</td>
+</tr>
+<tr>
+<td>10</td>
+<td>12000 Hz</td>
+<td>+5 dB</td>
+<td>1.4</td>
+<td>High Shelf</td>
+<td><strong>Air (peak)</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Fletcher-Munson principle</strong>: At low volumes, human ears are less sensitive to frequencies below 500 Hz and above 4 kHz. This curve compensates for that natural hearing curve.</p></li>
+<li><p><strong>Bass peak at 50 Hz</strong>: The primary bass boost targets the frequency where low-volume sensitivity loss is most pronounced. This restores the “weight” and “punch” that disappears at low volumes.</p></li>
+<li><p><strong>High shelf at 12 kHz</strong>: Adds air and brilliance that’s lost at low volumes. The wide bandwidth (1.4) creates a smooth, natural transition.</p></li>
+<li><p><strong>Wide bandwidths (1.2-1.4)</strong>: The curve uses wide bandwidths for smooth, musical transitions. This sounds more natural than surgical boosts.</p></li>
+<li><p><strong>Neutral mids</strong>: The midrange (500-1000 Hz) is left untouched because human hearing is most sensitive in this range, even at low volumes.</p></li>
+<li><p><strong>Input gain -8 dB</strong>: Compensation prevents clipping from the +8 dB peak at 50 Hz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Fletcher-Munson curve</strong>: Based on 1933 research on human hearing sensitivity - <strong>Equal-loudness contours</strong>: The curve follows the natural shape of human hearing - <strong>Smile curve</strong>: Classic loudness EQ shape (boosted lows and highs) - <strong>Wide bandwidths</strong>: Musical, natural-sounding compensation</p>
+</details>
+<h3 id="usage-tips-4">Usage Tips</h3>
+<p><strong>Best with:</strong> - Low-volume listening (night mode) - Quiet environments (office, library) - Background music - Small speakers at low volumes - Any scenario where you can’t turn up the volume</p>
+<p><strong>Avoid with:</strong> - Normal or loud volumes (will sound boomy and harsh) - Already bass-heavy or bright content - High-quality monitoring at normal volumes</p>
+<p><strong>Common modifications:</strong> - Too much bass? Reduce bands 2-3 by 2-3 dB - Too bright? Reduce band 10 to +3 dB - Need more presence? Increase band 8 to +3 dB - For very low volumes, increase all boosts by 2-3 dB</p>
+<hr />
+<h2 id="acoustic">6. Acoustic</h2>
+<p><strong>Purpose:</strong> Warm, natural sound for acoustic instruments and vocals</p>
+<p><strong>Best for:</strong> - Acoustic guitar and piano - Singer-songwriter music - Folk and country - Unplugged performances - Any acoustic or organic music</p>
+<p><strong>Band count:</strong> 11</p>
+<h3 id="what-it-does-5">What It Does</h3>
+<p>The Acoustic preset creates a warm, natural tone that enhances the organic character of acoustic instruments. It adds warmth in the low-mids, a subtle scoop in the midrange for clarity, and gentle presence in the upper-mids for definition.</p>
+<p>The curve uses wide bandwidths and shelf filters to create smooth, musical transitions that sound natural rather than processed.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Acoustic EQ Curve"
+    x-axis "Frequency (Hz)" [50, 80, 125, 200, 315, 500, 800, 1250, 2000, 3150, 8000]
+    y-axis "Gain (dB)" -2 --> 4
+    line [3, 2, 1, 0, -1, 0, 1, 2, 3, 2, 1]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>50 Hz</td>
+<td>+3 dB</td>
+<td>1.3</td>
+<td>Low Shelf</td>
+<td>Warmth/body</td>
+</tr>
+<tr>
+<td>2</td>
+<td>80 Hz</td>
+<td>+2 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Acoustic body</td>
+</tr>
+<tr>
+<td>3</td>
+<td>125 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Fullness</td>
+</tr>
+<tr>
+<td>4</td>
+<td>200 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>5</td>
+<td>315 Hz</td>
+<td>-1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Slight scoop</td>
+</tr>
+<tr>
+<td>6</td>
+<td>500 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>7</td>
+<td>800 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Natural presence</td>
+</tr>
+<tr>
+<td>8</td>
+<td>1250 Hz</td>
+<td>+2 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Clarity</td>
+</tr>
+<tr>
+<td>9</td>
+<td>2000 Hz</td>
+<td>+3 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td><strong>Definition (peak)</strong></td>
+</tr>
+<tr>
+<td>10</td>
+<td>3150 Hz</td>
+<td>+2 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Sparkle</td>
+</tr>
+<tr>
+<td>11</td>
+<td>8000 Hz</td>
+<td>+1 dB</td>
+<td>1.2</td>
+<td>High Shelf</td>
+<td>Air</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Low shelf at 50 Hz</strong>: Adds warmth and body to acoustic instruments. The wide bandwidth (1.3) creates a natural, gradual transition.</p></li>
+<li><p><strong>Mid scoop at 315 Hz</strong>: A subtle -1 dB cut creates the characteristic “acoustic scoop” that gives clarity and separation. This prevents the low-mids from building up and sounding muddy.</p></li>
+<li><p><strong>Peak at 2 kHz</strong>: This is the definition frequency for acoustic instruments—where the “pluck” of a guitar string or the “attack” of a piano key lives.</p></li>
+<li><p><strong>Wide bandwidths (1.0-1.3)</strong>: The curve uses wide bandwidths for smooth, musical transitions. This sounds more natural than surgical EQ.</p></li>
+<li><p><strong>High shelf at 8 kHz</strong>: Adds gentle air and sparkle without harshness. The wide bandwidth creates a smooth, natural top end.</p></li>
+<li><p><strong>Input gain -3 dB</strong>: Compensation prevents clipping from the +3 dB warmth boost.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Warmth without mud</strong>: Low shelf adds body, mid scoop prevents buildup - <strong>Natural transitions</strong>: Wide bandwidths for organic sound - <strong>Presence peak</strong>: 2 kHz for acoustic definition - <strong>Gentle air</strong>: High shelf for natural sparkle</p>
+</details>
+<h3 id="usage-tips-5">Usage Tips</h3>
+<p><strong>Best with:</strong> - Acoustic guitar and piano - Singer-songwriter music - Folk, country, and Americana - Unplugged and live recordings - Any organic, natural music</p>
+<p><strong>Avoid with:</strong> - Electronic and synthesized music - Heavy rock and metal - Bass-heavy genres - Music that needs aggressive character</p>
+<p><strong>Common modifications:</strong> - Want more warmth? Increase band 1 to +5 dB - Too muddy? Increase the cut at band 5 to -2 dB - Need more clarity? Increase band 9 to +5 dB - Want more air? Increase band 11 to +3 dB</p>
+<hr />
+<h2 id="rock">7. Rock</h2>
+<p><strong>Purpose:</strong> Aggressive, punchy sound with scooped mids</p>
+<p><strong>Best for:</strong> - Classic rock and hard rock - Metal and heavy music - Alternative and punk - Any aggressive guitar-driven music</p>
+<p><strong>Band count:</strong> 12</p>
+<h3 id="what-it-does-6">What It Does</h3>
+<p>The Rock preset creates the classic “V-shaped” or “scooped mid” EQ curve that’s characteristic of rock and metal music. It boosts the lows for punch and weight, cuts the midrange for clarity and aggression, and boosts the highs for bite and edge.</p>
+<p>This curve mimics the natural EQ curve of high-gain guitar amplifiers and creates the aggressive, in-your-face sound that rock music is known for.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Rock EQ Curve"
+    x-axis "Frequency (Hz)" [40, 80, 125, 250, 500, 1000, 1600, 2500, 4000, 6300, 10000, 14000]
+    y-axis "Gain (dB)" -5 --> 7
+    line [4, 6, 4, 1, -2, -4, -3, 0, 3, 5, 4, 2]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>40 Hz</td>
+<td>+4 dB</td>
+<td>1.1</td>
+<td>Low Shelf</td>
+<td>Sub-bass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>80 Hz</td>
+<td>+6 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td><strong>Punch</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>125 Hz</td>
+<td>+4 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Body</td>
+</tr>
+<tr>
+<td>4</td>
+<td>250 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Transition</td>
+</tr>
+<tr>
+<td>5</td>
+<td>500 Hz</td>
+<td>-2 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Scoop start</td>
+</tr>
+<tr>
+<td>6</td>
+<td>1000 Hz</td>
+<td>-4 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td><strong>Mid scoop</strong></td>
+</tr>
+<tr>
+<td>7</td>
+<td>1600 Hz</td>
+<td>-3 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Scoop</td>
+</tr>
+<tr>
+<td>8</td>
+<td>2500 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>9</td>
+<td>4000 Hz</td>
+<td>+3 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Aggression</td>
+</tr>
+<tr>
+<td>10</td>
+<td>6300 Hz</td>
+<td>+5 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td><strong>Bite</strong></td>
+</tr>
+<tr>
+<td>11</td>
+<td>10000 Hz</td>
+<td>+4 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>12</td>
+<td>14000 Hz</td>
+<td>+2 dB</td>
+<td>1.1</td>
+<td>High Shelf</td>
+<td>Sparkle</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>V-shaped curve</strong>: The classic rock EQ shape—boosted lows and highs, scooped mids. This creates the aggressive, powerful sound that rock music is known for.</p></li>
+<li><p><strong>Bass punch at 80 Hz</strong>: The primary low-end boost targets the punch frequency. This gives drums and bass guitar the impact they need in rock music.</p></li>
+<li><p><strong>Mid scoop (1-1.6 kHz)</strong>: The -4 dB cut at 1 kHz creates the “scooped” sound that makes guitars sound aggressive and drums sound powerful. This is the signature of rock EQ.</p></li>
+<li><p><strong>High-frequency bite (6.3 kHz)</strong>: The +5 dB boost adds the “bite” and “edge” that distorted guitars need to cut through the mix.</p></li>
+<li><p><strong>Narrow bandwidths (0.9)</strong>: The scoop and peak frequencies use narrow bandwidths for focused, surgical control.</p></li>
+<li><p><strong>Input gain -6 dB</strong>: Compensation prevents clipping from the +6 dB peaks at 80 Hz and 6.3 kHz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>V-shaped EQ</strong>: Classic rock curve (boosted lows/highs, scooped mids) - <strong>Punch frequency</strong>: 80 Hz for drum and bass impact - <strong>Mid scoop</strong>: Creates aggression and power - <strong>Bite frequency</strong>: 6.3 kHz for guitar edge</p>
+</details>
+<h3 id="usage-tips-6">Usage Tips</h3>
+<p><strong>Best with:</strong> - Classic rock and hard rock - Metal and heavy music - Alternative and punk - Guitar-driven music - Aggressive, powerful content</p>
+<p><strong>Avoid with:</strong> - Jazz and classical - Acoustic music - Electronic music (use Electronic preset instead) - Music that needs warmth and smoothness</p>
+<p><strong>Common modifications:</strong> - Want more aggression? Increase the mid scoop to -6 dB - Too scooped? Reduce the cuts at bands 6-7 - Need more punch? Increase band 2 to +8 dB - Too harsh? Reduce band 10 to +3 dB</p>
+<hr />
+<h2 id="electronic">8. Electronic</h2>
+<p><strong>Purpose:</strong> Tight bass and bright highs for modern electronic music</p>
+<p><strong>Best for:</strong> - EDM and techno - House and trance - Dubstep and bass music - Any electronic dance music</p>
+<p><strong>Band count:</strong> 13</p>
+<h3 id="what-it-does-7">What It Does</h3>
+<p>The Electronic preset is designed for modern electronic music, with very tight, focused bass and bright, present highs. It uses surgical EQ with narrow bandwidths to create the precise, controlled sound that electronic music demands.</p>
+<p>The curve emphasizes the “drop” frequencies (50-80 Hz) for bass impact and the “presence” frequencies (3-5 kHz) for clarity and energy.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Electronic EQ Curve"
+    x-axis "Frequency (Hz)" [30, 50, 80, 125, 200, 400, 800, 1600, 3150, 5000, 8000, 12000, 16000]
+    y-axis "Gain (dB)" -2 --> 8
+    line [4, 7, 5, 2, -1, -1, 0, 1, 3, 5, 4, 3, 2]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>30 Hz</td>
+<td>+4 dB</td>
+<td>1.0</td>
+<td>Low Shelf</td>
+<td>Sub-bass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>50 Hz</td>
+<td>+7 dB</td>
+<td>0.7</td>
+<td>Parametric</td>
+<td><strong>Tight bass (peak)</strong></td>
+</tr>
+<tr>
+<td>3</td>
+<td>80 Hz</td>
+<td>+5 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td>Bass punch</td>
+</tr>
+<tr>
+<td>4</td>
+<td>125 Hz</td>
+<td>+2 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Body</td>
+</tr>
+<tr>
+<td>5</td>
+<td>200 Hz</td>
+<td>-1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce mud</td>
+</tr>
+<tr>
+<td>6</td>
+<td>400 Hz</td>
+<td>-1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce mud</td>
+</tr>
+<tr>
+<td>7</td>
+<td>800 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>8</td>
+<td>1600 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Presence</td>
+</tr>
+<tr>
+<td>9</td>
+<td>3150 Hz</td>
+<td>+3 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td>Clarity</td>
+</tr>
+<tr>
+<td>10</td>
+<td>5000 Hz</td>
+<td>+5 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td><strong>Bright (peak)</strong></td>
+</tr>
+<tr>
+<td>11</td>
+<td>8000 Hz</td>
+<td>+4 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>12</td>
+<td>12000 Hz</td>
+<td>+3 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Sparkle</td>
+</tr>
+<tr>
+<td>13</td>
+<td>16000 Hz</td>
+<td>+2 dB</td>
+<td>1.2</td>
+<td>High Shelf</td>
+<td>Top end</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Very tight bass (50 Hz)</strong>: The +7 dB boost with narrow bandwidth (0.7) creates focused, punchy bass that’s essential for electronic music. This is the “drop” frequency.</p></li>
+<li><p><strong>Sub-bass shelf (30 Hz)</strong>: Adds the sub-bass rumble that you feel in your chest at clubs and festivals.</p></li>
+<li><p><strong>Mud reduction (200-400 Hz)</strong>: Cuts in the low-mids prevent bass buildup from bleeding into the midrange, keeping the bass tight and controlled.</p></li>
+<li><p><strong>Presence peak (5 kHz)</strong>: The +5 dB boost adds the energy and brightness that electronic music needs to sound exciting and present.</p></li>
+<li><p><strong>Very narrow bandwidths (0.7-0.8)</strong>: The peak frequencies use very narrow bandwidths for surgical precision. This is critical for electronic music where precision matters.</p></li>
+<li><p><strong>Input gain -7 dB</strong>: Compensation prevents clipping from the +7 dB peak at 50 Hz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Surgical bass</strong>: Narrow bandwidth for tight, controlled low end - <strong>Drop frequency</strong>: 50 Hz is the EDM bass sweet spot - <strong>Mud control</strong>: Low-mid cuts keep bass focused - <strong>Energy peak</strong>: 5 kHz for electronic music brightness - <strong>Precision EQ</strong>: Narrow bandwidths for surgical control</p>
+</details>
+<h3 id="usage-tips-7">Usage Tips</h3>
+<p><strong>Best with:</strong> - EDM and techno - House and trance - Dubstep and bass music - Electronic dance music - Club and festival music</p>
+<p><strong>Avoid with:</strong> - Acoustic music - Jazz and classical - Rock (use Rock preset instead) - Music that needs warmth and smoothness</p>
+<p><strong>Common modifications:</strong> - Want more bass? Increase band 2 to +9 dB - Too bright? Reduce band 10 to +3 dB - Need more sub? Increase band 1 to +6 dB - Bass too tight? Increase bandwidth at band 2 to 1.0</p>
+<hr />
+<h2 id="jazz">9. Jazz</h2>
+<p><strong>Purpose:</strong> Warm, smooth sound for classic jazz</p>
+<p><strong>Best for:</strong> - Classic and modern jazz - Blues and soul - R&amp;B and funk - Any music that needs warmth and smoothness</p>
+<p><strong>Band count:</strong> 10</p>
+<h3 id="what-it-does-8">What It Does</h3>
+<p>The Jazz preset creates a warm, smooth tone that’s perfect for jazz and related genres. It emphasizes the warm frequencies (125-500 Hz) while keeping the highs smooth and gentle rather than bright and harsh.</p>
+<p>The curve uses wide bandwidths and subtle adjustments to create a natural, organic sound that enhances the warmth and richness of jazz recordings.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Jazz EQ Curve"
+    x-axis "Frequency (Hz)" [63, 125, 250, 500, 1000, 2000, 3150, 5000, 8000, 12000]
+    y-axis "Gain (dB)" -2 --> 3
+    line [2, 2, 1, 2, 1, 0, 1, 1, 0, -1]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>63 Hz</td>
+<td>+2 dB</td>
+<td>1.2</td>
+<td>Low Shelf</td>
+<td>Warmth</td>
+</tr>
+<tr>
+<td>2</td>
+<td>125 Hz</td>
+<td>+2 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Body</td>
+</tr>
+<tr>
+<td>3</td>
+<td>250 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Fullness</td>
+</tr>
+<tr>
+<td>4</td>
+<td>500 Hz</td>
+<td>+2 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td><strong>Warmth (peak)</strong></td>
+</tr>
+<tr>
+<td>5</td>
+<td>1000 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Presence</td>
+</tr>
+<tr>
+<td>6</td>
+<td>2000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>7</td>
+<td>3150 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Smooth presence</td>
+</tr>
+<tr>
+<td>8</td>
+<td>5000 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>9</td>
+<td>8000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>10</td>
+<td>12000 Hz</td>
+<td>-1 dB</td>
+<td>1.2</td>
+<td>High Shelf</td>
+<td>Smooth top</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Warmth peak at 500 Hz</strong>: The +2 dB boost in the low-mids adds the warmth and richness that’s characteristic of jazz recordings. This is where the “body” of many jazz instruments lives.</p></li>
+<li><p><strong>Low shelf at 63 Hz</strong>: Adds subtle warmth and fullness to the low end without making it boomy.</p></li>
+<li><p><strong>Smooth highs</strong>: The gentle -1 dB high shelf at 12 kHz rolls off the extreme highs for a smoother, less harsh sound. This is characteristic of vintage jazz recordings.</p></li>
+<li><p><strong>Wide bandwidths (1.0-1.2)</strong>: The curve uses wide bandwidths for smooth, musical transitions. This sounds more natural and organic than surgical EQ.</p></li>
+<li><p><strong>Subtle adjustments</strong>: All adjustments are small (±1-2 dB) to maintain the natural character of the music while enhancing warmth.</p></li>
+<li><p><strong>Input gain -2 dB</strong>: Compensation prevents clipping from the +2 dB warmth boost.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Warmth emphasis</strong>: Low-mid boost for jazz character - <strong>Smooth highs</strong>: Gentle rolloff for vintage sound - <strong>Wide bandwidths</strong>: Musical, natural transitions - <strong>Subtle adjustments</strong>: Enhance without changing character</p>
+</details>
+<h3 id="usage-tips-8">Usage Tips</h3>
+<p><strong>Best with:</strong> - Classic and modern jazz - Blues and soul - R&amp;B and funk - Any music that needs warmth - Vintage recordings</p>
+<p><strong>Avoid with:</strong> - Electronic music - Rock and metal - Music that needs brightness and edge - Modern pop and hip-hop</p>
+<p><strong>Common modifications:</strong> - Want more warmth? Increase band 4 to +4 dB - Too warm? Reduce bands 2-4 by 1 dB - Need more presence? Increase band 7 to +2 dB - Want vintage sound? Increase the cut at band 10 to -2 dB</p>
+<hr />
+<h2 id="podcast">10. Podcast</h2>
+<p><strong>Purpose:</strong> Optimised for spoken word content</p>
+<p><strong>Best for:</strong> - Podcasts - Audiobooks - Voice calls and video conferencing - Any speech-only content</p>
+<p><strong>Band count:</strong> 12</p>
+<h3 id="what-it-does-9">What It Does</h3>
+<p>The Podcast preset is specifically designed for spoken word content. It uses an aggressive high-pass filter to remove rumble, surgical cuts in the low-mids to reduce boominess, precise boosts in the presence frequencies for clarity, and a subtle cut in the sibilance range to reduce harsh “s” sounds.</p>
+<p>This is the most speech-optimised preset, focusing entirely on intelligibility and clarity.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Podcast EQ Curve"
+    x-axis "Frequency (Hz)" [60, 100, 180, 300, 600, 1000, 2000, 4000, 6000, 8000, 10000, 14000]
+    y-axis "Gain (dB)" -11 --> 6
+    line [-10, -6, -3, 0, 1, 3, 5, 4, -1, 0, 1, 0]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>60 Hz</td>
+<td>-10 dB</td>
+<td>1.5</td>
+<td>High Pass</td>
+<td>Remove rumble</td>
+</tr>
+<tr>
+<td>2</td>
+<td>100 Hz</td>
+<td>-6 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce boom</td>
+</tr>
+<tr>
+<td>3</td>
+<td>180 Hz</td>
+<td>-3 dB</td>
+<td>0.9</td>
+<td>Parametric</td>
+<td>Reduce mud</td>
+</tr>
+<tr>
+<td>4</td>
+<td>300 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral (body)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>600 Hz</td>
+<td>+1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Warmth</td>
+</tr>
+<tr>
+<td>6</td>
+<td>1000 Hz</td>
+<td>+3 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td>Presence</td>
+</tr>
+<tr>
+<td>7</td>
+<td>2000 Hz</td>
+<td>+5 dB</td>
+<td>0.7</td>
+<td>Parametric</td>
+<td><strong>Clarity (peak)</strong></td>
+</tr>
+<tr>
+<td>8</td>
+<td>4000 Hz</td>
+<td>+4 dB</td>
+<td>0.8</td>
+<td>Parametric</td>
+<td>Definition</td>
+</tr>
+<tr>
+<td>9</td>
+<td>6000 Hz</td>
+<td>-1 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Reduce sibilance</td>
+</tr>
+<tr>
+<td>10</td>
+<td>8000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>11</td>
+<td>10000 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>12</td>
+<td>14000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Aggressive high-pass (60 Hz)</strong>: The -10 dB cut with wide bandwidth (1.5) removes rumble, handling noise, and room tone that can make speech sound muddy and unprofessional.</p></li>
+<li><p><strong>Low-mid cuts (100-180 Hz)</strong>: These frequencies cause “boom” in male voices. The progressive cuts create a natural high-pass shape.</p></li>
+<li><p><strong>Presence peak at 2 kHz</strong>: The +5 dB boost at the primary vocal presence frequency makes speech cut through clearly. This is where the human ear is most sensitive to speech.</p></li>
+<li><p><strong>Sibilance reduction (6 kHz)</strong>: The -1 dB cut reduces harsh “s” and “sh” sounds without making speech sound dull. This is critical for comfortable listening.</p></li>
+<li><p><strong>Narrow bandwidths (0.7-0.8)</strong>: The presence frequencies use narrow bandwidths for surgical precision.</p></li>
+<li><p><strong>Input gain -5 dB</strong>: Compensation prevents clipping from the +5 dB peak at 2 kHz.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>High-pass filtering</strong>: Essential for clean speech - <strong>Presence boost</strong>: 2 kHz for vocal clarity - <strong>Sibilance control</strong>: Cut at 6 kHz for comfort - <strong>Surgical EQ</strong>: Narrow bandwidths for precision - <strong>Balanced curve</strong>: Cuts and boosts complement each other</p>
+</details>
+<h3 id="usage-tips-9">Usage Tips</h3>
+<p><strong>Best with:</strong> - Podcasts and audiobooks - Voice calls and video conferencing - Speech-only content - Dialogue in videos - Any content where speech clarity is critical</p>
+<p><strong>Avoid with:</strong> - Music (will sound thin) - Content with significant low-frequency effects - Bass-heavy content - Music where instruments matter</p>
+<p><strong>Common modifications:</strong> - Too thin? Reduce the cuts at bands 1-2 - Sibilance issues? Increase the cut at band 9 to -2 dB - Need more warmth? Increase band 5 to +2 dB - Too harsh? Reduce band 7 to +3 dB</p>
+<hr />
+<h2 id="classical">11. Classical</h2>
+<p><strong>Purpose:</strong> Neutral, refined sound for orchestral music</p>
+<p><strong>Best for:</strong> - Orchestral and symphonic music - Chamber music - Solo classical instruments - Opera and choral music</p>
+<p><strong>Band count:</strong> 9</p>
+<h3 id="what-it-does-10">What It Does</h3>
+<p>The Classical preset provides a very neutral, refined response that’s perfect for classical music. It makes only the subtlest adjustments—a touch of warmth in the lows and a gentle smoothness in the highs—to enhance the natural beauty of acoustic instruments without colouring the sound.</p>
+<p>This is the most neutral preset after Flat, designed to preserve the authentic character of classical recordings.</p>
+<details>
+<summary>
+🔧 Technical Breakdown (click to expand)
+</summary>
+<p><strong>EQ Curve Visualization:</strong></p>
+<pre class="mermaid">---
+config:
+    xyChart:
+        width: 600
+        height: 300
+---
+xychart-beta
+    title "Classical EQ Curve"
+    x-axis "Frequency (Hz)" [50, 125, 315, 800, 2000, 5000, 8000, 12000, 16000]
+    y-axis "Gain (dB)" -2 --> 2
+    line [1, 1, 0, 0, 0, 1, 1, 0, -1]</pre>
+<p><strong>Band-by-Band Breakdown:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Freq</th>
+<th>Gain</th>
+<th>BW</th>
+<th>Filter</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>50 Hz</td>
+<td>+1 dB</td>
+<td>1.3</td>
+<td>Low Shelf</td>
+<td>Slight warmth</td>
+</tr>
+<tr>
+<td>2</td>
+<td>125 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Body</td>
+</tr>
+<tr>
+<td>3</td>
+<td>315 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>4</td>
+<td>800 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>5</td>
+<td>2000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>6</td>
+<td>5000 Hz</td>
+<td>+1 dB</td>
+<td>1.1</td>
+<td>Parametric</td>
+<td>Slight presence</td>
+</tr>
+<tr>
+<td>7</td>
+<td>8000 Hz</td>
+<td>+1 dB</td>
+<td>1.2</td>
+<td>Parametric</td>
+<td>Air</td>
+</tr>
+<tr>
+<td>8</td>
+<td>12000 Hz</td>
+<td>0 dB</td>
+<td>1.0</td>
+<td>Parametric</td>
+<td>Neutral</td>
+</tr>
+<tr>
+<td>9</td>
+<td>16000 Hz</td>
+<td>-1 dB</td>
+<td>1.2</td>
+<td>High Shelf</td>
+<td>Smooth top</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why This Curve Works:</strong></p>
+<ol type="1">
+<li><p><strong>Minimal adjustments</strong>: All adjustments are ±1 dB or less, preserving the natural character of classical recordings.</p></li>
+<li><p><strong>Slight warmth (50-125 Hz)</strong>: The +1 dB low shelf adds subtle warmth and fullness without colouring the sound. This enhances the natural resonance of acoustic instruments.</p></li>
+<li><p><strong>Neutral mids</strong>: The midrange (315-2000 Hz) is left completely untouched. This is where most classical instruments have their fundamental frequencies, and any adjustment would colour the sound.</p></li>
+<li><p><strong>Gentle air (5-8 kHz)</strong>: The +1 dB boosts add subtle air and presence without making the sound bright or harsh.</p></li>
+<li><p><strong>Smooth top (16 kHz)</strong>: The -1 dB high shelf rolls off the extreme highs for a smoother, more refined sound. This mimics the natural rolloff of acoustic instruments and concert halls.</p></li>
+<li><p><strong>Wide bandwidths (1.1-1.3)</strong>: The curve uses wide bandwidths for smooth, natural transitions.</p></li>
+<li><p><strong>Input gain -1 dB</strong>: Compensation prevents clipping from the +1 dB gentle boost.</p></li>
+</ol>
+<p><strong>Audio Engineering Principles:</strong> - <strong>Minimal intervention</strong>: Preserve natural character - <strong>Subtle warmth</strong>: Enhance without colouring - <strong>Neutral mids</strong>: Don’t alter fundamental frequencies - <strong>Smooth highs</strong>: Refined, not bright - <strong>Wide bandwidths</strong>: Natural transitions</p>
+</details>
+<h3 id="usage-tips-10">Usage Tips</h3>
+<p><strong>Best with:</strong> - Orchestral and symphonic music - Chamber music and solo instruments - Opera and choral music - Any acoustic classical recording - High-quality audio systems</p>
+<p><strong>Avoid with:</strong> - Bass-heavy genres - Electronic music - Rock and pop - Music that needs enhancement</p>
+<p><strong>Common modifications:</strong> - Want more warmth? Increase band 1 to +2 dB - Too bright? Increase the cut at band 9 to -2 dB - Need more presence? Increase band 6 to +2 dB - For very neutral sound, use Flat preset instead</p>
+<hr />
+<h2 id="frequency-range-reference">Frequency Range Reference</h2>
+<h3 id="instrument-frequency-chart">Instrument Frequency Chart</h3>
+<table>
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 22%" />
+<col style="width: 18%" />
+<col style="width: 19%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Instrument</th>
+<th>Fundamental Range</th>
+<th>Key Harmonics</th>
+<th>EQ Sweet Spots</th>
+<th>Problem Frequencies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Kick Drum</strong></td>
+<td>60-100 Hz</td>
+<td>1-3 kHz</td>
+<td>Punch: 80 Hz, Click: 2-3 kHz</td>
+<td>Mud: 200-400 Hz</td>
+</tr>
+<tr>
+<td><strong>Snare Drum</strong></td>
+<td>150-250 Hz</td>
+<td>3-5 kHz</td>
+<td>Body: 200 Hz, Crisp: 5 kHz</td>
+<td>Boxiness: 400-800 Hz</td>
+</tr>
+<tr>
+<td><strong>Bass Guitar</strong></td>
+<td>80-250 Hz</td>
+<td>700 Hz-1.5 kHz</td>
+<td>Growl: 700 Hz, Punch: 100 Hz</td>
+<td>Mud: 200-300 Hz</td>
+</tr>
+<tr>
+<td><strong>Electric Guitar</strong></td>
+<td>100-400 Hz</td>
+<td>1.5-4 kHz</td>
+<td>Body: 200 Hz, Presence: 3 kHz</td>
+<td>Mud: 200-400 Hz, Harsh: 4-6 kHz</td>
+</tr>
+<tr>
+<td><strong>Acoustic Guitar</strong></td>
+<td>100-400 Hz</td>
+<td>2-5 kHz</td>
+<td>Warmth: 200 Hz, Sparkle: 3-5 kHz</td>
+<td>Boom: 200 Hz, Harsh: 2-3 kHz</td>
+</tr>
+<tr>
+<td><strong>Piano</strong></td>
+<td>80 Hz-4 kHz</td>
+<td>5-12 kHz</td>
+<td>Body: 200-400 Hz, Presence: 2-5 kHz</td>
+<td>Mud: 200-400 Hz</td>
+</tr>
+<tr>
+<td><strong>Violin</strong></td>
+<td>200 Hz-2 kHz</td>
+<td>3-10 kHz</td>
+<td>Body: 400 Hz, Brilliance: 5-8 kHz</td>
+<td>Nasal: 1-2 kHz</td>
+</tr>
+<tr>
+<td><strong>Cello</strong></td>
+<td>65-500 Hz</td>
+<td>1-5 kHz</td>
+<td>Warmth: 200-300 Hz, Presence: 2-3 kHz</td>
+<td>Mud: 200-400 Hz</td>
+</tr>
+<tr>
+<td><strong>Flute</strong></td>
+<td>250-2.5 kHz</td>
+<td>3-8 kHz</td>
+<td>Body: 500-800 Hz, Air: 5-8 kHz</td>
+<td>Harsh: 2-3 kHz</td>
+</tr>
+<tr>
+<td><strong>Saxophone</strong></td>
+<td>125-800 Hz</td>
+<td>2-6 kHz</td>
+<td>Body: 200-400 Hz, Edge: 2-3 kHz</td>
+<td>Harsh: 3-5 kHz</td>
+</tr>
+<tr>
+<td><strong>Trumpet</strong></td>
+<td>150-1 kHz</td>
+<td>2-8 kHz</td>
+<td>Body: 300-500 Hz, Brilliance: 5-8 kHz</td>
+<td>Harsh: 3-5 kHz</td>
+</tr>
+<tr>
+<td><strong>Male Vocals</strong></td>
+<td>100-400 Hz</td>
+<td>1-8 kHz</td>
+<td>Warmth: 200 Hz, Presence: 2-4 kHz</td>
+<td>Mud: 200-300 Hz, Sibilance: 5-8 kHz</td>
+</tr>
+<tr>
+<td><strong>Female Vocals</strong></td>
+<td>200-800 Hz</td>
+<td>1.5-10 kHz</td>
+<td>Body: 300-500 Hz, Presence: 2-5 kHz</td>
+<td>Boxiness: 500-800 Hz, Sibilance: 5-8 kHz</td>
+</tr>
+<tr>
+<td><strong>Synthesizer</strong></td>
+<td>30 Hz-10 kHz</td>
+<td>Varies</td>
+<td>Sub: 40-80 Hz, Presence: 2-5 kHz</td>
+<td>Mud: 200-400 Hz</td>
+</tr>
+<tr>
+<td><strong>Orchestra</strong></td>
+<td>30 Hz-15 kHz</td>
+<td>Full spectrum</td>
+<td>Warmth: 100-300 Hz, Air: 8-12 kHz</td>
+<td>Mud: 200-400 Hz</td>
+</tr>
+</tbody>
+</table>
+<h3 id="frequency-range-quick-guide">Frequency Range Quick Guide</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 22%" />
+<col style="width: 18%" />
+<col style="width: 22%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Range</th>
+<th>Frequencies</th>
+<th>Character</th>
+<th>Instruments</th>
+<th>Common Issues</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sub-bass</strong></td>
+<td>20-60 Hz</td>
+<td>Rumble, power, felt</td>
+<td>Kick drum, synth bass, pipe organ</td>
+<td>Speaker distortion, inaudible on small speakers</td>
+</tr>
+<tr>
+<td><strong>Bass</strong></td>
+<td>60-250 Hz</td>
+<td>Punch, warmth, foundation</td>
+<td>Bass guitar, kick, piano left hand</td>
+<td>Boominess, mud if excessive</td>
+</tr>
+<tr>
+<td><strong>Low-mids</strong></td>
+<td>250-500 Hz</td>
+<td>Body, fullness</td>
+<td>Guitar, piano, vocals</td>
+<td>Mud, boxiness, buildup</td>
+</tr>
+<tr>
+<td><strong>Mids</strong></td>
+<td>500-2000 Hz</td>
+<td>Presence, intelligibility</td>
+<td>Vocals, most instruments</td>
+<td>Nasal quality, honk</td>
+</tr>
+<tr>
+<td><strong>Upper-mids</strong></td>
+<td>2000-6000 Hz</td>
+<td>Clarity, definition, edge</td>
+<td>Vocal presence, guitar attack</td>
+<td>Harshness, sibilance, fatigue</td>
+</tr>
+<tr>
+<td><strong>Highs</strong></td>
+<td>6000-12000 Hz</td>
+<td>Air, brilliance, sparkle</td>
+<td>Cymbals, strings, vocals</td>
+<td>Harshness, brightness</td>
+</tr>
+<tr>
+<td><strong>Extreme highs</strong></td>
+<td>12000-20000 Hz</td>
+<td>Air, shimmer, space</td>
+<td>Overtones, room ambience</td>
+<td>Mostly felt, can cause fatigue</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="glossary-of-audio-terms">Glossary of Audio Terms</h2>
+<p><strong>Bandwidth</strong>: The range of frequencies affected by an EQ band, measured in octaves. Narrow bandwidth (0.7-0.9) = precise, surgical control. Wide bandwidth (1.1-1.5) = smooth, musical sound.</p>
+<p><strong>Boominess</strong>: Excessive low-mid frequencies (200-400 Hz) that make sound muddy and unclear. Often caused by room acoustics or excessive bass boost.</p>
+<p><strong>Boxiness</strong>: A hollow, “boxy” sound caused by excessive frequencies around 400-800 Hz. Common in small rooms or poorly recorded audio.</p>
+<p><strong>Clipping</strong>: Digital distortion that occurs when audio levels exceed 0 dB. Prevented by reducing input gain when boosting frequencies.</p>
+<p><strong>Complementary EQ</strong>: Technique where boosts in one frequency range are balanced by cuts in another. Used to prevent frequency buildup.</p>
+<p><strong>Fletcher-Munson Curve</strong>: Scientific principle that human ears are less sensitive to bass and treble at low volumes. The “Loudness” preset compensates for this.</p>
+<p><strong>Fundamental Frequency</strong>: The lowest frequency of a sound, which determines its pitch. For example, A4 on a piano has a fundamental of 440 Hz.</p>
+<p><strong>Harmonics</strong>: Frequencies above the fundamental that give instruments their unique tone. Also called overtones.</p>
+<p><strong>High-Pass Filter</strong>: EQ that removes frequencies below a cutoff point. Used to clean up rumble and low-frequency noise. Also called “low-cut.”</p>
+<p><strong>High Shelf</strong>: EQ that boosts or cuts all frequencies above a certain point, with a gradual transition. Used for broad treble adjustments.</p>
+<p><strong>Low Shelf</strong>: EQ that boosts or cuts all frequencies below a certain point, with a gradual transition. Used for broad bass adjustments.</p>
+<p><strong>Mud</strong>: Boomy, unclear sound typically caused by excessive buildup in the 200-400 Hz range. The most common EQ problem.</p>
+<p><strong>Nasal</strong>: A honking, “nose-like” quality caused by excessive frequencies around 800-1500 Hz.</p>
+<p><strong>Octave</strong>: A doubling of frequency. For example, 100 Hz to 200 Hz is one octave. Bandwidth is measured in octaves.</p>
+<p><strong>Parametric EQ</strong>: The most versatile EQ type, allowing control of frequency, gain, and bandwidth independently.</p>
+<p><strong>Presence</strong>: The quality that makes sounds “cut through” a mix. Typically associated with frequencies around 2-4 kHz for vocals.</p>
+<p><strong>Q Factor</strong>: Technical measure of bandwidth. Higher Q = narrower bandwidth. Q = centre frequency ÷ bandwidth (in Hz).</p>
+<p><strong>Resonance</strong>: A peak in frequency response, often unwanted. Can cause harshness or “ringing” in audio.</p>
+<p><strong>Sibilance</strong>: Harsh “s” and “sh” sounds in vocals, typically around 5-8 kHz. Can be reduced with careful EQ.</p>
+<p><strong>Shelf EQ</strong>: EQ that creates gradual transitions above (high shelf) or below (low shelf) a frequency point. More natural-sounding than parametric for broad adjustments.</p>
+<p><strong>Surgical EQ</strong>: Precise, narrow-bandwidth EQ used to target specific problem frequencies. Opposite of “broad” or “musical” EQ.</p>
+<p><strong>Warmth</strong>: A pleasant, full sound associated with boosted low-mids (100-300 Hz). Opposite of “thin” or “bright.”</p>
+<hr />
+<h2 id="customization-tips">Customization Tips</h2>
+<h3 id="common-adjustments">Common Adjustments</h3>
+<p><strong>“I want more bass”</strong> - Start with Bass Boost preset - Increase bands 2-4 (40-100 Hz) by 2-3 dB - If muddy, increase cut at band 7 (400 Hz) to -2 dB</p>
+<p><strong>“I want more clarity”</strong> - Start with Treble Boost or Vocal Presence preset - Increase bands around 2-4 kHz by 2-3 dB - If harsh, reduce boost at 5-8 kHz</p>
+<p><strong>“The sound is too muddy”</strong> - Cut frequencies around 200-400 Hz by 2-4 dB - Use narrow bandwidth (0.8-0.9) for surgical control - Consider high-pass filter at 80-100 Hz</p>
+<p><strong>“The sound is too harsh”</strong> - Cut frequencies around 4-6 kHz by 2-3 dB - Use narrow bandwidth (0.8) to target harshness - Check for sibilance at 5-8 kHz</p>
+<p><strong>“Vocals aren’t clear enough”</strong> - Start with Vocal Presence or Podcast preset - Boost around 2-3 kHz by 2-4 dB - Cut low-mids (200-400 Hz) by 2-3 dB - Add high-pass filter at 80-100 Hz</p>
+<p><strong>“I want more warmth”</strong> - Boost frequencies around 100-300 Hz by 2-3 dB - Use wide bandwidth (1.2-1.4) for natural sound - Start with Jazz or Acoustic preset</p>
+<h3 id="when-to-modify-vs.-create-new">When to Modify vs. Create New</h3>
+<p><strong>Modify existing preset when:</strong> - You like the overall character but want small tweaks - The preset is 80% right for your needs - You’re making temporary adjustments for specific content</p>
+<p><strong>Create new preset when:</strong> - No existing preset matches your needs - You want a completely different character - You’re building a signature sound for regular use</p>
+<h3 id="best-practices">Best Practices</h3>
+<ol type="1">
+<li><strong>Start subtle</strong>: Make small adjustments (1-2 dB) first</li>
+<li><strong>Use bypass</strong>: Compare with the original sound frequently</li>
+<li><strong>Trust your ears</strong>: If it sounds good, it is good</li>
+<li><strong>Consider the source</strong>: Different content needs different EQ</li>
+<li><strong>Avoid solo</strong>: EQ in context of the full mix, not isolated</li>
+<li><strong>Less is more</strong>: Small, precise adjustments often work better than large, broad ones</li>
+</ol>
+<hr />
+<h2 id="conclusion">Conclusion</h2>
+<p>The 11 factory presets in Equaliser are designed to cover a wide range of listening scenarios and musical genres. Each preset is carefully crafted using audio engineering principles to achieve its specific goal.</p>
+<p>Remember: - <strong>Flat</strong> is your neutral reference point - <strong>Bass/Treble Boost</strong> for general tonal shaping - <strong>Vocal Presence/Podcast</strong> for speech clarity - <strong>Loudness</strong> for low-volume listening - <strong>Genre presets</strong> (Rock, Electronic, Jazz, Classical, Acoustic) for specific music styles</p>
+<p>Don’t be afraid to modify presets to suit your personal taste or specific content. The best EQ is the one that sounds good to your ears in your listening environment.</p>
+<p>Happy listening!</p>
+<hr />
+<p><em>Document version: 1.0</em> <em>Last updated: March 2026</em></p>
+
+    </main>
+
+    <footer>
+        <p>
+            <a href="../index.html">Equaliser</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser">GitHub Repository</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser/blob/main/LICENSE">GPL-3.0 License</a>
+        </p>
+    </footer>
+</body>
+</html>

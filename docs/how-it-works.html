@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How It Works - Equaliser Documentation</title>
+    <meta name="description" content="A detailed explanation of how Equaliser processes audio on your Mac, including the virtual audio driver, capture methods, parametric EQ engine, and privacy considerations.">
+    <link rel="canonical" href="https://equaliser.knage.net/docs/how-it-works.html">
+    <link rel="stylesheet" href="../style.css?864152a">
+    <link rel="icon" href="../assets/AppIcon.svg?864152a" type="image/svg+xml">
+</head>
+<body>
+    <nav class="site-nav">
+        <div class="nav-links">
+            <a href="../index.html">Equaliser</a>
+            <a href="../docs.html">Documentation</a>
+        </div>
+    </nav>
+
+    <main class="docs-content">
+<h1 id="how-it-works">How It Works</h1>
+<p>A detailed explanation of how Equaliser processes audio on your Mac.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Equaliser provides <strong>system-wide audio equalisation</strong> for your Mac. This means every app — Spotify, Safari, Games, FaceTime — has its audio processed through the equaliser before reaching your speakers or headphones.</p>
+<p>Achieving system-wide EQ on macOS requires a special approach. Unlike individual apps that only process their own audio, Equaliser needs to intercept <strong>all</strong> audio playing on your system. This is accomplished using a <strong>virtual audio driver</strong>.</p>
+<hr />
+<h2 id="the-audio-pipeline">The Audio Pipeline</h2>
+<p>When Equaliser is running, audio flows through this pipeline:</p>
+<pre><code>┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  Your Apps      │     │  Equaliser       │     │  Equaliser      │     │  Output Device  │
+│  (Spotify, etc.)│ ──▶ │  Driver          │ ──▶ │  App (EQ)       │ ──▶ │  (Speakers/     │
+│                 │     │  (Virtual Device)│     │  (Processing)   │     │   Headphones)   │
+└─────────────────┘     └──────────────────┘     └─────────────────┘     └─────────────────┘</code></pre>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 66%" />
+</colgroup>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What Happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Your Apps</strong></td>
+<td>Any app playing audio on your Mac</td>
+</tr>
+<tr>
+<td><strong>Equaliser Driver</strong></td>
+<td>A virtual device that captures system audio before it reaches hardware</td>
+</tr>
+<tr>
+<td><strong>Equaliser App</strong></td>
+<td>Applies EQ processing, gain adjustments, and effects</td>
+</tr>
+<tr>
+<td><strong>Output Device</strong></td>
+<td>Your actual speakers, headphones, or external audio interface</td>
+</tr>
+</tbody>
+</table>
+<h3 id="how-macos-sees-it">How macOS Sees It</h3>
+<p>macOS treats the Equaliser Driver as a real audio device. When you set it as your system default output:</p>
+<ol type="1">
+<li>All apps send their audio to the driver</li>
+<li>The driver passes audio to Equaliser for processing</li>
+<li>Equaliser sends the processed audio to your chosen output</li>
+</ol>
+<hr />
+<h2 id="the-virtual-audio-driver">The Virtual Audio Driver</h2>
+<h3 id="what-is-it">What Is It?</h3>
+<p>The <strong>Equaliser Driver</strong> is a virtual audio device that installs into macOS's audio system. It appears alongside your real audio devices (built-in speakers, headphones, etc.) but has no physical hardware — it exists purely to capture audio for processing.</p>
+<h3 id="why-is-it-needed">Why Is It Needed?</h3>
+<p>macOS doesn't allow apps to intercept each other's audio. Each app can only access its own audio stream. The virtual driver solves this by becoming the system-wide output device, creating a common point where all audio converges.</p>
+<h3 id="installation">Installation</h3>
+<p>The driver requires <strong>admin privileges</strong> to install. When you first enable Equaliser:</p>
+<ol type="1">
+<li>macOS prompts for your password</li>
+<li>The driver installs to <code>/Library/Audio/Plug-Ins/HAL/Equaliser.driver</code></li>
+<li>Equaliser appears as an available audio device</li>
+</ol>
+<p><strong>Uninstallation</strong>: The driver can be removed from Settings → Driver → Uninstall Driver. This requires admin privileges again.</p>
+<h3 id="automatic-updates">Automatic Updates</h3>
+<p>Equaliser checks the bundled driver version against the installed version. If a newer version is included with the app, you'll be prompted to update.</p>
+<hr />
+<h2 id="audio-routing-modes">Audio Routing Modes</h2>
+<p>Equaliser offers two modes for handling audio devices.</p>
+<h3 id="automatic-mode-recommended">Automatic Mode (Recommended)</h3>
+<p>The simplest way to use Equaliser. Set it once and forget about it.</p>
+<table>
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Output Selection</strong></td>
+<td>Follows your macOS Sound settings automatically</td>
+</tr>
+<tr>
+<td><strong>Driver Naming</strong></td>
+<td>Shows the output device name (e.g., "Speakers (Equaliser)")</td>
+</tr>
+<tr>
+<td><strong>Device Changes</strong></td>
+<td>Instantly follows when you change macOS default output</td>
+</tr>
+<tr>
+<td><strong>Headphones</strong></td>
+<td>Auto-switches to headphones when plugged in</td>
+</tr>
+</tbody>
+</table>
+<p><strong>How it works:</strong></p>
+<ol type="1">
+<li>Set the Equaliser Driver as your default output device (Equaliser does this automatically)</li>
+<li>Change your output device in macOS Sound settings</li>
+<li>Equaliser detects the change and routes audio accordingly</li>
+</ol>
+<h3 id="manual-mode">Manual Mode</h3>
+<p>For advanced users who want complete control over device selection.</p>
+<table>
+<colgroup>
+<col style="width: 45%" />
+<col style="width: 55%" />
+</colgroup>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Input Device</strong></td>
+<td>Choose any audio input (virtual or real)</td>
+</tr>
+<tr>
+<td><strong>Output Device</strong></td>
+<td>Choose any audio output device</td>
+</tr>
+<tr>
+<td><strong>Flexibility</strong></td>
+<td>Works with third-party virtual drivers (BlackHole, etc.)</td>
+</tr>
+<tr>
+<td><strong>Permission</strong></td>
+<td>Requires microphone permission</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Use Manual Mode when:</strong></p>
+<ul>
+<li>You want to use a different virtual audio driver as input</li>
+<li>You need to route audio from a specific application</li>
+<li>You're doing advanced audio routing with multiple virtual devices</li>
+</ul>
+<hr />
+<h2 id="capture-methods">Capture Methods</h2>
+<p>Equaliser supports two methods for capturing audio from the driver.</p>
+<h3 id="shared-memory-default">Shared Memory (Default)</h3>
+<p>The default and recommended capture method.</p>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Method</strong></td>
+<td>Lock-free ring buffer via memory mapping</td>
+</tr>
+<tr>
+<td><strong>Microphone Permission</strong></td>
+<td><strong>Not required</strong></td>
+</tr>
+<tr>
+<td><strong>Control Center Indicator</strong></td>
+<td>No orange microphone indicator</td>
+</tr>
+<tr>
+<td><strong>Compatibility</strong></td>
+<td>Only works with the Equaliser Driver</td>
+</tr>
+</tbody>
+</table>
+<p>The driver writes audio to shared memory, and Equaliser reads it. No microphone permission needed, no system indicators.</p>
+<h3 id="hal-input">HAL Input</h3>
+<p>An alternative capture method for specific use cases.</p>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Details</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Method</strong></td>
+<td>macOS CoreAudio HAL input stream</td>
+</tr>
+<tr>
+<td><strong>Microphone Permission</strong></td>
+<td><strong>Required</strong></td>
+</tr>
+<tr>
+<td><strong>Control Center Indicator</strong></td>
+<td>Orange microphone indicator shown</td>
+</tr>
+<tr>
+<td><strong>Compatibility</strong></td>
+<td>Works with any input device</td>
+</tr>
+</tbody>
+</table>
+<p><strong>When to use HAL Input:</strong></p>
+<ul>
+<li>Using Manual Mode with a third-party virtual driver</li>
+<li>Capturing from a real input device</li>
+<li>Advanced audio routing setups</li>
+</ul>
+<details>
+<summary>🔧 Technical Details: How Shared Memory Capture Works</summary>
+<p>The shared memory capture uses a <strong>lock-free ring buffer</strong>:</p>
+<ol type="1">
+<li>The driver writes audio samples to a memory-mapped ring buffer</li>
+<li>Equaliser reads from this buffer synchronously during its output callback</li>
+<li>Atomic operations ensure thread safety without locks</li>
+<li>No memory allocation happens on the audio thread</li>
+</ol>
+<p><strong>Why this matters:</strong> - <strong>Real-time safety</strong>: Audio processing must never block or allocate memory - <strong>Low latency</strong>: Direct memory access without system calls - <strong>Privacy</strong>: macOS doesn't consider this "microphone access"</p>
+<p>The ring buffer also handles <strong>clock drift</strong> between the driver and output device. Since the driver and output device may run at slightly different rates, the buffer absorbs timing differences without artefacts.</p>
+</details>
+<details>
+<summary>🔧 Technical Details: HAL Input Capture</summary>
+<p>HAL Input uses macOS's standard audio input mechanism:</p>
+<ol type="1">
+<li>Equaliser opens an input stream on the selected device</li>
+<li>macOS calls a callback with audio buffers</li>
+<li><code>AudioUnitRender</code> pulls audio data from the hardware layer</li>
+</ol>
+<p><strong>Why this requires permission:</strong> macOS treats any input stream as "microphone access" for privacy. Even virtual drivers trigger this requirement.</p>
+<p><strong>The orange indicator:</strong> macOS shows an orange microphone icon in Control Center whenever an app has an open input stream. This is system behaviour and cannot be disabled.</p>
+</details>
+<hr />
+<h2 id="the-equaliser-engine">The Equaliser Engine</h2>
+<h3 id="parametric-eq">Parametric EQ</h3>
+<p>Equaliser provides <strong>up to 64 bands</strong> of parametric equalisation. Each band gives you precise control over:</p>
+<table>
+<colgroup>
+<col style="width: 39%" />
+<col style="width: 60%" />
+</colgroup>
+<thead>
+<tr>
+<th>Control</th>
+<th>What It Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frequency</strong></td>
+<td>The centre frequency to adjust (20 Hz – 20 kHz for standard bands)</td>
+</tr>
+<tr>
+<td><strong>Gain</strong></td>
+<td>How much to boost or cut (-36 dB to +36 dB)</td>
+</tr>
+<tr>
+<td><strong>Bandwidth</strong></td>
+<td>How wide or narrow the adjustment is</td>
+</tr>
+<tr>
+<td><strong>Filter Type</strong></td>
+<td>Parametric, Low Shelf, High Shelf, and more</td>
+</tr>
+</tbody>
+</table>
+<h3 id="standard-band-frequencies">Standard Band Frequencies</h3>
+<p>The default 10-band configuration uses logarithmically-spaced frequencies:</p>
+<table>
+<thead>
+<tr>
+<th>Band</th>
+<th>Frequency</th>
+<th>Range Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>32 Hz</td>
+<td>Sub-bass</td>
+</tr>
+<tr>
+<td>2</td>
+<td>64 Hz</td>
+<td>Deep bass</td>
+</tr>
+<tr>
+<td>3</td>
+<td>128 Hz</td>
+<td>Upper bass</td>
+</tr>
+<tr>
+<td>4</td>
+<td>256 Hz</td>
+<td>Lower mids</td>
+</tr>
+<tr>
+<td>5</td>
+<td>512 Hz</td>
+<td>Mids</td>
+</tr>
+<tr>
+<td>6</td>
+<td>1000 Hz (1 kHz)</td>
+<td>Upper mids</td>
+</tr>
+<tr>
+<td>7</td>
+<td>2000 Hz (2 kHz)</td>
+<td>Presence</td>
+</tr>
+<tr>
+<td>8</td>
+<td>4000 Hz (4 kHz)</td>
+<td>Presence / Brilliance</td>
+</tr>
+<tr>
+<td>9</td>
+<td>8000 Hz (8 kHz)</td>
+<td>Highs</td>
+</tr>
+<tr>
+<td>10</td>
+<td>16000 Hz (16 kHz)</td>
+<td>Air</td>
+</tr>
+</tbody>
+</table>
+<h3 id="gain-controls">Gain Controls</h3>
+<p>In addition to per-band adjustments, Equaliser provides overall gain controls:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 28%" />
+<col style="width: 20%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Control</th>
+<th>Position</th>
+<th>Range</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Input Gain</strong></td>
+<td>Before EQ</td>
+<td>-36 dB to +36 dB</td>
+<td>Adjust level before processing</td>
+</tr>
+<tr>
+<td><strong>Output Gain</strong></td>
+<td>After EQ</td>
+<td>-36 dB to +36 dB</td>
+<td>Compensate for EQ changes</td>
+</tr>
+</tbody>
+</table>
+<h3 id="processing-chain">Processing Chain</h3>
+<p>Audio passes through this sequence:</p>
+<pre><code>[Input Audio] → [Input Gain] → [EQ Bands] → [Output Gain] → [Output Audio]</code></pre>
+<p>When <strong>bypassed</strong> (EQ toggle off), the EQ bands and input/output gains are skipped.</p>
+<h3 id="compare-mode">Compare Mode</h3>
+<p>Compare Mode lets you A/B test your EQ settings against a flat response:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>What You Hear</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Normal</strong></td>
+<td>Your EQ curve</td>
+</tr>
+<tr>
+<td><strong>Compare</strong></td>
+<td>Flat response with matched volume</td>
+</tr>
+</tbody>
+</table>
+<p>The volume matching ensures fair comparison — EQ boosts naturally sound louder, which can bias perception.</p>
+<hr />
+<h2 id="presets">Presets</h2>
+<h3 id="factory-presets">Factory Presets</h3>
+<p>Equaliser includes 11 carefully crafted presets for common use cases:</p>
+<table>
+<thead>
+<tr>
+<th>Preset</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flat</td>
+<td>Reference, testing</td>
+</tr>
+<tr>
+<td>Bass Boost</td>
+<td>Hip-hop, EDM, action movies</td>
+</tr>
+<tr>
+<td>Treble Boost</td>
+<td>Classical, acoustic, podcasts</td>
+</tr>
+<tr>
+<td>Vocal Presence</td>
+<td>Podcasts, voice calls, audiobooks</td>
+</tr>
+<tr>
+<td>Loudness</td>
+<td>Low-volume listening</td>
+</tr>
+<tr>
+<td>Acoustic</td>
+<td>Acoustic music, singer-songwriter</td>
+</tr>
+<tr>
+<td>Rock</td>
+<td>Rock, metal, alternative</td>
+</tr>
+<tr>
+<td>Electronic</td>
+<td>EDM, techno, house</td>
+</tr>
+<tr>
+<td>Jazz</td>
+<td>Jazz, blues, soul</td>
+</tr>
+<tr>
+<td>Podcast</td>
+<td>Speech content</td>
+</tr>
+<tr>
+<td>Classical</td>
+<td>Orchestral, chamber music</td>
+</tr>
+</tbody>
+</table>
+<p>See the <a href="eq-presets-guide.html">EQ Presets Guide</a> for detailed explanations of each preset.</p>
+<h3 id="custom-presets">Custom Presets</h3>
+<p>Create your own presets:</p>
+<ol type="1">
+<li>Adjust your EQ settings</li>
+<li>Click the preset menu → Save As...</li>
+<li>Name your preset</li>
+</ol>
+<p>Custom presets are saved to:</p>
+<pre><code>~/Library/Application Support/Equaliser/Presets/</code></pre>
+<h3 id="import-and-export">Import and Export</h3>
+<ul>
+<li><strong>Export</strong>: Share presets as <code>.eqpreset</code> files</li>
+<li><strong>Import</strong>: Load presets from <code>.eqpreset</code> files</li>
+<li><strong>EasyEffects</strong>: Import presets from Linux EasyEffects (compatible format)</li>
+</ul>
+<hr />
+<h2 id="device-management">Device Management</h2>
+<h3 id="headphone-auto-switch">Headphone Auto-Switch</h3>
+<p>When headphones are connected, Equaliser automatically switches output:</p>
+<table>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Current output is built-in speakers</td>
+<td>Switches to headphones</td>
+</tr>
+<tr>
+<td>Current output is external device</td>
+<td>Keeps current output</td>
+</tr>
+</tbody>
+</table>
+<p>This matches macOS behaviour and prevents audio from unexpectedly playing through speakers.</p>
+<p><strong>How it works:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Detection Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Apple Silicon</td>
+<td>Built-in device count change</td>
+</tr>
+<tr>
+<td>Intel Mac</td>
+<td>Jack connection property</td>
+</tr>
+</tbody>
+</table>
+<p>When headphones are unplugged, Equaliser restores the previous output device from history.</p>
+<h3 id="device-history">Device History</h3>
+<p>Equaliser remembers your output device choices:</p>
+<ul>
+<li>When a device becomes unavailable, Equaliser finds a replacement</li>
+<li>When the device returns, Equaliser can restore your preference</li>
+<li>History is limited to prevent stale device references</li>
+</ul>
+<details>
+<summary>🔧 Technical Details: Device Selection Logic</summary>
+<p>Equaliser uses a prioritised selection algorithm:</p>
+<ol type="1">
+<li><strong>Preserve current</strong>: If your saved device is still available, keep it</li>
+<li><strong>Use macOS default</strong>: If your saved device is gone, use macOS's default</li>
+<li><strong>Find fallback</strong>: If no valid devices exist, use built-in speakers</li>
+</ol>
+<p>This pure function approach avoids calling CoreAudio with potentially-stale UIDs, which can cause crashes on device disconnection.</p>
+</details>
+<hr />
+<h2 id="privacy-permissions">Privacy & Permissions</h2>
+<h3 id="what-equaliser-does-not-do">What Equaliser Does NOT Do</h3>
+<table>
+<thead>
+<tr>
+<th>Not Done</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>❌ Record audio</td>
+<td>No audio is ever saved or stored</td>
+</tr>
+<tr>
+<td>❌ Transmit audio</td>
+<td>No network activity of any kind</td>
+</tr>
+<tr>
+<td>❌ Collect analytics</td>
+<td>No usage tracking</td>
+</tr>
+<tr>
+<td>❌ Phone home</td>
+<td>No background network requests</td>
+</tr>
+</tbody>
+</table>
+<p>All audio processing happens <strong>locally on your Mac</strong>. Equaliser has no network capability.</p>
+<h3 id="microphone-permission">Microphone Permission</h3>
+<p>macOS may request microphone permission when Equaliser launches. Here's why:</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 53%" />
+<col style="width: 12%" />
+</colgroup>
+<thead>
+<tr>
+<th>Capture Mode</th>
+<th>Permission Required?</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shared Memory (default)</strong></td>
+<td>No</td>
+<td>Audio read from memory, not microphone API</td>
+</tr>
+<tr>
+<td><strong>HAL Input</strong></td>
+<td>Yes</td>
+<td>Uses macOS audio input APIs</td>
+</tr>
+<tr>
+<td><strong>Manual Mode</strong></td>
+<td>Yes</td>
+<td>Always requires HAL input</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The permission prompt appears at launch</strong> because macOS detects the audio-input entitlement in the app, even though the default mode doesn't need it. This is macOS behaviour and cannot be controlled.</p>
+<p>If you only use <strong>Automatic Mode with Shared Memory capture</strong>, you can deny the permission — the app will work correctly.</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="no-sound-after-enabling">No Sound After Enabling</h3>
+<ol type="1">
+<li>Check that Equaliser Driver is set as default output in macOS Sound settings</li>
+<li>In Automatic Mode, verify an output device is selected</li>
+<li>Try toggling EQ off and on</li>
+</ol>
+<h3 id="orange-microphone-indicator-appears">Orange Microphone Indicator Appears</h3>
+<p>This happens when using HAL Input capture or Manual Mode. To avoid it:</p>
+<ol type="1">
+<li>Go to Settings → Driver</li>
+<li>Select "Shared Memory" as capture mode</li>
+<li>Ensure you're in Automatic Mode</li>
+</ol>
+<h3 id="driver-installation-fails">Driver Installation Fails</h3>
+<p>Driver installation requires admin privileges. If installation fails:</p>
+<ol type="1">
+<li>Ensure you entered your password correctly</li>
+<li>Check that no other audio apps are blocking the installation</li>
+<li>Try restarting your Mac and installing again</li>
+</ol>
+<h3 id="audio-sounds-distorted">Audio Sounds Distorted</h3>
+<p>Distortion usually indicates:</p>
+<ol type="1">
+<li><strong>Input gain too high</strong>: Reduce Input Gain</li>
+<li><strong>Output gain too high</strong>: Reduce Output Gain</li>
+<li><strong>Excessive band boost</strong>: Reduce individual band gains</li>
+</ol>
+<p>Watch the level meters for clipping indicators (red peaks).</p>
+<hr />
+    </main>
+
+    <footer>
+        <p>
+            <a href="../index.html">Equaliser</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser">GitHub Repository</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser/blob/main/LICENSE">GPL-3.0 License</a>
+        </p>
+    </footer>
+</body>
+</html>

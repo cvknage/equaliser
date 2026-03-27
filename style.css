@@ -1,3 +1,276 @@
+/* Navigation */
+.site-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px 24px;
+    position: sticky;
+    top: 0;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    z-index: 100;
+}
+
+.nav-links {
+    display: flex;
+    gap: 8px;
+}
+
+.nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.nav-links a:hover {
+    color: var(--text);
+    background: var(--glass-border);
+}
+
+.nav-links a.active {
+    color: var(--text);
+    background: var(--glass-border);
+}
+
+/* Documentation Hub */
+.docs-hub {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 24px;
+}
+
+.docs-hub h1 {
+    font-size: 32px;
+    margin-bottom: 16px;
+    color: var(--accent);
+}
+
+.docs-hub p {
+    color: var(--text-muted);
+    margin-bottom: 40px;
+    font-size: 18px;
+}
+
+.docs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+}
+
+.doc-card {
+    display: block;
+    padding: 28px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.doc-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0, 115, 242, 0.2);
+    border-color: rgba(0, 115, 242, 0.3);
+}
+
+.doc-card h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--text);
+}
+
+.doc-card p {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.doc-card .card-arrow {
+    display: inline-block;
+    margin-top: 16px;
+    color: var(--accent);
+    font-size: 14px;
+}
+
+/* Documentation Content */
+.docs-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 24px;
+}
+
+.docs-content h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+    color: var(--accent);
+}
+
+.docs-content h2 {
+    font-size: 24px;
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docs-content h3 {
+    font-size: 18px;
+    margin: 24px 0 12px;
+    color: var(--text);
+}
+
+.docs-content h4 {
+    font-size: 16px;
+    margin: 20px 0 8px;
+    color: var(--text);
+}
+
+.docs-content p {
+    margin: 0 0 16px;
+    line-height: 1.7;
+}
+
+/* Tables */
+.docs-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-size: 14px;
+}
+
+.docs-content th,
+.docs-content td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.docs-content th {
+    background: var(--glass-bg);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.docs-content tr:hover td {
+    background: var(--glass-bg);
+}
+
+/* Collapsible sections */
+.docs-content details {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    margin: 16px 0;
+    overflow: hidden;
+}
+
+.docs-content summary {
+    padding: 16px;
+    cursor: pointer;
+    font-weight: 600;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+}
+
+.docs-content summary::before {
+    content: '▸';
+    transition: transform 0.2s;
+    color: var(--accent);
+}
+
+.docs-content details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.docs-content details > *:not(summary) {
+    padding: 0 16px 16px;
+}
+
+/* Code blocks */
+.docs-content pre {
+    background: var(--bg-dark);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 16px 0;
+}
+
+.docs-content code {
+    font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+    background: var(--glass-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.docs-content pre code {
+    background: transparent;
+    padding: 0;
+}
+
+/* Mermaid diagrams */
+.docs-content .mermaid {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 16px 0;
+    overflow-x: auto;
+}
+
+/* Lists */
+.docs-content ul,
+.docs-content ol {
+    margin: 0 0 16px;
+    padding-left: 24px;
+}
+
+.docs-content li {
+    margin-bottom: 8px;
+}
+
+.docs-content li::marker {
+    color: var(--accent);
+}
+
+.docs-content hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
+    margin: 40px 0;
+}
+
+/* Glossary */
+.docs-content dl {
+    margin: 16px 0;
+}
+
+.docs-content dt {
+    font-weight: 600;
+    margin-top: 16px;
+    color: var(--text);
+}
+
+.docs-content dd {
+    margin-left: 0;
+    padding-left: 16px;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
 :root {
     /* Background from app icon */
     --bg-dark: #18141A;
@@ -433,6 +706,39 @@ footer a:hover {
 
 /* Responsive */
 @media (max-width: 600px) {
+    .site-nav {
+        padding: 12px 16px;
+    }
+
+    .nav-links a {
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+
+    .docs-hub {
+        padding: 40px 16px;
+    }
+
+    .docs-hub h1 {
+        font-size: 24px;
+    }
+
+    .docs-grid {
+        gap: 16px;
+    }
+
+    .doc-card {
+        padding: 20px;
+    }
+
+    .docs-content h1 {
+        font-size: 24px;
+    }
+
+    .docs-content h2 {
+        font-size: 20px;
+    }
+
     h1 {
         font-size: 36px;
     }
