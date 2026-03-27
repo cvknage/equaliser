@@ -357,8 +357,8 @@ body {
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 400px;
-    height: 400px;
+    width: 280px;
+    height: 280px;
     background: radial-gradient(circle, rgba(0, 115, 242, 0.15) 0%, transparent 70%);
     pointer-events: none;
 }
@@ -396,7 +396,6 @@ h1 {
     font-size: 17px;
     font-weight: 600;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    animation: glow 2s ease-in-out infinite;
 }
 
 .download-btn:hover {
