@@ -44,7 +44,7 @@ EQ (equalisation) lets you adjust the volume of different frequency ranges in yo
 **High-Pass Filter** - Removes frequencies below a cutoff point. Used to clean up rumble and unwanted low-frequency noise.
 
 <details>
-<summary>🔧 Technical Details: Filter Types (click to expand)</summary>
+<summary>⚙️ Technical Details: Filter Types (click to expand)</summary>
 
 **Parametric EQ** provides surgical control with three parameters:
 - **Frequency (Hz)**: The centre point of the adjustment
@@ -72,7 +72,7 @@ EQ (equalisation) lets you adjust the volume of different frequency ranges in yo
 - **Wide bandwidth** (1.1-1.5): Musical, smooth adjustment. Affects a broad range, creating natural transitions.
 
 <details>
-<summary>🔧 Technical Details: Bandwidth & Q Factor (click to expand)</summary>
+<summary>⚙️ Technical Details: Bandwidth & Q Factor (click to expand)</summary>
 
 **Bandwidth** is measured in octaves. One octave = doubling of frequency (e.g., 100 Hz to 200 Hz is one octave).
 
@@ -113,7 +113,7 @@ EQ (equalisation) lets you adjust the volume of different frequency ranges in yo
 ```
 
 <details>
-<summary>🔧 Technical Details: Frequency Range Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Details: Frequency Range Breakdown (click to expand)</summary>
 
 **Sub-bass (20-60 Hz)**
 - Felt more than heard
@@ -181,7 +181,7 @@ The Flat preset leaves all frequencies untouched at 0 dB. This gives you the mos
 Use this when you want to hear music or content exactly as it was recorded and mixed, or when you need a neutral starting point for creating your own custom EQ curve.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -258,7 +258,7 @@ The Bass Boost preset enhances low frequencies to give your audio more impact an
 The curve uses a combination of low shelf filters and surgical parametric EQ to create tight, focused bass rather than a broad, muddy boost. A subtle cut in the low-mids (400 Hz) prevents bass buildup from bleeding into the midrange.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -357,7 +357,7 @@ The Treble Boost preset enhances high frequencies to add brightness, clarity, an
 The curve is carefully shaped to avoid harshness by using gradual transitions and avoiding excessive boost in the sibilance range (5-8 kHz). A subtle cut at 500 Hz reduces boxiness and prevents the boosted highs from sounding disconnected.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -455,7 +455,7 @@ The Vocal Presence preset is designed to make speech and vocals clear, present, 
 This is the most surgical of all presets, using 14 bands with narrow bandwidths to precisely shape the frequency response for optimal speech intelligibility.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -557,7 +557,7 @@ The Loudness preset implements the classic "Fletcher-Munson" compensation curve.
 The result is a "smile curve" (boosted lows and highs) that makes low-volume listening sound more natural and full, rather than thin and mid-heavy.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -654,7 +654,7 @@ The Acoustic preset creates a warm, natural tone that enhances the organic chara
 The curve uses wide bandwidths and shelf filters to create smooth, musical transitions that sound natural rather than processed.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -752,7 +752,7 @@ The Rock preset creates the classic "V-shaped" or "scooped mid" EQ curve that's 
 This curve mimics the natural EQ curve of high-gain guitar amplifiers and creates the aggressive, in-your-face sound that rock music is known for.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -851,7 +851,7 @@ The Electronic preset is designed for modern electronic music, with very tight, 
 The curve emphasizes the "drop" frequencies (50-80 Hz) for bass impact and the "presence" frequencies (3-5 kHz) for clarity and energy.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -952,7 +952,7 @@ The Jazz preset creates a warm, smooth tone that's perfect for jazz and related 
 The curve uses wide bandwidths and subtle adjustments to create a natural, organic sound that enhances the warmth and richness of jazz recordings.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -1049,7 +1049,7 @@ The Podcast preset is specifically designed for spoken word content. It uses an 
 This is the most speech-optimised preset, focusing entirely on intelligibility and clarity.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 
@@ -1149,7 +1149,7 @@ The Classical preset provides a very neutral, refined response that's perfect fo
 This is the most neutral preset after Flat, designed to preserve the authentic character of classical recordings.
 
 <details>
-<summary>🔧 Technical Breakdown (click to expand)</summary>
+<summary>⚙️ Technical Breakdown (click to expand)</summary>
 
 **EQ Curve Visualization:**
 

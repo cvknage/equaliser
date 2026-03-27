@@ -142,7 +142,7 @@ An alternative capture method for specific use cases.
 - Advanced audio routing setups
 
 <details>
-<summary>🔧 Technical Details: How Shared Memory Capture Works</summary>
+<summary>⚙️ Technical Details: How Shared Memory Capture Works</summary>
 
 The shared memory capture uses a **lock-free ring buffer**:
 
@@ -161,7 +161,7 @@ The ring buffer also handles **clock drift** between the driver and output devic
 </details>
 
 <details>
-<summary>🔧 Technical Details: HAL Input Capture</summary>
+<summary>⚙️ Technical Details: HAL Input Capture</summary>
 
 HAL Input uses macOS's standard audio input mechanism:
 
@@ -317,7 +317,7 @@ Equaliser remembers your output device choices:
 - History is limited to prevent stale device references
 
 <details>
-<summary>🔧 Technical Details: Device Selection Logic</summary>
+<summary>⚙️ Technical Details: Device Selection Logic</summary>
 
 Equaliser uses a prioritised selection algorithm:
 
