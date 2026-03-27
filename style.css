@@ -611,6 +611,18 @@ h1 {
     max-width: 900px;
 }
 
+.screenshot-grid figure {
+    margin: 0;
+    text-align: center;
+}
+
+.screenshot-grid figcaption {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
 /* Installation Section */
 .installation {
     padding: 80px 24px;
