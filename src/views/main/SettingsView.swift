@@ -32,61 +32,105 @@ struct DisplaySettingsTab: View {
     var body: some View {
         Form {
             Section {
-                HStack {
-                    Spacer()
-                    Picker("Mode", selection: Binding(
-                        get: { store.manualModeEnabled ? Mode.manual : Mode.automatic },
-                        set: { newValue in
-                            switch newValue {
-                            case .automatic:
-                                if !DriverManager.shared.isReady {
-                                    showDriverRequiredAlert = true
-                                    return
-                                }
-                                store.switchToAutomaticMode()
-                            case .manual:
-                                // Manual mode uses HAL input, requires microphone permission
-                                Task {
-                                    let granted = await store.switchToManualMode()
-                                    if !granted {
-                                        showPermissionDeniedAlert = true
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Spacer()
+                        Picker("Mode", selection: Binding(
+                            get: { store.manualModeEnabled ? Mode.manual : Mode.automatic },
+                            set: { newValue in
+                                switch newValue {
+                                case .automatic:
+                                    if !DriverManager.shared.isReady {
+                                        showDriverRequiredAlert = true
+                                        return
+                                    }
+                                    store.switchToAutomaticMode()
+                                case .manual:
+                                    Task {
+                                        let granted = await store.switchToManualMode()
+                                        if !granted {
+                                            showPermissionDeniedAlert = true
+                                        }
                                     }
                                 }
                             }
+                        )) {
+                            Text("Automatic").tag(Mode.automatic)
+                            Text("Manual").tag(Mode.manual)
                         }
-                    )) {
-                        Text("Automatic").tag(Mode.automatic)
-                        Text("Manual").tag(Mode.manual)
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        Spacer()
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    Spacer()
-                }
 
-                if store.manualModeEnabled {
-                    Text("You have full control over input and output device selection. Use this mode when integrating Equaliser into a custom audio chain with other applications, or when you want precise control over audio routing.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Equaliser automatically configures itself based on your output device selection in macOS Sound settings. This is the recommended mode for most users.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Automatic mode (recommended):")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("App manages device selection automatically")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Works with macOS Sound settings")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Manual mode:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("You choose input and output devices")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Requires microphone permission")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             } header: {
                 Text("Device Selection Mode")
             }
 
-            Section("Bandwidth Display") {
-                Picker("Format", selection: $store.bandwidthDisplayMode) {
-                    ForEach(BandwidthDisplayMode.allCases, id: \.self) { mode in
-                        Text(mode.displayName).tag(mode)
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Spacer()
+                        Picker("Format", selection: $store.bandwidthDisplayMode) {
+                            ForEach(BandwidthDisplayMode.allCases, id: \.self) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        Spacer()
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Octaves:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Bandwidth as musical intervals")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Higher = wider frequency range")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Q Factor:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Bandwidth as precision value")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Higher = narrower, more surgical")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(.radioGroup)
-
-                Text("Choose how bandwidth is displayed. \nOctaves: think \"how wide?\" — bigger numbers affect more frequencies. \nQ Factor: think \"how precise?\" — higher values are more surgical.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Bandwidth Display")
             }
         }
         .formStyle(.grouped)
@@ -116,17 +160,83 @@ struct DriverSettingsTab: View {
     @State private var showHALPermissionDeniedAlert = false
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 20) {
-                headerView
-                
-                Divider()
-                
+        Form {
+            Section {
                 contentView
+            } header: {
+                Text("Virtual Audio Driver")
+            }
+            
+            Section {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Spacer()
+                        Picker("Method", selection: Binding(
+                            get: { store.captureMode },
+                            set: { newMode in
+                                if newMode == .halInput {
+                                    Task {
+                                        let granted = await store.requestMicPermissionAndSwitchToHALCapture()
+                                        if !granted {
+                                            await MainActor.run {
+                                                showHALPermissionDeniedAlert = true
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    store.captureMode = newMode
+                                }
+                            }
+                        )) {
+                            Text("Shared Memory").tag(CaptureMode.sharedMemory)
+                            Text("HAL Input").tag(CaptureMode.halInput)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .disabled(store.manualModeEnabled)
+                        .opacity(store.manualModeEnabled ? 0.5 : 1.0)
+                        Spacer()
+                    }
 
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Shared Memory (recommended):")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("No microphone permission required")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("No indicator in Control Center")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("HAL Input:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Requires microphone permission")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Shows microphone indicator")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Capture Mode")
+            } footer: {
+                if store.manualModeEnabled {
+                    Text("Capture mode is not available in manual mode.")
+                }
+            }
+            
+            Section {
                 if driverManager.isInstalling {
-                    ProgressView("Please wait...")
-                        .padding()
+                    HStack {
+                        Spacer()
+                        ProgressView("Please wait...")
+                        Spacer()
+                    }
                 }
                 
                 if let error = driverManager.installError {
@@ -145,11 +255,11 @@ struct DriverSettingsTab: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding()
                 }
             }
-            .padding()
         }
+        .formStyle(.grouped)
+        .padding()
         .alert("Uninstall Driver", isPresented: $showUninstallConfirm) {
             Button("Cancel", role: .cancel) { }
             Button("Uninstall", role: .destructive) {
@@ -177,89 +287,17 @@ struct DriverSettingsTab: View {
     }
     
     @ViewBuilder
-    private var headerView: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "speaker.wave.3.fill")
-                .font(.system(size: 36))
-                .foregroundStyle(Color.accentColor)
-            
-            Text("Virtual Audio Driver")
-                .font(.headline)
-            
-            Text("Equaliser includes a built-in virtual audio driver for routing system audio through the equaliser.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-    
-    @ViewBuilder
     private var contentView: some View {
         switch driverManager.status {
         case .notInstalled:
             notInstalledView
         case .installed(let version):
-            VStack(spacing: 20) {
-                installedView(version: version)
-
-                // Capture mode settings (only in automatic mode)
-                if !store.manualModeEnabled {
-                    Divider()
-                    captureModeSection
-                }
-            }
+            installedView(version: version)
         case .needsUpdate(let current, let bundled):
             needsUpdateView(current: current, bundled: bundled)
         case .error(let message):
             errorView(message: message)
         }
-    }
-
-    @ViewBuilder
-    private var captureModeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Capture Mode")
-                .font(.headline)
-
-            Picker("Method", selection: Binding(
-                get: { store.captureMode },
-                set: { newMode in
-                    if newMode == .halInput {
-                        // Switching to HAL capture - request permission first
-                        Task {
-                            let granted = await store.requestMicPermissionAndSwitchToHALCapture()
-                            if !granted {
-                                // Permission denied - show alert
-                                await MainActor.run {
-                                    showHALPermissionDeniedAlert = true
-                                }
-                            }
-                        }
-                    } else {
-                        // Switching to shared memory - no permission needed
-                        store.captureMode = newMode
-                    }
-                }
-            )) {
-                Text("Shared Memory (no mic indicator)").tag(CaptureMode.sharedMemory)
-                Text("HAL Input (requires permission)").tag(CaptureMode.halInput)
-            }
-            .pickerStyle(.radioGroup)
-
-            if store.captureMode == .sharedMemory {
-                Text("Audio is captured via shared memory. No microphone permission required.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Audio is captured via HAL input. Microphone permission required.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .background(Color.secondary.opacity(0.1))
-        .cornerRadius(8)
     }
     
     private var notInstalledView: some View {
