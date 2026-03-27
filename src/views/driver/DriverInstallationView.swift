@@ -40,7 +40,7 @@ struct DriverInstallationView: View {
             .font(.title)
             .fontWeight(.semibold)
 
-        Text("Equaliser needs a virtual audio driver to process your system's audio. It only runs when Equaliser is active.\n\nWhen macOS asks for microphone permission to 'capture and process audio', this is for real-time audio routing only.\n\nEqualiser does not record, store, or transmit your audio.")
+        Text("Equaliser needs a virtual audio driver to process your system's audio. It only runs when Equaliser is active.")
             .font(.body)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)

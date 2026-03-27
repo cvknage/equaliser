@@ -48,4 +48,9 @@ protocol DriverAccessing: AnyObject {
     /// - Returns: Whether the operation succeeded.
     @discardableResult
     func restoreToBuiltInSpeakers() -> Bool
+
+    /// Checks if the driver supports shared memory capture.
+    /// Returns true if the shared memory path property is implemented by the driver.
+    /// Old driver versions don't support this property.
+    func hasSharedMemoryCapability() -> Bool
 }

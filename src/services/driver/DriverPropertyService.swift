@@ -155,4 +155,34 @@ public final class DriverPropertyService: ObservableObject, DriverPropertyAccess
         logger.info("Driver sample rate set and verified: \(closestRate) Hz (requested: \(targetRate))")
         return closestRate
     }
+
+    // MARK: - Shared Memory Capability
+
+    public func hasSharedMemoryCapability() -> Bool {
+        _ = registry.refreshDeviceID()
+
+        guard let deviceID = registry.deviceID else {
+            logger.debug("hasSharedMemoryCapability: driver device not found")
+            return false
+        }
+
+        var address = DRIVER_ADDRESS_SHARED_MEM_PATH
+        var propertySize: UInt32 = 0
+
+        let status = AudioObjectGetPropertyDataSize(
+            deviceID,
+            &address,
+            0,
+            nil,
+            &propertySize
+        )
+
+        if status == noErr {
+            logger.debug("hasSharedMemoryCapability: driver supports shared memory")
+            return true
+        } else {
+            logger.debug("hasSharedMemoryCapability: driver does not support shared memory (status: \(status))")
+            return false
+        }
+    }
 }

@@ -24,4 +24,9 @@ protocol DriverPropertyAccessing: AnyObject {
     /// - Returns: The actual rate set, or nil on failure.
     @discardableResult
     func setDriverSampleRate(matching targetRate: Float64) -> Float64?
+
+    /// Checks if the driver supports shared memory capture.
+    /// Returns true if the shared memory path property is implemented by the driver.
+    /// Old driver versions don't support this property.
+    func hasSharedMemoryCapability() -> Bool
 }

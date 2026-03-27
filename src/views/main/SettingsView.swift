@@ -1,21 +1,46 @@
 import SwiftUI
 
+/// Tab identifier for Settings window.
+enum SettingsTab: String {
+    case display = "display"
+    case driver = "driver"
+}
+
 struct SettingsView: View {
     @EnvironmentObject var store: EqualiserStore
+    @State private var selectedTab: SettingsTab = .display
+    
+    /// Allows programmatic selection of tab (e.g., to show Driver tab when update required).
+    var initialTab: SettingsTab? {
+        if store.showDriverUpdateRequired {
+            return .driver
+        }
+        return nil
+    }
     
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             DisplaySettingsTab()
                 .tabItem {
                     Label("Display", systemImage: "paintbrush")
                 }
+                .tag(SettingsTab.display)
             
             DriverSettingsTab()
                 .tabItem {
                     Label("Driver", systemImage: "speaker.wave.3")
                 }
+                .tag(SettingsTab.driver)
         }
         .frame(width: 450, height: 400)
+        .onAppear {
+            // Auto-select Driver tab if update required
+            if let initialTab = initialTab {
+                selectedTab = initialTab
+                // Clear the flag so user doesn't get forced back on subsequent opens
+                store.clearDriverUpdateRequired()
+            }
+        }
     }
 }
 
@@ -159,6 +184,11 @@ struct DriverSettingsTab: View {
     @State private var showUninstallConfirm = false
     @State private var showHALPermissionDeniedAlert = false
     
+    /// Whether the driver lacks shared memory capability
+    private var driverNeedsUpdate: Bool {
+        driverManager.isReady && !driverManager.hasSharedMemoryCapability()
+    }
+    
     var body: some View {
         Form {
             Section {
@@ -172,7 +202,7 @@ struct DriverSettingsTab: View {
                     HStack {
                         Spacer()
                         Picker("Method", selection: Binding(
-                            get: { store.captureMode },
+                            get: { store.effectiveCaptureMode },
                             set: { newMode in
                                 if newMode == .halInput {
                                     Task {
@@ -227,6 +257,8 @@ struct DriverSettingsTab: View {
             } footer: {
                 if store.manualModeEnabled {
                     Text("Capture mode is not available in manual mode.")
+                } else if driverNeedsUpdate {
+                    Text("Using HAL Input because your driver version doesn't support shared memory. Update the driver to enable this feature.")
                 }
             }
             
@@ -386,7 +418,8 @@ struct DriverSettingsTab: View {
                     .fontWeight(.semibold)
             }
             
-            Text("A newer version is available. Update to get the latest features and fixes.")
+            // Dynamic message based on version
+            Text(updateMessage(for: current))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -409,6 +442,19 @@ struct DriverSettingsTab: View {
                 }
                 .disabled(driverManager.isInstalling)
             }
+        }
+    }
+    
+    /// Minimum driver version that supports shared memory capture.
+    private static let sharedMemoryMinVersion = "1.1.0"
+    
+    /// Returns the appropriate update message based on the installed version.
+    /// Versions below 1.1.0 don't support shared memory capture.
+    private func updateMessage(for currentVersion: String) -> String {
+        if currentVersion < Self.sharedMemoryMinVersion {
+            return "The current installed version does not support the \"Shared Memory\" capture mode.\nUpdate for improved audio routing without requiring microphone permission."
+        } else {
+            return "A newer version is available. Update to get the latest features and fixes."
         }
     }
     

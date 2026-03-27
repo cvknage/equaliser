@@ -20,6 +20,10 @@ final class AudioRoutingCoordinator: ObservableObject {
     @Published var selectedOutputDeviceID: String?
     @Published var manualModeEnabled: Bool = false
     @Published var showDriverPrompt: Bool = false
+    
+    /// Whether the driver needs updating (supports outdated driver detection).
+    /// Set when driver doesn't support shared memory capture.
+    @Published var showDriverUpdateRequired: Bool = false
 
     /// Capture mode preference for automatic routing.
     /// In automatic mode with the Equaliser driver, this determines how audio is captured.
@@ -331,18 +335,33 @@ final class AudioRoutingCoordinator: ObservableObject {
         routingStatus = .starting
         logger.info("Starting routing: \(inputName) → \(outputName)")
 
-        // Determine capture mode
-        // In automatic mode: use user's capture mode preference
-        // In manual mode: always use HAL input capture
-        let captureMode: CaptureMode
-        if manualModeEnabled {
-            captureMode = .halInput
-        } else {
-            captureMode = self.captureMode
+        // Determine capture mode using policy
+        let preference: CaptureMode = manualModeEnabled ? .halInput : self.captureMode
+        let supportsSharedMemory = driverAccess.hasSharedMemoryCapability()
+        let decision = CaptureModePolicy.determineMode(
+            preference: preference,
+            isManualMode: manualModeEnabled,
+            supportsSharedMemory: supportsSharedMemory
+        )
+
+        let resolvedCaptureMode: CaptureMode
+        switch decision {
+        case .useMode(let mode):
+            resolvedCaptureMode = mode
+        case .fallbackToHALInput:
+            logger.info("Driver does not support shared memory, falling back to HAL input")
+            resolvedCaptureMode = .halInput
+            // Signal to UI that driver needs updating
+            showDriverUpdateRequired = true
+        }
+
+        // Clear driver update flag when using shared memory successfully
+        if resolvedCaptureMode == .sharedMemory {
+            showDriverUpdateRequired = false
         }
 
         // Validate shared memory capture requirements
-        if captureMode == .sharedMemory {
+        if resolvedCaptureMode == .sharedMemory {
             guard inputUID == DRIVER_DEVICE_UID else {
                 routingStatus = .error("Shared memory capture requires Equaliser driver")
                 logger.error("Shared memory capture requires driver as input")
@@ -355,14 +374,23 @@ final class AudioRoutingCoordinator: ObservableObject {
             }
         }
 
+        // HAL input requires microphone permission
+        if resolvedCaptureMode == .halInput {
+            let permission = AVAudioApplication.shared.recordPermission
+            guard permission == .granted else {
+                requestPermissionAndRetryRouting()
+                return
+            }
+        }
+
         let pipeline = RenderPipeline(eqConfiguration: eqConfiguration)
 
-        let registry: DriverDeviceRegistry? = captureMode == .sharedMemory ? driverAccess.deviceRegistry : nil
+        let registry: DriverDeviceRegistry? = resolvedCaptureMode == .sharedMemory ? driverAccess.deviceRegistry : nil
 
         switch pipeline.configure(
             inputDeviceID: inputDeviceID,
             outputDeviceID: outputDeviceID,
-            captureMode: captureMode,
+            captureMode: resolvedCaptureMode,
             driverRegistry: registry
         ) {
         case .success:
@@ -388,7 +416,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             // regardless of macOS volume, so boost is not applied.
             if !manualModeEnabled, let driverID = driverAccess.deviceID {
                 volumeManager = VolumeManager(volumeService: volumeService)
-                if captureMode == .halInput {
+                if resolvedCaptureMode == .halInput {
                     volumeManager?.onBoostGainChanged = { [weak self] boostGain in
                         self?.renderPipeline?.updateBoostGain(linear: boostGain)
                     }
@@ -401,7 +429,30 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.error("Pipeline start failed: \(error.localizedDescription)")
         }
     }
-    
+
+    /// Requests microphone permission and retries routing.
+    /// Called when HAL input capture is needed and microphone permission hasn't been granted.
+    private func requestPermissionAndRetryRouting() {
+        routingStatus = .starting  // Show loading state while requesting permission
+
+        Task { @MainActor in
+            let granted = await withCheckedContinuation { continuation in
+                AVAudioApplication.requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
+            }
+
+            if granted {
+                logger.info("Microphone permission granted")
+                // Retry routing - permission now granted, HAL input will work
+                reconfigureRouting()
+            } else {
+                logger.warning("Microphone permission denied")
+                routingStatus = .error("Microphone permission required for audio routing")
+            }
+        }
+    }
+
     /// Stops the current audio routing and restores system defaults (automatic mode only).
     func stopRouting() {
         logger.info("stopRouting called, manualMode=\(self.manualModeEnabled)")

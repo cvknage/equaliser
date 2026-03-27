@@ -125,6 +125,21 @@ final class EqualiserStore: ObservableObject {
             }
         }
     }
+    
+    /// The capture mode currently in use (may differ from preference when driver doesn't support shared memory).
+    /// Returns `halInput` when driver doesn't support shared memory or in fallback mode.
+    var effectiveCaptureMode: CaptureMode {
+        // In manual mode, always HAL input
+        if routingCoordinator.manualModeEnabled {
+            return .halInput
+        }
+        // Check if driver supports shared memory capability
+        if DriverManager.shared.isReady && !DriverManager.shared.hasSharedMemoryCapability() {
+            return .halInput
+        }
+        // Otherwise show the preference
+        return routingCoordinator.captureMode
+    }
 
     /// Requests microphone permission and switches to HAL capture mode.
     /// Returns true if permission was granted, false otherwise.
@@ -149,6 +164,16 @@ final class EqualiserStore: ObservableObject {
     var showDriverPrompt: Bool {
         get { routingCoordinator.showDriverPrompt }
         set { routingCoordinator.showDriverPrompt = newValue }
+    }
+    
+    /// Whether the driver needs updating (missing shared memory support).
+    var showDriverUpdateRequired: Bool {
+        routingCoordinator.showDriverUpdateRequired
+    }
+    
+    /// Clears the driver update required flag (after user visits Settings).
+    func clearDriverUpdateRequired() {
+        routingCoordinator.showDriverUpdateRequired = false
     }
     
     var inputDevices: [AudioDevice] { deviceManager.inputDevices }

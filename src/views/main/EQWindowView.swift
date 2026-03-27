@@ -14,6 +14,11 @@ struct EQWindowView: View {
     private var needsDriverInstallation: Bool {
         !driverManager.isReady && !store.routingCoordinator.manualModeEnabled
     }
+    
+    /// Whether the driver needs updating (outdated version).
+    private var needsDriverUpdate: Bool {
+        store.showDriverUpdateRequired && !store.routingCoordinator.manualModeEnabled
+    }
 
     /// View model for routing status.
     private var routingViewModel: RoutingViewModel {
@@ -222,8 +227,17 @@ struct EQWindowView: View {
         .onChange(of: needsDriverInstallation) { _, newValue in
             showDriverSheet = newValue
         }
+        .onChange(of: needsDriverUpdate) { _, newValue in
+            if newValue {
+                // Open Settings to Driver tab when driver needs updating
+                openSettings()
+            }
+        }
         .onAppear {
             showDriverSheet = needsDriverInstallation
+            if needsDriverUpdate {
+                openSettings()
+            }
         }
     }
 }

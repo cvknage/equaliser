@@ -28,3 +28,12 @@ enum CaptureMode: Int, Codable, CaseIterable, Sendable {
         }
     }
 }
+
+/// Result of capture mode determination.
+/// Indicates which mode to use and whether permission is needed.
+enum CaptureModeDecision: Equatable {
+    /// Use this capture mode directly (no permission check needed for this step).
+    case useMode(CaptureMode)
+    /// Shared memory unavailable - fall back to HAL input (requires mic permission).
+    case fallbackToHALInput
+}

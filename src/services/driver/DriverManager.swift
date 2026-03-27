@@ -126,7 +126,11 @@ public final class DriverManager: ObservableObject, DriverAccessing {
     public func setDriverSampleRate(matching targetRate: Float64) -> Float64? {
         propertyService.setDriverSampleRate(matching: targetRate)
     }
-    
+
+    public func hasSharedMemoryCapability() -> Bool {
+        propertyService.hasSharedMemoryCapability()
+    }
+
     // MARK: - System Default Device (pass-through)
     
     @discardableResult
