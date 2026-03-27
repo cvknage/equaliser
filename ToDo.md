@@ -128,9 +128,8 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Consider latency implications of serial processing
 
 ## 15. Remove Microphone Indicator
-- [ ] Eliminate the orange microphone indicator and microphone permission requirement.
+- [x] Eliminate the orange microphone indicator and microphone permission requirement.
 - [ ] App does not appear in System Settings → Privacy & Security → Microphone
-- [ ] No orange menu bar dot appears while audio routing is active
+- [x] No orange menu bar dot appears while audio routing is active
 - [ ] Users are not prompted for microphone permission
-See `docs/dev/permissions.md` for technical analysis and architecture options.
 

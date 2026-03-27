@@ -203,6 +203,50 @@ case .useFallback:               // Need fallback device
 }
 ```
 
+### Shared Memory Capture Mode
+
+The app supports two capture modes for the Equaliser driver:
+
+| Mode | Method | TCC Permission |
+|------|--------|----------------|
+| `sharedMemory` (default) | Lock-free ring buffer via mmap | NOT required |
+| `halInput` | HAL input stream (AudioUnitRender) | Required |
+
+**Key behaviour:**
+- Default mode uses shared memory, no orange microphone indicator in Control Center
+- HAL input mode is fallback for users who want/already have mic permission
+- Capture mode is persisted and restored across launches
+- Manual mode always uses HAL input (regardless of preference)
+
+**Shared memory architecture:**
+
+```
+[Driver] ─→ WriteMix ─→ [Shared Memory Ring Buffer]
+                                    ↓ (mmap, lock-free)
+[App Output Callback] ─→ poll() ─→ [DriverCapture] ─→ [Ring Buffer] ─→ [EQ] ─→ [Output]
+```
+
+**Real-time safety:**
+- `SharedMemoryCapture.readFrames()` uses atomic reads, no locks
+- Called synchronously from output audio thread
+- `DriverCapture.poll()` is `@inline(__always)` for performance
+
+### nonisolated CoreAudio Calls
+
+Volume forwarding uses a serial dispatch queue to isolate CoreAudio calls from the main thread:
+
+```swift
+// VolumeManager dispatches to serial queue for output device sync
+volumeForwardQueue.async { [weak self] in
+    self?.forwardVolumeToOutput(newVolume, outputID: outputID)
+}
+
+// DeviceVolumeService.setDeviceVolumeScalar is nonisolated
+nonisolated func setDeviceVolumeScalar(deviceID: AudioDeviceID, volume: Float) -> Bool
+```
+
+This prevents `AudioObjectSetPropertyData` from blocking the UI thread.
+
 ## Naming Conventions
 
 | Element | Convention | Example |

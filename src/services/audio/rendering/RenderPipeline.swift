@@ -21,10 +21,21 @@ struct LevelMeterSnapshot {
 /// Uses two separate HAL audio units: one for input (capture) and one for output (playback).
 /// Audio flows through a ring buffer to decouple the two device clocks.
 ///
-/// Architecture:
+/// Architecture (standard mode):
 /// ```
-/// [BlackHole] → [Input HAL] → [Input Callback] → [Ring Buffer]
-///                                                       ↓
+/// [Driver] → [Input HAL] → [Input Callback] → [Ring Buffer]
+///                                                    ↓
+/// [Output Callback] ← reads ← [Ring Buffer]
+///        ↓
+/// [AVAudioEngine EQ]
+///        ↓
+/// [Output HAL] → [Speakers]
+/// ```
+///
+/// Architecture (shared memory mode):
+/// ```
+/// [Driver] → [DriverCapture] → [Ring Buffer]
+///                                     ↓
 /// [Output Callback] ← reads ← [Ring Buffer]
 ///        ↓
 /// [AVAudioEngine EQ]
@@ -36,10 +47,21 @@ final class RenderPipeline {
     // MARK: - Properties
 
     /// HAL manager for input (capture from BlackHole or other input device).
+    /// Only used in standard capture mode.
     private var inputHALManager: HALIOManager?
 
     /// HAL manager for output (playback to speakers or other output device).
     private var outputHALManager: HALIOManager?
+
+    /// Driver capture for reading driver buffer via shared memory.
+    /// Only used in shared memory capture mode.
+    private var driverCapture: DriverCapture?
+
+    /// Driver registry for shared memory capture.
+    private weak var driverRegistry: DriverDeviceRegistry?
+
+    /// Current capture mode.
+    private var captureMode: CaptureMode = .halInput
 
     private let eqConfiguration: EQConfiguration
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "RenderPipeline")
@@ -98,24 +120,42 @@ final class RenderPipeline {
     /// - Parameters:
     ///   - inputDeviceID: The Core Audio device ID for audio input (e.g., BlackHole).
     ///   - outputDeviceID: The Core Audio device ID for audio output (e.g., speakers).
+    ///   - captureMode: The capture mode (standard uses HAL input, shared memory reads from driver).
+    ///   - driverRegistry: The driver registry (required for shared memory capture).
     /// - Returns: Success or an error describing the failure.
     func configure(
         inputDeviceID: AudioDeviceID,
-        outputDeviceID: AudioDeviceID
+        outputDeviceID: AudioDeviceID,
+        captureMode: CaptureMode = .halInput,
+        driverRegistry: DriverDeviceRegistry? = nil
     ) -> Result<Void, HALIOError> {
-        logger.info("Configuring pipeline: input=\(inputDeviceID), output=\(outputDeviceID)")
+        logger.info("Configuring pipeline: input=\(inputDeviceID), output=\(outputDeviceID), captureMode=\(captureMode.displayName)")
+
+        // Store capture mode and registry
+        self.captureMode = captureMode
+        self.driverRegistry = driverRegistry
 
         // Clean up any existing managers
         inputHALManager = nil
         outputHALManager = nil
+        driverCapture = nil
 
-        // Create and configure the input HAL manager (input-only mode)
-        let inputManager = HALIOManager(mode: .inputOnly)
-        if case .failure(let error) = inputManager.configure(deviceID: inputDeviceID) {
-            logger.error("Input HAL configuration failed: \(error.localizedDescription)")
-            return .failure(error)
+        // Create and configure the input HAL manager (standard mode only)
+        if captureMode == .halInput {
+            let inputManager = HALIOManager(mode: .inputOnly)
+            if case .failure(let error) = inputManager.configure(deviceID: inputDeviceID) {
+                logger.error("Input HAL configuration failed: \(error.localizedDescription)")
+                return .failure(error)
+            }
+            inputHALManager = inputManager
+        } else {
+            // Shared memory mode: validate driver registry
+            guard let registry = driverRegistry else {
+                logger.error("Shared memory capture requires driver registry")
+                return .failure(.unitNotAvailable)
+            }
+            self.driverRegistry = registry
         }
-        inputHALManager = inputManager
 
         // Create and configure the output HAL manager (output-only mode)
         let outputManager = HALIOManager(mode: .outputOnly)
@@ -139,39 +179,49 @@ final class RenderPipeline {
 
     /// Validates that input and output formats are compatible.
     private func validateFormats() -> Result<Void, HALIOError> {
-        guard let inputManager = inputHALManager,
-              let outputManager = outputHALManager else {
+        guard let outputManager = outputHALManager else {
             return .failure(.unitNotAvailable)
         }
 
-        // Get input format
-        guard case .success(let inputFormat) = inputManager.getClientFormat() else {
-            return .failure(.formatQueryFailed(0))
-        }
-
-        // Get output format
+        // Get output format (always needed)
         guard case .success(let outputFormat) = outputManager.getClientFormat() else {
             return .failure(.formatQueryFailed(0))
         }
 
-        logger.info("Input format: \(inputFormat.mSampleRate) Hz, \(inputFormat.mChannelsPerFrame) ch")
         logger.info("Output format: \(outputFormat.mSampleRate) Hz, \(outputFormat.mChannelsPerFrame) ch")
 
-        // Check sample rates - they must match for our pipeline
-        if inputFormat.mSampleRate != outputFormat.mSampleRate {
-            logger.error("Sample rate mismatch: input=\(inputFormat.mSampleRate), output=\(outputFormat.mSampleRate)")
-            return .failure(.sampleRateMismatch(
-                inputRate: inputFormat.mSampleRate,
-                outputRate: outputFormat.mSampleRate
-            ))
+        // For standard mode, validate input format matches output
+        if captureMode == .halInput {
+            guard let inputManager = inputHALManager else {
+                return .failure(.unitNotAvailable)
+            }
+
+            guard case .success(let inputFormat) = inputManager.getClientFormat() else {
+                return .failure(.formatQueryFailed(0))
+            }
+
+            logger.info("Input format: \(inputFormat.mSampleRate) Hz, \(inputFormat.mChannelsPerFrame) ch")
+
+            // Check sample rates - they must match for our pipeline
+            if inputFormat.mSampleRate != outputFormat.mSampleRate {
+                logger.error("Sample rate mismatch: input=\(inputFormat.mSampleRate), output=\(outputFormat.mSampleRate)")
+                return .failure(.sampleRateMismatch(
+                    inputRate: inputFormat.mSampleRate,
+                    outputRate: outputFormat.mSampleRate
+                ))
+            }
+
+            // Check channel counts - warn but allow mismatch
+            if inputFormat.mChannelsPerFrame != outputFormat.mChannelsPerFrame {
+                logger.warning("Channel count mismatch: input=\(inputFormat.mChannelsPerFrame), output=\(outputFormat.mChannelsPerFrame)")
+            }
+
+            logger.info("Format validation passed: \(inputFormat.mSampleRate) Hz, \(inputFormat.mChannelsPerFrame) ch")
+        } else {
+            // Shared memory mode: driver outputs stereo, so we expect 2 channels
+            logger.info("Format validation passed (shared memory): \(outputFormat.mSampleRate) Hz, \(outputFormat.mChannelsPerFrame) ch")
         }
 
-        // Check channel counts - warn but allow mismatch
-        if inputFormat.mChannelsPerFrame != outputFormat.mChannelsPerFrame {
-            logger.warning("Channel count mismatch: input=\(inputFormat.mChannelsPerFrame), output=\(outputFormat.mChannelsPerFrame)")
-        }
-
-        logger.info("Format validation passed: \(inputFormat.mSampleRate) Hz, \(inputFormat.mChannelsPerFrame) ch")
         return .success(())
     }
 
@@ -185,21 +235,54 @@ final class RenderPipeline {
             return .success(())
         }
 
-        guard let inputManager = inputHALManager,
-              let outputManager = outputHALManager else {
-            logger.error("Cannot start: HAL managers not configured")
+        guard let outputManager = outputHALManager else {
+            logger.error("Cannot start: output HAL manager not configured")
             return .failure(.unitNotAvailable)
+        }
+
+        // For standard mode, also require input manager
+        if captureMode == .halInput {
+            guard inputHALManager != nil else {
+                logger.error("Cannot start: input HAL manager not configured")
+                return .failure(.unitNotAvailable)
+            }
         }
 
         // Reset static counters
         Self.inputCallCount = 0
         Self.outputCallCount = 0
 
-        logger.info("Starting render pipeline...")
+        logger.info("Starting render pipeline (\(self.captureMode.displayName) mode)...")
 
-        // Get the format from the input HAL manager (this determines our processing format)
-        guard case .success(let streamFormat) = inputManager.getClientFormat() else {
-            return .failure(.formatQueryFailed(0))
+        // Get the format from the appropriate source
+        // Standard mode: input HAL manager format (matches driver output)
+        // Shared memory mode: driver always outputs stereo (2 channels)
+        //   We must use stereo for processing, even if output device has more channels.
+        //   The output HAL will handle channel mapping automatically.
+        let streamFormat: AudioStreamBasicDescription
+        if captureMode == .halInput, let inputManager = inputHALManager {
+            guard case .success(let format) = inputManager.getClientFormat() else {
+                return .failure(.formatQueryFailed(0))
+            }
+            streamFormat = format
+        } else {
+            guard case .success(let outputFormat) = outputManager.getClientFormat() else {
+                return .failure(.formatQueryFailed(0))
+            }
+
+            // Shared memory mode: driver outputs stereo, force processing to stereo
+            // regardless of output device channel count
+            streamFormat = AudioStreamBasicDescription(
+                mSampleRate: outputFormat.mSampleRate,
+                mFormatID: kAudioFormatLinearPCM,
+                mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsNonInterleaved,
+                mBytesPerPacket: 4,
+                mFramesPerPacket: 1,
+                mBytesPerFrame: 4,
+                mChannelsPerFrame: 2,  // Always stereo for shared memory capture
+                mBitsPerChannel: 32,
+                mReserved: 0
+            )
         }
 
         logger.info("Processing format: \(streamFormat.mSampleRate) Hz, \(streamFormat.mChannelsPerFrame) ch")
@@ -229,8 +312,13 @@ final class RenderPipeline {
         renderingEngine = engine
 
         // Create the callback context with ring buffers
+        // For shared memory mode, inputHALUnit is nil (no input callback)
+        let inputHALUnit: AudioComponentInstance? = captureMode == .halInput
+            ? inputHALManager?.unsafeAudioUnit
+            : nil
+
         let context = RenderCallbackContext(
-            inputHALUnit: inputManager.unsafeAudioUnit,
+            inputHALUnit: inputHALUnit,
             renderContext: engine.renderContext,
             channelCount: streamFormat.mChannelsPerFrame,
             maxFrameCount: maxFrameCount,
@@ -253,16 +341,22 @@ final class RenderPipeline {
             Unmanaged.passUnretained(context).toOpaque()
         )
 
-        // Register the INPUT callback on the input HAL unit
-        if case .failure(let error) = inputManager.setInputCallback(
-            Self.inputRenderCallback,
-            context: contextPtr
-        ) {
-            logger.error("Failed to register input callback: \(error.localizedDescription)")
-            callbackContext = nil
-            renderingEngine?.shutdown()
-            renderingEngine = nil
-            return .failure(error)
+        // For standard mode, register the INPUT callback on the input HAL unit
+        if captureMode == .halInput {
+            guard let inputManager = inputHALManager else {
+                return .failure(.unitNotAvailable)
+            }
+
+            if case .failure(let error) = inputManager.setInputCallback(
+                Self.inputRenderCallback,
+                context: contextPtr
+            ) {
+                logger.error("Failed to register input callback: \(error.localizedDescription)")
+                callbackContext = nil
+                renderingEngine?.shutdown()
+                renderingEngine = nil
+                return .failure(error)
+            }
         }
 
         // Register the OUTPUT callback on the output HAL unit
@@ -271,28 +365,38 @@ final class RenderPipeline {
             context: contextPtr
         ) {
             logger.error("Failed to register output callback: \(error.localizedDescription)")
-            _ = inputManager.clearInputCallback()
+            if captureMode == .halInput {
+                _ = inputHALManager?.clearInputCallback()
+            }
             callbackContext = nil
             renderingEngine?.shutdown()
             renderingEngine = nil
             return .failure(error)
         }
 
-        // Initialize both HAL units
-        if case .failure(let error) = inputManager.initialize() {
-            logger.error("Failed to initialize input HAL unit: \(error.localizedDescription)")
-            _ = inputManager.clearInputCallback()
-            _ = outputManager.clearOutputRenderCallback()
-            callbackContext = nil
-            renderingEngine?.shutdown()
-            renderingEngine = nil
-            return .failure(error)
+        // Initialize HAL units
+        if captureMode == .halInput {
+            guard let inputManager = inputHALManager else {
+                return .failure(.unitNotAvailable)
+            }
+
+            if case .failure(let error) = inputManager.initialize() {
+                logger.error("Failed to initialize input HAL unit: \(error.localizedDescription)")
+                _ = inputManager.clearInputCallback()
+                _ = outputManager.clearOutputRenderCallback()
+                callbackContext = nil
+                renderingEngine?.shutdown()
+                renderingEngine = nil
+                return .failure(error)
+            }
         }
 
         if case .failure(let error) = outputManager.initialize() {
             logger.error("Failed to initialize output HAL unit: \(error.localizedDescription)")
-            inputManager.uninitialize()
-            _ = inputManager.clearInputCallback()
+            if captureMode == .halInput {
+                inputHALManager?.uninitialize()
+                _ = inputHALManager?.clearInputCallback()
+            }
             _ = outputManager.clearOutputRenderCallback()
             callbackContext = nil
             renderingEngine?.shutdown()
@@ -300,30 +404,105 @@ final class RenderPipeline {
             return .failure(error)
         }
 
-        // Start the input HAL unit first (so it fills the ring buffer)
-        if case .failure(let error) = inputManager.start() {
-            logger.error("Failed to start input HAL unit: \(error.localizedDescription)")
-            inputManager.uninitialize()
-            outputManager.uninitialize()
-            _ = inputManager.clearInputCallback()
-            _ = outputManager.clearOutputRenderCallback()
-            callbackContext = nil
-            renderingEngine?.shutdown()
-            renderingEngine = nil
-            return .failure(error)
+        // Start the input HAL unit first (standard mode only)
+        if captureMode == .halInput {
+            guard let inputManager = inputHALManager else {
+                return .failure(.unitNotAvailable)
+            }
+
+            if case .failure(let error) = inputManager.start() {
+                logger.error("Failed to start input HAL unit: \(error.localizedDescription)")
+                inputManager.uninitialize()
+                outputManager.uninitialize()
+                _ = inputManager.clearInputCallback()
+                _ = outputManager.clearOutputRenderCallback()
+                callbackContext = nil
+                renderingEngine?.shutdown()
+                renderingEngine = nil
+                return .failure(error)
+            }
         }
 
-        // Start the output HAL unit (this drives the output callback)
+        // Start the output HAL unit FIRST (this triggers driver IO, which creates shared memory)
+        // For shared memory mode, shared memory is only available after driver IO starts.
+        // Callbacks will read real audio immediately from the ring buffer.
         if case .failure(let error) = outputManager.start() {
             logger.error("Failed to start output HAL unit: \(error.localizedDescription)")
-            _ = inputManager.stop()
-            inputManager.uninitialize()
-            _ = inputManager.clearInputCallback()
+            if captureMode == .halInput {
+                _ = inputHALManager?.stop()
+                inputHALManager?.uninitialize()
+                _ = inputHALManager?.clearInputCallback()
+            }
             _ = outputManager.clearOutputRenderCallback()
             callbackContext = nil
             renderingEngine?.shutdown()
             renderingEngine = nil
             return .failure(error)
+        }
+
+        // For shared memory mode, initialize capture AFTER output unit starts
+        // This ensures shared memory is available from the driver.
+        // Pre-fill ring buffer with silence to prevent startup underrun clicks.
+        if captureMode == .sharedMemory {
+            guard let registry = driverRegistry else {
+                logger.error("Shared memory capture requires driver registry")
+                _ = outputManager.stop()
+                _ = outputManager.clearOutputRenderCallback()
+                outputManager.uninitialize()
+                if captureMode == .halInput {
+                    _ = inputHALManager?.stop()
+                    inputHALManager?.uninitialize()
+                    _ = inputHALManager?.clearInputCallback()
+                }
+                callbackContext = nil
+                renderingEngine?.shutdown()
+                renderingEngine = nil
+                return .failure(.unitNotAvailable)
+            }
+
+            guard let deviceID = registry.deviceID else {
+                logger.error("Driver device not found")
+                _ = outputManager.stop()
+                _ = outputManager.clearOutputRenderCallback()
+                outputManager.uninitialize()
+                callbackContext = nil
+                renderingEngine?.shutdown()
+                renderingEngine = nil
+                return .failure(.unitNotAvailable)
+            }
+
+            // Create and initialize driver capture
+            // Shared memory is now available because output unit is running
+            let capture = DriverCapture(
+                registry: registry,
+                sampleRate: streamFormat.mSampleRate,
+                bufferSize: maxFrameCount
+            )
+
+            do {
+                try capture.initialize(deviceID: deviceID)
+                context.setDriverCapture(capture)
+                driverCapture = capture
+
+                // Pre-fill ring buffer with silence to prevent startup underrun
+                // Driver-side fix now prevents buffer clearing on startup
+                context.prefillWithSilence(frameCount: self.maxFrameCount)
+                logger.debug("Pre-filled ring buffer with \(self.maxFrameCount) frames of silence")
+            } catch {
+                logger.error("Failed to initialize driver capture: \(error)")
+                _ = outputManager.stop()
+                _ = outputManager.clearOutputRenderCallback()
+                outputManager.uninitialize()
+                if captureMode == .halInput {
+                    _ = inputHALManager?.stop()
+                    inputHALManager?.uninitialize()
+                    _ = inputHALManager?.clearInputCallback()
+                }
+                callbackContext = nil
+                renderingEngine?.shutdown()
+                renderingEngine = nil
+                return .failure(.unitNotAvailable)
+            }
         }
 
         isRunning = true
@@ -343,6 +522,10 @@ final class RenderPipeline {
 
         var lastError: HALIOError?
 
+        // Stop driver capture if active
+        driverCapture?.stop()
+        driverCapture = nil
+
         // Stop the output HAL unit first (stops the output callback)
         if let outputManager = outputHALManager {
             if case .failure(let error) = outputManager.stop() {
@@ -352,7 +535,7 @@ final class RenderPipeline {
             outputManager.uninitialize()
         }
 
-        // Stop the input HAL unit
+        // Stop the input HAL unit (standard mode only)
         if let inputManager = inputHALManager {
             if case .failure(let error) = inputManager.stop() {
                 lastError = error
@@ -576,6 +759,10 @@ final class RenderPipeline {
             RenderCallbackContext.zeroFill(ioData, frameCount: frameCount)
             return noErr
         }
+
+        // 0. Poll driver capture (if in shared memory mode)
+        // This is called synchronously from the audio thread, ensuring perfect synchronization
+        _ = context.pollAndWriteToRingBuffers()
 
         // 1. Read audio from ring buffers
         let framesRead = context.readFromRingBuffers(frameCount: frameCount)

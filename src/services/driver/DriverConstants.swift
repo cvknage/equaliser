@@ -35,6 +35,9 @@ public let DRIVER_BUNDLE_PATH = DRIVER_INSTALL_PATH + "/Equaliser.driver"
 /// Custom property selector for device name - 'eqnm'
 public let DRIVER_PROP_NAME: AudioObjectPropertySelector = 0x65716E6D
 
+/// Custom property selector for shared memory path (file-based) - 'eqsp'
+public let DRIVER_PROP_SHARED_MEM_PATH: AudioObjectPropertySelector = 0x65717370
+
 // Device visibility is automatic: hidden until app connects, visible when app is running
 
 // MARK: - Notifications
@@ -49,6 +52,13 @@ extension Notification.Name {
 /// Address for device name property
 public let DRIVER_ADDRESS_NAME = AudioObjectPropertyAddress(
     mSelector: DRIVER_PROP_NAME,
+    mScope: kAudioObjectPropertyScopeGlobal,
+    mElement: kAudioObjectPropertyElementMain
+)
+
+/// Address for shared memory path property (file-based)
+public let DRIVER_ADDRESS_SHARED_MEM_PATH = AudioObjectPropertyAddress(
+    mSelector: DRIVER_PROP_SHARED_MEM_PATH,
     mScope: kAudioObjectPropertyScopeGlobal,
     mElement: kAudioObjectPropertyElementMain
 )

@@ -23,6 +23,10 @@
 #include <sys/syslog.h>
 #include <Accelerate/Accelerate.h>
 #include <Availability.h>
+#include <sys/mman.h>    // For mmap, munmap
+#include <fcntl.h>       // For open, O_RDWR
+#include <unistd.h>      // For close, unlink
+#include <stdatomic.h>   // For atomic types
 
 //==================================================================================================
 #pragma mark -
@@ -56,7 +60,7 @@
         DebugMsg(inMessage);                                                       \
         { inAction; }                                                              \
         goto inHandler;                                                            \
-        }
+    }
 
 #else
 
@@ -254,7 +258,23 @@ struct ObjectInfo {
 
 // Custom property selectors for Equaliser app communication
 #define kEqualiserPropertyName           'eqnm'  // Dynamic device name (CFString)
+#define kEqualiserPropertySharedMemPath  'eqsp'  // Shared memory file path (CFString, set by app)
 // Note: Device visibility is now managed automatically via client tracking (AddDeviceClient/RemoveDeviceClient)
+
+// Shared memory ring buffer for lock-free audio capture
+// This eliminates IPC overhead and prevents glitches when changing volume
+// The app creates a file in /tmp/ and sets the path via kEqualiserPropertySharedMemPath
+#define SHARED_MEM_RING_SIZE             65536   // Must match kRing_Buffer_Frame_Size
+
+struct EqualiserSharedMemory {
+    volatile _Atomic UInt32 writeIndex;     // Atomic: driver writes, app reads
+    volatile _Atomic UInt32 readIndex;      // Atomic: app writes, driver reads (for flow control)
+    volatile _Atomic UInt32 frameCount;     // Atomic: frames available to read
+    UInt32 channelCount;                    // Always kNumber_Of_Channels (2)
+    Float64 sampleRate;                     // Current sample rate
+    UInt8 _padding[64 - 24];                // Total: 24 bytes, pad to cache line boundary (64 bytes)
+    Float32 samples[];                      // Ring buffer follows (interleaved L/R)
+};
 
 static pthread_mutex_t              gPlugIn_StateMutex                  = PTHREAD_MUTEX_INITIALIZER;
 static UInt32                       gPlugIn_RefCount                    = 0;
@@ -304,6 +324,13 @@ static pthread_mutex_t              gEqualiser_ClientMutex              = PTHREA
 static UInt32                       gEqualiser_AppClientCount           = 0;
 static CFStringRef                  gEqualiser_AppBundleID              = NULL;
 static bool                         gEqualiser_DeviceShown              = false;  // Hidden until app connects via AddDeviceClient
+
+// Shared memory for lock-free audio capture (file-based, created by app)
+static int                          gSharedMemFD                        = -1;
+static void*                        gSharedMem                          = NULL;
+static struct EqualiserSharedMemory* gSharedMemHeader                   = NULL;
+static char                         gSharedMemPath[PATH_MAX]            = "";  // Path set by app
+static UInt32                       gSharedMem_WritePosition            = 0;
 
 #define kEqualiserAppBundleID           "net.knage.equaliser"
 
@@ -744,7 +771,7 @@ static OSStatus	BlackHole_Initialize(AudioServerPlugInDriverRef inDriver, AudioS
 	
 	//	store the AudioServerPlugInHostRef
 	gPlugIn_Host = inHost;
-	
+
 	//	initialize the box acquired property from the settings
 	CFPropertyListRef theSettingsData = NULL;
 	gPlugIn_Host->CopyFromStorage(gPlugIn_Host, CFSTR("box acquired"), &theSettingsData);
@@ -808,7 +835,12 @@ static OSStatus	BlackHole_Initialize(AudioServerPlugInDriverRef inDriver, AudioS
     gDevice_AdjustedTicksPerFrame = gDevice_HostTicksPerFrame - gDevice_HostTicksPerFrame/100.0 * 2.0*(gPitch_Adjust - 0.5);
     
     // DebugMsg("BlackHole theTimeBaseInfo.numer: %u \t theTimeBaseInfo.denom: %u", theTimeBaseInfo.numer, theTimeBaseInfo.denom);
-	
+
+    // Shared memory is now file-based and created by the app.
+    // The app creates a file in /tmp/ and sets the path via kEqualiserPropertySharedMemPath.
+    // When the path is set, we open the existing file and mmap it.
+    DebugMsg("BlackHole_Initialize: waiting for app to set shared memory path");
+
 Done:
 	return theAnswer;
 }
@@ -2163,7 +2195,7 @@ static OSStatus	BlackHole_SetBoxPropertyData(AudioServerPlugInDriverRef inDriver
 			//	of this property should only send the notification if the hardware wants the app to
 			//	flash it's UI for the device.
 			{
-				syslog(LOG_NOTICE, "The identify property has been set on the Box implemented by the BlackHole driver.");
+				DebugMsg("The identify property has been set on the Box implemented by the BlackHole driver.");
 				FailWithAction(inDataSize != sizeof(UInt32), theAnswer = kAudioHardwareBadPropertySizeError, Done, "BlackHole_SetBoxPropertyData: wrong size for the data for kAudioObjectPropertyIdentify");
 				dispatch_after(dispatch_time(0, 2ULL * 1000ULL * 1000ULL * 1000ULL), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),	^()
 																																		{
@@ -2255,6 +2287,7 @@ static Boolean	BlackHole_HasDeviceProperty(AudioServerPlugInDriverRef inDriver, 
 		case kAudioDevicePropertyIcon:
 		case kAudioDevicePropertyStreams:
 		case kEqualiserPropertyName:
+		case kEqualiserPropertySharedMemPath:
 		case kAudioObjectPropertyCustomPropertyInfoList:
 			theAnswer = true;
 			break;
@@ -2327,9 +2360,10 @@ static OSStatus	BlackHole_IsDevicePropertySettable(AudioServerPlugInDriverRef in
 			break;
 
 		case kEqualiserPropertyName:
+		case kEqualiserPropertySharedMemPath:
 			*outIsSettable = true;
 			break;
-		
+
 		case kAudioObjectPropertyCustomPropertyInfoList:
 			*outIsSettable = false;
 			break;
@@ -2471,8 +2505,12 @@ static OSStatus	BlackHole_GetDevicePropertyDataSize(AudioServerPlugInDriverRef i
 			*outDataSize = sizeof(CFStringRef);
 			break;
 
+		case kEqualiserPropertySharedMemPath:
+			*outDataSize = sizeof(CFStringRef);
+			break;
+
 		case kAudioObjectPropertyCustomPropertyInfoList:
-			*outDataSize = 1 * sizeof(AudioServerPlugInCustomPropertyInfo);
+			*outDataSize = 3 * sizeof(AudioServerPlugInCustomPropertyInfo);
 			break;
 
 		default:
@@ -2945,14 +2983,40 @@ static OSStatus	BlackHole_GetDevicePropertyData(AudioServerPlugInDriverRef inDri
 			*outDataSize = sizeof(CFStringRef);
 			break;
 
+		case kEqualiserPropertySharedMemPath:
+			FailWithAction(inDataSize < sizeof(CFStringRef), theAnswer = kAudioHardwareBadPropertySizeError, Done, "BlackHole_GetDevicePropertyData: not enough space for shared memory property");
+			{
+				// Return the shared memory path if available
+				pthread_mutex_lock(&gPlugIn_StateMutex);
+				DebugMsg("kEqualiserPropertySharedMemPath query: gSharedMemPath='%s', gSharedMem=%p",
+						 gSharedMemPath, gSharedMem);
+				CFStringRef memPath = NULL;
+				if (gSharedMemPath[0] != '\0' && gSharedMem != NULL) {
+					memPath = CFStringCreateWithCString(NULL, gSharedMemPath, kCFStringEncodingUTF8);
+					DebugMsg("Returning shared memory path: %s", gSharedMemPath);
+				}
+				if (memPath == NULL) {
+					// Return empty string if not available
+					DebugMsg("Returning empty string (shared memory not available)");
+					memPath = CFStringCreateWithCString(NULL, "", kCFStringEncodingUTF8);
+				}
+				*((CFStringRef*)outData) = memPath;
+				pthread_mutex_unlock(&gPlugIn_StateMutex);
+				*outDataSize = sizeof(CFStringRef);
+			}
+			break;
+
 		case kAudioObjectPropertyCustomPropertyInfoList:
-			FailWithAction(inDataSize < sizeof(AudioServerPlugInCustomPropertyInfo), theAnswer = kAudioHardwareBadPropertySizeError, Done, "BlackHole_GetDevicePropertyData: not enough space for CustomPropertyInfoList");
+			FailWithAction(inDataSize < 2 * sizeof(AudioServerPlugInCustomPropertyInfo), theAnswer = kAudioHardwareBadPropertySizeError, Done, "BlackHole_GetDevicePropertyData: not enough space for CustomPropertyInfoList");
 			{
 				AudioServerPlugInCustomPropertyInfo* pInfo = (AudioServerPlugInCustomPropertyInfo*)outData;
 				pInfo[0].mSelector = kEqualiserPropertyName;
 				pInfo[0].mPropertyDataType = kAudioServerPlugInCustomPropertyDataTypeCFString;
 				pInfo[0].mQualifierDataType = kAudioServerPlugInCustomPropertyDataTypeNone;
-				*outDataSize = sizeof(AudioServerPlugInCustomPropertyInfo);
+				pInfo[1].mSelector = kEqualiserPropertySharedMemPath;
+				pInfo[1].mPropertyDataType = kAudioServerPlugInCustomPropertyDataTypeCFString;
+				pInfo[1].mQualifierDataType = kAudioServerPlugInCustomPropertyDataTypeNone;
+				*outDataSize = 2 * sizeof(AudioServerPlugInCustomPropertyInfo);
 			}
 			break;
 			
@@ -3011,23 +3075,23 @@ static OSStatus	BlackHole_SetDevicePropertyData(AudioServerPlugInDriverRef inDri
 		case kEqualiserPropertyName:
 			{
 				FailWithAction(inDataSize != sizeof(CFStringRef), theAnswer = kAudioHardwareBadPropertySizeError, Done, "BlackHole_SetDevicePropertyData: wrong size for kEqualiserPropertyName");
-				
+
 				CFStringRef newName = *((CFStringRef*)inData);
 				pthread_mutex_lock(&gPlugIn_StateMutex);
-				
+
 				if (gEqualiser_DeviceName != NULL) {
 					CFRelease(gEqualiser_DeviceName);
 				}
-				
+
 				gEqualiser_DeviceName = newName;
 				if (gEqualiser_DeviceName != NULL) {
 					CFRetain(gEqualiser_DeviceName);
 				}
-				
+
 				gPlugIn_Host->WriteToStorage(gPlugIn_Host, CFSTR("equaliser device name"), gEqualiser_DeviceName);
-				
+
 				pthread_mutex_unlock(&gPlugIn_StateMutex);
-				
+
 				*outNumberPropertiesChanged = 2;
 				outChangedAddresses[0].mSelector = kEqualiserPropertyName;
 				outChangedAddresses[0].mScope = kAudioObjectPropertyScopeGlobal;
@@ -3035,6 +3099,73 @@ static OSStatus	BlackHole_SetDevicePropertyData(AudioServerPlugInDriverRef inDri
 				outChangedAddresses[1].mSelector = kAudioObjectPropertyName;
 				outChangedAddresses[1].mScope = kAudioObjectPropertyScopeGlobal;
 				outChangedAddresses[1].mElement = kAudioObjectPropertyElementMain;
+			}
+			break;
+
+		case kEqualiserPropertySharedMemPath:
+			{
+				// App sets the shared memory file path
+				// This is called when the app creates a file in /tmp/ and wants us to use it
+				FailWithAction(inDataSize != sizeof(CFStringRef), theAnswer = kAudioHardwareBadPropertySizeError, Done, "BlackHole_SetDevicePropertyData: wrong size for kEqualiserPropertySharedMemPath");
+
+				CFStringRef newPath = *((CFStringRef*)inData);
+				pthread_mutex_lock(&gPlugIn_StateMutex);
+
+				// Clean up any existing shared memory
+				if (gSharedMem != NULL) {
+					munmap(gSharedMem, sizeof(struct EqualiserSharedMemory) + SHARED_MEM_RING_SIZE * kNumber_Of_Channels * sizeof(Float32));
+					gSharedMem = NULL;
+					gSharedMemHeader = NULL;
+				}
+				if (gSharedMemFD >= 0) {
+					close(gSharedMemFD);
+					gSharedMemFD = -1;
+				}
+				gSharedMemPath[0] = '\0';
+
+				// Get the path string
+				if (newPath != NULL) {
+					char pathBuf[PATH_MAX];
+					if (CFStringGetCString(newPath, pathBuf, sizeof(pathBuf), kCFStringEncodingUTF8)) {
+						DebugMsg("kEqualiserPropertySharedMemPath: opening file %s", pathBuf);
+
+						// Open the file (created by app)
+						int fd = open(pathBuf, O_RDWR, 0);
+						if (fd >= 0) {
+							size_t shmSize = sizeof(struct EqualiserSharedMemory) + SHARED_MEM_RING_SIZE * kNumber_Of_Channels * sizeof(Float32);
+							void* mem = mmap(NULL, shmSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+							if (mem != MAP_FAILED) {
+								gSharedMemFD = fd;
+								gSharedMem = mem;
+								gSharedMemHeader = (struct EqualiserSharedMemory*)mem;
+								gSharedMem_WritePosition = 0;
+
+								// Initialize header fields for app reader
+								gSharedMemHeader->channelCount = kNumber_Of_Channels;
+								gSharedMemHeader->sampleRate = gDevice_SampleRate;
+
+								// Store the path
+								strncpy(gSharedMemPath, pathBuf, sizeof(gSharedMemPath) - 1);
+								gSharedMemPath[sizeof(gSharedMemPath) - 1] = '\0';
+
+								DebugMsg("Shared memory opened successfully: fd=%d, ptr=%p, size=%zu", fd, mem, shmSize);
+							} else {
+								DebugMsg("mmap FAILED for %s: errno=%d (%s)", pathBuf, errno, strerror(errno));
+								close(fd);
+							}
+						} else {
+							DebugMsg("open FAILED for %s: errno=%d (%s)", pathBuf, errno, strerror(errno));
+						}
+					}
+				}
+
+				pthread_mutex_unlock(&gPlugIn_StateMutex);
+
+				// Notify that shared memory state changed
+				*outNumberPropertiesChanged = 1;
+				outChangedAddresses[0].mSelector = kEqualiserPropertySharedMemPath;
+				outChangedAddresses[0].mScope = kAudioObjectPropertyScopeGlobal;
+				outChangedAddresses[0].mElement = kAudioObjectPropertyElementMain;
 			}
 			break;
 		
@@ -4472,7 +4603,7 @@ static OSStatus	BlackHole_StartIO(AudioServerPlugInDriverRef inDriver, AudioObje
     
     if (inDeviceObjectID == kObjectID_Device) { gDevice_IOIsRunning += 1; }
     if (inDeviceObjectID == kObjectID_Device2) { gDevice2_IOIsRunning += 1; }
-    
+
     // allocate ring buffer
     if ((gDevice_IOIsRunning || gDevice2_IOIsRunning) && gRingBuffer == NULL)
     {
@@ -4482,8 +4613,7 @@ static OSStatus	BlackHole_StartIO(AudioServerPlugInDriverRef inDriver, AudioObje
         gDevice_PreviousTicks = 0;
         gRingBuffer = calloc(kRing_Buffer_Frame_Size * kNumber_Of_Channels, sizeof(Float32));
     }
-    
-    
+
 	//	unlock the state lock
 	pthread_mutex_unlock(&gPlugIn_StateMutex);
 	
@@ -4513,8 +4643,8 @@ static OSStatus	BlackHole_StopIO(AudioServerPlugInDriverRef inDriver, AudioObjec
     
     if (inDeviceObjectID == kObjectID_Device) { gDevice_IOIsRunning -= 1; }
     if (inDeviceObjectID == kObjectID_Device2) { gDevice2_IOIsRunning -= 1; }
-    
-    // free the ring buffer
+
+    // free the ring buffer when all IO sessions stop
     if (!gDevice_IOIsRunning && !gDevice2_IOIsRunning && gRingBuffer != NULL)
     {
         free(gRingBuffer);
@@ -4675,7 +4805,7 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
     UInt32 ringBufferFrameLocationStart = mSampleTime % kRing_Buffer_Frame_Size;
     UInt32 firstPartFrameSize = kRing_Buffer_Frame_Size - ringBufferFrameLocationStart;
     UInt32 secondPartFrameSize = 0;
-    
+
     if (firstPartFrameSize >= inIOBufferFrameSize)
     {
         firstPartFrameSize = inIOBufferFrameSize;
@@ -4684,11 +4814,11 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
     {
         secondPartFrameSize = inIOBufferFrameSize - firstPartFrameSize;
     }
-    
+
     // Keep track of last outputSampleTime and the cleared buffer status.
     static Float64 lastOutputSampleTime = 0;
     static Boolean isBufferClear = true;
-    
+
     // From BlackHole to Application
     if(inOperationID == kAudioServerPlugInIOOperationReadInput)
     {
@@ -4697,7 +4827,7 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
         {
             // Clear the ioMainBuffer
             vDSP_vclr(ioMainBuffer, 1, inIOBufferFrameSize * kNumber_Of_Channels);
-            
+
             // Clear the ring buffer.
             if (!isBufferClear)
             {
@@ -4710,7 +4840,7 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
             // Copy the buffers.
             memcpy(ioMainBuffer, gRingBuffer + ringBufferFrameLocationStart * kNumber_Of_Channels, firstPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
             memcpy((Float32*)ioMainBuffer + firstPartFrameSize * kNumber_Of_Channels, gRingBuffer, secondPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
-            
+
             // Finally we'll apply the output volume to the buffer.
 	    if(kEnableVolumeControl)
 	    {
@@ -4719,23 +4849,58 @@ static OSStatus	BlackHole_DoIOOperation(AudioServerPlugInDriverRef inDriver, Aud
 
         }
     }
-    
+
     // From Application to BlackHole
     if(inOperationID == kAudioServerPlugInIOOperationWriteMix)
     {
-        
+
         // Overload error.
         if (inIOCycleInfo->mCurrentTime.mSampleTime > inIOCycleInfo->mOutputTime.mSampleTime + inIOBufferFrameSize + kLatency_Frame_Size)
         {
             DebugMsg("BlackHole overload error. kAudioServerPlugInIOOperationWriteMix was unable to complete operation before the deadline. Try increasing the buffer frame size.");
             return kAudioHardwareUnspecifiedError;
         }
-        
-        
-        // Copy the buffers.
+
+
+        // Copy the buffers under mutex to prevent race with input read.
+        // The mutex ensures mutual exclusion between IO write and IO read.
+        pthread_mutex_lock(&gDevice_IOMutex);
         memcpy(gRingBuffer + ringBufferFrameLocationStart * kNumber_Of_Channels, ioMainBuffer, firstPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
         memcpy(gRingBuffer, (Float32*)ioMainBuffer + firstPartFrameSize * kNumber_Of_Channels, secondPartFrameSize * kNumber_Of_Channels * sizeof(Float32));
-        
+        pthread_mutex_unlock(&gDevice_IOMutex);
+
+        // Write to shared memory for lock-free capture (if available)
+        // This provides an alternative path for the app to read audio without IPC
+        // IMPORTANT: Uses independent write position, NOT ringBufferFrameLocationStart
+        // The shared memory ring buffer is separate from gRingBuffer
+        if (gSharedMemHeader != NULL && gSharedMem != NULL && ioMainBuffer != NULL) {
+            // Use offsetof for safer pointer arithmetic
+            Float32* pSamples = (Float32*)((char*)gSharedMem + offsetof(struct EqualiserSharedMemory, samples));
+            UInt32 writePos = gSharedMem_WritePosition;
+
+            // Calculate wrap point for THIS buffer
+            // Shared memory uses SHARED_MEM_RING_SIZE, not kRing_Buffer_Frame_Size
+            if (writePos + inIOBufferFrameSize <= SHARED_MEM_RING_SIZE) {
+                // No wrap - single copy
+                memcpy(pSamples + writePos * kNumber_Of_Channels, ioMainBuffer, inIOBufferFrameSize * kNumber_Of_Channels * sizeof(Float32));
+            } else {
+                // Wrap - two copies
+                UInt32 firstPart = SHARED_MEM_RING_SIZE - writePos;
+                memcpy(pSamples + writePos * kNumber_Of_Channels, ioMainBuffer, firstPart * kNumber_Of_Channels * sizeof(Float32));
+                memcpy(pSamples, (Float32*)ioMainBuffer + firstPart * kNumber_Of_Channels, (inIOBufferFrameSize - firstPart) * kNumber_Of_Channels * sizeof(Float32));
+            }
+
+            // Update write position for next call
+            gSharedMem_WritePosition = (writePos + inIOBufferFrameSize) % SHARED_MEM_RING_SIZE;
+
+            // Update sample rate (may have changed since initialization)
+            gSharedMemHeader->sampleRate = gDevice_SampleRate;
+
+            // CRITICAL: Ensure data is visible before updating indices (release ordering)
+            atomic_store_explicit(&gSharedMemHeader->frameCount, inIOBufferFrameSize, memory_order_release);
+            atomic_store_explicit(&gSharedMemHeader->writeIndex, gSharedMem_WritePosition, memory_order_release);
+        }
+
         // Save the last output time.
         lastOutputSampleTime = inIOCycleInfo->mOutputTime.mSampleTime + inIOBufferFrameSize;
         isBufferClear = false;

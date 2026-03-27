@@ -17,6 +17,7 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | `src/domain/driver/` | Driver status types |
 | `src/services/` | Infrastructure layer |
 | `src/services/audio/` | Audio processing (DSP, HAL, rendering) |
+| `src/services/audio/capture/` | Driver capture (shared memory, HAL input) |
 | `src/services/device/` | Device enumeration and control |
 | `src/services/driver/` | Driver lifecycle management |
 | `src/services/presets/` | Preset file management |
@@ -40,6 +41,9 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | `src/services/audio/AudioConstants.swift` | Centralized audio/EQ constants and validation |
 | `src/services/audio/DriverNameManager.swift` | Driver naming with CoreAudio refresh workaround |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
+| `src/domain/capture/CaptureMode.swift` | Capture mode enum (halInput, sharedMemory) |
+| `src/services/audio/capture/DriverCapture.swift` | Shared memory capture from driver |
+| `src/services/audio/capture/SharedMemoryCapture.swift` | Lock-free ring buffer reader |
 | `src/services/driver/protocols/DriverAccessing.swift` | Protocol for driver lifecycle access |
 | `src/services/meters/MeterStore.swift` | Meter state management |
 | `src/store/coordinators/AudioRoutingCoordinator.swift` | Device selection and pipeline management |
@@ -207,7 +211,11 @@ View models hold `unowned` store references and derive presentation state:
 
 ## Audio Pipeline
 
-The app routes audio through two HAL units:
+The app supports two capture modes for the Equaliser driver:
+
+### Standard Capture (HAL Input)
+
+Uses HAL input stream. Triggers macOS microphone indicator.
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌───────────────┐
@@ -223,15 +231,45 @@ The app routes audio through two HAL units:
 ┌──────────────┐     ┌──────────────┐     ┌────────────────────┐
 │ Output Device│ ◀── │  Output HAL  │ ◀── │ Output Callback    │
 └──────────────┘     └──────────────┘     │ + Manual Rendering │
-                                          │ + EQ (64 bands)    │
-                                          └────────────────────┘
+                                           │ + EQ (64 bands)    │
+                                           └────────────────────┘
+```
+
+### Shared Memory Capture (Default)
+
+Uses lock-free shared memory. No TCC permission required.
+
+```
+┌──────────────┐     ┌────────────────────────────────────┐
+│ Equaliser    │ ──▶ │ Driver WriteMix                    │
+│ Driver       │     │ (audio stored in shared memory)    │
+└──────────────┘     └────────────────────────────────────┘
+                                    │
+                                    ▼ (mmap, lock-free)
+                           ┌────────────────────┐
+                           │ DriverCapture      │
+                           │ poll() from driver │
+                           └────────────────────┘
+                                    │
+                                    ▼
+                           ┌──────────────┐
+                           │  Ring Buffer │
+                           └──────────────┘
+                                    │
+                                    ▼
+┌──────────────┐     ┌──────────────┐     ┌────────────────────┐
+│ Output Device│ ◀── │  Output HAL  │ ◀── │ Output Callback    │
+└──────────────┘     └──────────────┘     │ + EQ (64 bands)    │
+                                           └────────────────────┘
 ```
 
 | Component | Purpose |
 |-----------|---------|
 | `HALIOManager` | Single HAL unit (input or output mode) |
-| `RenderPipeline` | Orchestrates dual HAL + EQ |
+| `RenderPipeline` | Orchestrates HAL units + EQ |
 | `AudioRingBuffer` | Lock-free SPSC buffer for clock drift |
+| `DriverCapture` | Polls driver shared memory for audio |
+| `SharedMemoryCapture` | Lock-free ring buffer reader (mmap) |
 
 ## Routing Modes
 
@@ -239,6 +277,13 @@ The app routes audio through two HAL units:
 |------|-------|--------|----------|
 | Automatic | Equaliser driver | macOS default | Recommended |
 | Manual | User-selected | User-selected | Advanced |
+
+### Capture Modes
+
+| Capture Mode | Method | TCC Permission | Use Case |
+|-------------|--------|----------------|----------|
+| sharedMemory | Driver mmap (lock-free) | NOT required | Default, recommended |
+| halInput | HAL input stream | Required | Legacy, fallback |
 
 ## Constants
 

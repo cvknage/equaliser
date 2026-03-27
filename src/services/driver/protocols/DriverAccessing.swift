@@ -11,10 +11,13 @@ import Foundation
 protocol DriverAccessing: AnyObject {
     /// Whether the driver is installed and ready for use.
     var isReady: Bool { get }
-    
+
     /// The driver's device ID if currently visible in CoreAudio.
     var deviceID: AudioObjectID? { get }
-    
+
+    /// The device registry for driver discovery.
+    var deviceRegistry: DriverDeviceRegistry { get }
+
     /// Checks if the driver is currently visible in CoreAudio.
     /// - Returns: True if the driver device is visible.
     func isDriverVisible() -> Bool

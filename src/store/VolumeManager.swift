@@ -25,22 +25,39 @@ import OSLog
 @MainActor
 final class VolumeManager: ObservableObject {
     
+    // MARK: - Constants
+
+    /// Volume change threshold below which changes are ignored.
+    /// Prevents glitches from rapid tiny volume fluctuations.
+    private let volumeEpsilon: Float = 0.001
+
     // MARK: - Published State
-    
+
     /// Current volume from driver (0.0 - 1.0). Used to calculate boost.
     @Published private(set) var gain: Float = 1.0
-    
+
     /// Whether volume boost is enabled. When false, boost is always 1.0.
     @Published private(set) var boostEnabled: Bool = true
-    
+
     /// Whether audio is muted.
     @Published private(set) var muted: Bool = false
-    
+
     // MARK: - Dependencies
-    
-    private let volumeService: VolumeControlling
+
+    /// Volume service for CoreAudio calls.
+    /// nonisolated(unsafe) since it's a let set once in init and never changes,
+    /// and setDeviceVolumeScalar is nonisolated.
+    nonisolated(unsafe) let volumeService: VolumeControlling
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "VolumeManager")
-    
+
+    /// Serial queue for volume forwarding (isolated from main thread).
+    /// Prevents CoreAudio calls from interfering with UI work and audio callback timing.
+    private let volumeForwardQueue = DispatchQueue(label: "net.knage.equaliser.volume-forward")
+
+    /// Last forwarded volume for deduplication.
+    /// Accessed only on volumeForwardQueue, marked nonisolated(unsafe) for Swift concurrency.
+    nonisolated(unsafe) var lastForwardedVolume: Float?
+
     /// Driver device ID for volume sync.
     private var driverDeviceID: AudioDeviceID?
 
@@ -87,7 +104,10 @@ final class VolumeManager: ObservableObject {
         }
         
         gain = initialVolume
-        
+
+        // Initialize last forwarded volume to prevent first forward being skipped
+        lastForwardedVolume = initialVolume
+
         // Get initial mute state from output device (source of truth)
         let initialMuted = volumeService.getDeviceMute(deviceID: outputID) ?? false
         muted = initialMuted
@@ -146,27 +166,48 @@ final class VolumeManager: ObservableObject {
         if let outputID = outputDeviceID {
             volumeService.stopObservingMuteChanges(on: outputID)
         }
-        
+
         driverDeviceID = nil
         outputDeviceID = nil
+        lastForwardedVolume = nil
     }
     
     // MARK: - Volume Change Handlers
-    
+
     /// Handles volume changes from the driver device (macOS slider).
-    /// Updates internal state, syncs output volume, and recalculates boost.
+    /// Updates internal state immediately, then dispatches to serial queue for CoreAudio call.
     private func handleDriverVolumeChanged(_ newVolume: Float) {
-        // Update internal state
+        // Update internal state immediately (UI needs this)
         gain = newVolume
 
-        // Sync to output device
-        if let outputID = outputDeviceID {
-            volumeService.setDeviceVolumeScalar(deviceID: outputID, volume: newVolume)
+        // Capture values before dispatching to background queue
+        guard let outputID = outputDeviceID else { return }
+
+        // Dispatch to serial queue for epsilon filtering and output sync
+        // This isolates CoreAudio calls from main thread UI work
+        volumeForwardQueue.async { [weak self] in
+            self?.forwardVolumeToOutput(newVolume, outputID: outputID)
         }
 
         // Update boost (brings signal back to unity)
         let boost = boostGain()
         onBoostGainChanged?(boost)
+    }
+
+    /// Forwards volume to output device with epsilon filtering.
+    /// Called on volumeForwardQueue, not main thread.
+    nonisolated private func forwardVolumeToOutput(_ newVolume: Float, outputID: AudioDeviceID) {
+        // Skip if change is below epsilon threshold
+        if let lastForwardedVolume = lastForwardedVolume,
+           abs(newVolume - lastForwardedVolume) < volumeEpsilon {
+            return
+        }
+
+        lastForwardedVolume = newVolume
+
+        // CoreAudio call on serial queue (isolated from main thread)
+        // Note: setDeviceVolumeScalar is nonisolated and thread-safe
+        _ = volumeService.setDeviceVolumeScalar(deviceID: outputID, volume: newVolume)
     }
     
     // MARK: - Mute Change Handlers

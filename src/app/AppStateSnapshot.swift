@@ -5,26 +5,27 @@ import os.log
 
 struct AppStateSnapshot: Codable, Sendable {
     // MARK: - EQ Configuration
-    
+
     var globalBypass: Bool
     var inputGain: Float
     var outputGain: Float
     var activeBandCount: Int
     var bands: [EQBandConfiguration]
-    
+
     // MARK: - App State
-    
+
     var inputDeviceID: String?
     var outputDeviceID: String?
     var bandwidthDisplayMode: String
     var manualModeEnabled: Bool
-    
+    var captureMode: Int  // CaptureMode.rawValue
+
     // MARK: - Meter State
-    
+
     var metersEnabled: Bool
-    
+
     // MARK: - Defaults
-    
+
     static var `default`: AppStateSnapshot {
         AppStateSnapshot(
             globalBypass: false,
@@ -36,6 +37,7 @@ struct AppStateSnapshot: Codable, Sendable {
             outputDeviceID: nil,
             bandwidthDisplayMode: BandwidthDisplayMode.octaves.rawValue,
             manualModeEnabled: false,
+            captureMode: CaptureMode.sharedMemory.rawValue,
             metersEnabled: true
         )
     }

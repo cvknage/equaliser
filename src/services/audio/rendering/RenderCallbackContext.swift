@@ -11,6 +11,10 @@ import os.log
 /// 1. Input callback captures audio from device → writes to ring buffers
 /// 2. Output callback reads from ring buffers → processes through EQ → outputs
 ///
+/// For shared memory capture mode:
+/// 1. Output callback polls driver shared memory → writes to ring buffers
+/// 2. Output callback reads from ring buffers → processes through EQ → outputs
+///
 /// - Important: This class is `@unchecked Sendable` because it is accessed from
 ///   both the main thread (for setup) and the audio render thread (for processing).
 ///   All mutable state is designed for single-writer/single-reader access patterns.
@@ -36,6 +40,10 @@ final class RenderCallbackContext: @unchecked Sendable {
 
     /// Maximum number of frames per callback.
     let maxFrameCount: UInt32
+
+    /// Driver capture for shared memory polling (optional, only in shared memory mode).
+    /// When set, the output callback will poll the driver before reading from ring buffers.
+    private nonisolated(unsafe) var driverCapture: DriverCapture?
 
     /// Pre-allocated buffers for input audio samples (one per channel for deinterleaved layout).
     /// Used by the input callback when pulling audio from the input HAL unit.
@@ -150,6 +158,14 @@ final class RenderCallbackContext: @unchecked Sendable {
 
     /// Storage for latest output RMS levels per channel (in dBFS).
     private let outputRmsStorage: UnsafeMutablePointer<Float>
+
+    // MARK: - Driver Capture
+
+    /// Sets the driver capture instance for polling.
+    /// When set, the output callback will poll the driver before reading from ring buffers.
+    func setDriverCapture(_ capture: DriverCapture?) {
+        driverCapture = capture
+    }
 
     // MARK: - Initialization
 
@@ -289,6 +305,92 @@ final class RenderCallbackContext: @unchecked Sendable {
         }
         let channels = inputBuffers.map { UnsafePointer($0) }
         updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
+    }
+
+    /// Writes interleaved audio samples to the ring buffers.
+    /// Called by driver capture (not input HAL callback).
+    /// - Parameters:
+    ///   - interleavedSamples: Interleaved samples (L0, R0, L1, R1, ...)
+    ///   - frameCount: Number of frames
+    ///   - channelCount: Number of channels (must match context's channelCount)
+    @inline(__always)
+    func writeInterleavedToRingBuffers(
+        interleavedSamples: [Float],
+        frameCount: UInt32,
+        channelCount: UInt32
+    ) {
+        guard channelCount == self.channelCount else { return }
+        let count = Int(frameCount)
+        guard count > 0 else { return }
+
+        // Deinterleave into inputBuffers
+        for frame in 0..<count {
+            for channel in 0..<Int(channelCount) {
+                let interleavedIndex = frame * Int(channelCount) + channel
+                inputBuffers[channel][frame] = interleavedSamples[interleavedIndex]
+            }
+        }
+
+        // Write to ring buffers (same as writeToRingBuffers)
+        for (index, ringBuffer) in ringBuffers.enumerated() {
+            _ = ringBuffer.write(inputBuffers[index], count: count)
+        }
+
+        // Update meters
+        let channels = inputBuffers.map { UnsafePointer($0) }
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
+    }
+
+    /// Polls driver capture and writes to ring buffers.
+    /// Called by the output callback in shared memory mode.
+    /// - Returns: Number of frames polled, or 0 if no data available
+    @inline(__always)
+    func pollAndWriteToRingBuffers() -> UInt32 {
+        guard let capture = driverCapture,
+              let data = capture.poll() else {
+            return 0
+        }
+
+        let frameCount = data.frameCount
+        let channelCount = data.channelCount
+
+        guard frameCount > 0, channelCount == self.channelCount else {
+            return 0
+        }
+
+        let count = Int(frameCount)
+
+        // Deinterleave samples into inputBuffers
+        for frame in 0..<count {
+            for channel in 0..<Int(channelCount) {
+                let interleavedIndex = frame * Int(channelCount) + channel
+                inputBuffers[channel][frame] = data.samples[interleavedIndex]
+            }
+        }
+
+        // Apply input gain before writing to ring buffers (skip in full bypass mode)
+        // Note: Boost gain is NOT applied here - in shared memory mode, samples come
+        // from the driver at full volume regardless of macOS volume setting
+        if processingMode != 0 {
+            let targetInputGain = getTargetInputGain()
+            applyGain(
+                to: inputBuffers.map { UnsafeMutablePointer($0) },
+                frameCount: frameCount,
+                currentGain: &inputGainLinear,
+                targetGain: targetInputGain
+            )
+        }
+
+        // Write to ring buffers
+        for (index, ringBuffer) in ringBuffers.enumerated() {
+            _ = ringBuffer.write(inputBuffers[index], count: count)
+        }
+
+        // Update meters
+        let channels = inputBuffers.map { UnsafePointer($0) }
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
+
+        return frameCount
     }
 
     /// Direct access to the input sample buffers (for diagnostics/debugging).
@@ -473,6 +575,21 @@ final class RenderCallbackContext: @unchecked Sendable {
         }
         inputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
         outputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
+    }
+
+    /// Pre-fills ring buffers with silence to prevent startup underruns.
+    /// Should be called before starting audio output in shared memory mode.
+    /// - Parameter frameCount: Number of silent frames to write to each ring buffer.
+    func prefillWithSilence(frameCount: UInt32) {
+        let count = Int(frameCount)
+        // Zero out input buffers
+        for buffer in inputBuffers {
+            buffer.initialize(repeating: 0.0, count: count)
+        }
+        // Write silence to all ring buffers
+        for (index, ringBuffer) in ringBuffers.enumerated() {
+            _ = ringBuffer.write(inputBuffers[index], count: count)
+        }
     }
 
     /// Returns diagnostic information about ring buffer state.

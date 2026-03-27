@@ -20,6 +20,11 @@ final class AudioRoutingCoordinator: ObservableObject {
     @Published var selectedOutputDeviceID: String?
     @Published var manualModeEnabled: Bool = false
     @Published var showDriverPrompt: Bool = false
+
+    /// Capture mode preference for automatic routing.
+    /// In automatic mode with the Equaliser driver, this determines how audio is captured.
+    /// Manual mode always uses HAL input capture.
+    @Published var captureMode: CaptureMode = .sharedMemory
     
     // MARK: - Dependencies
     
@@ -312,9 +317,40 @@ final class AudioRoutingCoordinator: ObservableObject {
         routingStatus = .starting
         logger.info("Starting routing: \(inputName) → \(outputName)")
 
+        // Determine capture mode
+        // In automatic mode: use user's capture mode preference
+        // In manual mode: always use HAL input capture
+        let captureMode: CaptureMode
+        if manualModeEnabled {
+            captureMode = .halInput
+        } else {
+            captureMode = self.captureMode
+        }
+
+        // Validate shared memory capture requirements
+        if captureMode == .sharedMemory {
+            guard inputUID == DRIVER_DEVICE_UID else {
+                routingStatus = .error("Shared memory capture requires Equaliser driver")
+                logger.error("Shared memory capture requires driver as input")
+                return
+            }
+            guard driverAccess.isReady else {
+                routingStatus = .error("Driver not installed")
+                logger.error("Shared memory capture requires driver")
+                return
+            }
+        }
+
         let pipeline = RenderPipeline(eqConfiguration: eqConfiguration)
 
-        switch pipeline.configure(inputDeviceID: inputDeviceID, outputDeviceID: outputDeviceID) {
+        let registry: DriverDeviceRegistry? = captureMode == .sharedMemory ? driverAccess.deviceRegistry : nil
+
+        switch pipeline.configure(
+            inputDeviceID: inputDeviceID,
+            outputDeviceID: outputDeviceID,
+            captureMode: captureMode,
+            driverRegistry: registry
+        ) {
         case .success:
             break // RenderPipeline logs success at info level
         case .failure(let error):
@@ -333,10 +369,15 @@ final class AudioRoutingCoordinator: ObservableObject {
             meterStore.startMeterUpdates()
             
             // Set up volume sync between driver and output device (automatic mode only)
+            // Note: Boost gain callback is only needed for HAL input capture mode.
+            // In shared memory mode, samples come from the driver at full volume
+            // regardless of macOS volume, so boost is not applied.
             if !manualModeEnabled, let driverID = driverAccess.deviceID {
                 volumeManager = VolumeManager(volumeService: volumeService)
-                volumeManager?.onBoostGainChanged = { [weak self] boostGain in
-                    self?.renderPipeline?.updateBoostGain(linear: boostGain)
+                if captureMode == .halInput {
+                    volumeManager?.onBoostGainChanged = { [weak self] boostGain in
+                        self?.renderPipeline?.updateBoostGain(linear: boostGain)
+                    }
                 }
                 volumeManager?.setupVolumeSync(driverID: driverID, outputID: outputDeviceID)
             }

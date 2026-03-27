@@ -5,13 +5,55 @@ License: GPL-3.0 (inherited from upstream)
 
 ## Custom Properties
 
-One custom CoreAudio property allows the Equaliser app to control the driver:
+Two custom CoreAudio properties allow the Equaliser app to communicate with the driver:
 
 | Selector | Type | Get/Set | Description |
 |----------|------|---------|-------------|
 | `'eqnm'` | CFString | Read/Write | Dynamic device name shown in Audio MIDI Setup |
+| `'eqsp'` | CFString | Read/Write | Path to shared memory file for audio capture |
 
 The device name persists to `UserDefaults` via `WriteToStorage` and survives driver reloads.
+
+## Shared Memory Capture
+
+The driver supports lock-free audio capture via shared memory:
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `SHARED_MEM_RING_SIZE` | 65536 | Ring buffer size (frames) |
+| `kEqualiserPropertySharedMemPath` | 'eqsp' | Property selector for memory path |
+
+### Shared Memory Structure
+
+```c
+struct EqualiserSharedMemory {
+    volatile _Atomic UInt32 writeIndex;     // Driver writes position
+    volatile _Atomic UInt32 readIndex;      // App reads position (unused)
+    volatile _Atomic UInt32 frameCount;     // Frames in current buffer
+    UInt32 channelCount;                    // Always 2 (stereo)
+    Float64 sampleRate;                     // Current sample rate
+    UInt8 _padding[64 - 24];               // Cache line padding
+    Float32 samples[];                      // Interleaved L/R audio
+};
+```
+
+### Protocol
+
+1. App creates file in `/tmp/equaliser-audio-{pid}.shm`
+2. App sets world-writable permissions (`chmod 0666`)
+3. App sets path via `kEqualiserPropertySharedMemPath`
+4. Driver opens file and mmaps it
+5. Driver writes interleaved samples on each `WriteMix`
+6. App polls from output callback using atomic reads
+
+**Atomic ordering:** Driver uses `memory_order_release` on frameCount/writeIndex. App reads atomically with acquire semantics.
+
+## Version
+
+Current version: **1.1.0**
+
+- 1.0.0: Initial release (name property)
+- 1.1.0: Shared memory capture support
 
 ## Automatic Visibility Management
 

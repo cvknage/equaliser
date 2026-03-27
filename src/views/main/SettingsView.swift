@@ -68,7 +68,7 @@ struct DisplaySettingsTab: View {
             } header: {
                 Text("Device Selection Mode")
             }
-            
+
             Section("Bandwidth Display") {
                 Picker("Format", selection: $store.bandwidthDisplayMode) {
                     ForEach(BandwidthDisplayMode.allCases, id: \.self) { mode in
@@ -93,6 +93,7 @@ struct DisplaySettingsTab: View {
 }
 
 struct DriverSettingsTab: View {
+    @EnvironmentObject var store: EqualiserStore
     @StateObject private var driverManager = DriverManager.shared
     @State private var showUninstallConfirm = false
     
@@ -171,12 +172,63 @@ struct DriverSettingsTab: View {
         case .notInstalled:
             notInstalledView
         case .installed(let version):
-            installedView(version: version)
+            VStack(spacing: 20) {
+                installedView(version: version)
+
+                // Capture mode settings (only in automatic mode)
+                if !store.manualModeEnabled {
+                    Divider()
+                    captureModeSection
+                }
+            }
         case .needsUpdate(let current, let bundled):
             needsUpdateView(current: current, bundled: bundled)
         case .error(let message):
             errorView(message: message)
         }
+    }
+
+    @ViewBuilder
+    private var captureModeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Capture Mode")
+                .font(.headline)
+
+            Picker("Method", selection: Binding(
+                get: { store.captureMode },
+                set: { newMode in
+                    if newMode == .halInput {
+                        // Switching to HAL capture - request permission first
+                        Task {
+                            let granted = await store.requestMicPermissionAndSwitchToHALCapture()
+                            if !granted {
+                                // Permission denied - UI stays on sharedMemory
+                            }
+                        }
+                    } else {
+                        // Switching to shared memory - no permission needed
+                        store.captureMode = newMode
+                    }
+                }
+            )) {
+                Text("Shared Memory (no mic indicator)").tag(CaptureMode.sharedMemory)
+                Text("HAL Input (requires permission)").tag(CaptureMode.halInput)
+            }
+            .pickerStyle(.radioGroup)
+
+            if store.captureMode == .sharedMemory {
+                Text("Audio is captured via shared memory. No microphone permission required.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text("Audio is captured via HAL input. Microphone permission required.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(8)
     }
     
     private var notInstalledView: some View {

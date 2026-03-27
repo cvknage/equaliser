@@ -82,7 +82,7 @@ final class EqualiserStore: ObservableObject {
     
     /// User preference for displaying bandwidth as octaves or Q factor.
     @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves
-    
+
     // MARK: - Forwarded Properties from RoutingCoordinator
     
     var routingStatus: RoutingStatus { routingCoordinator.routingStatus }
@@ -111,7 +111,41 @@ final class EqualiserStore: ObservableObject {
         get { routingCoordinator.manualModeEnabled }
         set { routingCoordinator.manualModeEnabled = newValue }
     }
-    
+
+    /// Capture mode preference for automatic routing.
+    /// Only applies when using the Equaliser driver in automatic mode.
+    /// Manual mode always uses HAL input capture.
+    var captureMode: CaptureMode {
+        get { routingCoordinator.captureMode }
+        set {
+            routingCoordinator.captureMode = newValue
+            // Reconfigure routing if active and in automatic mode
+            if !routingCoordinator.manualModeEnabled && routingCoordinator.routingStatus.isActive {
+                routingCoordinator.reconfigureRouting()
+            }
+        }
+    }
+
+    /// Requests microphone permission and switches to HAL capture mode.
+    /// Returns true if permission was granted, false otherwise.
+    @MainActor
+    func requestMicPermissionAndSwitchToHALCapture() async -> Bool {
+        let granted = await withCheckedContinuation { continuation in
+            AVAudioApplication.requestRecordPermission { granted in
+                continuation.resume(returning: granted)
+            }
+        }
+
+        if granted {
+            captureMode = .halInput
+            logger.info("Microphone permission granted, switched to HAL capture")
+        } else {
+            logger.warning("Microphone permission denied, staying with shared memory capture")
+        }
+
+        return granted
+    }
+
     var showDriverPrompt: Bool {
         get { routingCoordinator.showDriverPrompt }
         set { routingCoordinator.showDriverPrompt = newValue }
@@ -155,6 +189,7 @@ final class EqualiserStore: ObservableObject {
             outputDeviceID: routingCoordinator.selectedOutputDeviceID,
             bandwidthDisplayMode: bandwidthDisplayMode.rawValue,
             manualModeEnabled: manualModeEnabled,
+            captureMode: routingCoordinator.captureMode.rawValue,
             metersEnabled: meterStore.metersEnabled
         )
     }
@@ -219,7 +254,10 @@ final class EqualiserStore: ObservableObject {
         if let snapshot = snapshot {
             logger.debug("Loading from snapshot: outputDeviceID=\(snapshot.outputDeviceID ?? "nil"), manualMode=\(snapshot.manualModeEnabled)")
             _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .octaves)
-            
+
+            // Restore capture mode preference
+            routingCoordinator.captureMode = CaptureMode(rawValue: snapshot.captureMode) ?? .sharedMemory
+
             if snapshot.manualModeEnabled {
                 // Manual mode: load saved devices
                 routingCoordinator.selectedInputDeviceID = snapshot.inputDeviceID
