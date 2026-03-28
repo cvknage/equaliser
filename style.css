@@ -725,6 +725,11 @@ h1 {
     margin-bottom: 0;
 }
 
+.muted-note {
+    font-size: 0.85em !important;
+    opacity: 0.7;
+}
+
 /* Footer */
 footer {
     text-align: center;
