@@ -6,8 +6,8 @@
     <title>How It Works - Equaliser Documentation</title>
     <meta name="description" content="A detailed explanation of how Equaliser processes audio on your Mac, including the virtual audio driver, capture methods, parametric EQ engine, and privacy considerations.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/how-it-works.html">
-    <link rel="stylesheet" href="../style.css?7baaae3">
-    <link rel="icon" href="../assets/AppIcon.svg?7baaae3" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?19e62ef">
+    <link rel="icon" href="../assets/AppIcon.svg?19e62ef" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -530,29 +530,6 @@
 </tbody>
 </table>
 <p>This matches macOS behaviour and prevents audio from unexpectedly playing through speakers.</p>
-<p><strong>How it works:</strong></p>
-<table>
-<colgroup>
-<col style="width: 25%" />
-<col style="width: 75%" />
-</colgroup>
-<thead>
-<tr>
-<th>Platform</th>
-<th>Detection Method</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Apple Silicon</td>
-<td>Built-in device count change</td>
-</tr>
-<tr>
-<td>Intel Mac</td>
-<td>Jack connection property</td>
-</tr>
-</tbody>
-</table>
 <p>When headphones are unplugged, Equaliser restores the previous output device from history.</p>
 <h3 id="device-history">Device History</h3>
 <p>Equaliser remembers your output device choices:</p>
@@ -569,7 +546,6 @@
 <li><strong>Use macOS default</strong>: If your saved device is gone, use macOS's default</li>
 <li><strong>Find fallback</strong>: If no valid devices exist, use built-in speakers</li>
 </ol>
-<p>This pure function approach avoids calling CoreAudio with potentially-stale UIDs, which can cause crashes on device disconnection.</p>
 </details>
 <hr />
 <h2 id="privacy-permissions">Privacy &amp; Permissions</h2>
