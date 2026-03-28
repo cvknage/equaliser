@@ -21,12 +21,14 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.2.1</string>
 	<key>CFBundleVersion</key>
-	<string>5898ac6</string>
+	<string>00643ff</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone permission is optional.&#10;&#10;Grant only for advanced features.</string>
+	<string>Microphone permission is optional.
+
+Grant only for advanced features.</string>
 </dict>
 </plist>
