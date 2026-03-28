@@ -127,7 +127,22 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Design UI for managing EQ chain slots (add/remove/reorder)
 - [ ] Consider latency implications of serial processing
 
-## 15. Remove Microphone Indicator
+## 15. Remove Microphone Indicator (Completed)
 - [x] Eliminate the orange microphone indicator and microphone permission requirement.
 - [x] No orange menu bar dot appears while audio routing is active
 
+## 16. AirPlay Support
+- [ ] Investigate AirPlay SDK integration using `AVRouteDetector` and `AVOutputContext` APIs
+- [ ] Add AirPlay device discovery separate from CoreAudio HAL enumeration
+- [ ] Implement AirPlay routing alongside standard output device selection
+- [ ] Handle AirPlay-specific latency (2-5 second buffer) with appropriate UI warnings
+- [ ] Test with various AirPlay receivers (Apple TV, HomePod, AirPlay speakers)
+- [ ] Document AirPlay limitations and latency considerations for users
+
+## 17. L/R Channel EQ
+- [ ] Investigate dual-channel EQ architecture with separate band settings per channel
+- [ ] Add channel selection UI (Linked/Stereo/Left/Right modes)
+- [ ] Implement per-channel band gain storage in preset model
+- [ ] Update EQ rendering to apply channel-specific gains during processing
+- [ ] Add stereo link/unlink toggle for each band or global
+- [ ] Test with mono and stereo audio sources to verify channel separation
