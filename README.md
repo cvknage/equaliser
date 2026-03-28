@@ -67,7 +67,7 @@ nix develop
 
 1. Open Equaliser from your menu bar
 2. If prompted, install the audio driver
-3. Grant microphone permission when requested
+3. (Optional) Grant microphone permission if you want to use advanced features - can also be granted later in settings.
 
 Equaliser handles all audio routing automatically — no configuration needed.
 
@@ -99,6 +99,9 @@ These files are small and harmless — remove them if you do not plan to reinsta
 Equaliser requests **Microphone permission** at launch.
 
 This is required because macOS requires the `audio-input` entitlement for HAL input capture (a supported feature). Even though the default capture mode uses shared memory (which doesn't access the microphone), macOS shows the permission dialog when both the entitlement and usage description are present.
+**Default behaviour:** Equaliser uses **shared memory capture**, which does NOT require microphone permission.
+
+macOS treats virtual audio drivers as microphone inputs. The shared memory capture mode works around this by reading directly from the driver's shared memory buffer instead of using an input stream.
 
 All audio processing happens **locally on your Mac**.
 
