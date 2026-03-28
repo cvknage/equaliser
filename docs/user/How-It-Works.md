@@ -299,13 +299,6 @@ When headphones are connected, Equaliser automatically switches output:
 
 This matches macOS behaviour and prevents audio from unexpectedly playing through speakers.
 
-**How it works:**
-
-| Platform | Detection Method |
-|----------|------------------|
-| Apple Silicon | Built-in device count change |
-| Intel Mac | Jack connection property |
-
 When headphones are unplugged, Equaliser restores the previous output device from history.
 
 ### Device History
@@ -324,8 +317,6 @@ Equaliser uses a prioritised selection algorithm:
 1. **Preserve current**: If your saved device is still available, keep it
 2. **Use macOS default**: If your saved device is gone, use macOS's default
 3. **Find fallback**: If no valid devices exist, use built-in speakers
-
-This pure function approach avoids calling CoreAudio with potentially-stale UIDs, which can cause crashes on device disconnection.
 
 </details>
 
