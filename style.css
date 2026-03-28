@@ -654,7 +654,7 @@ h1 {
     max-width: 500px;
     margin: 0 auto;
     list-style: none;
-    counter-reset: list-item;
+    counter-reset: step-counter;
 }
 
 .steps li {
@@ -664,8 +664,8 @@ h1 {
 }
 
 .steps li::before {
-    content: counter(list-item);
-    counter-increment: list-item;
+    content: counter(step-counter);
+    counter-increment: step-counter;
     position: absolute;
     left: 0;
     top: 0;
@@ -690,6 +690,39 @@ h1 {
 .steps p {
     color: var(--text-muted);
     font-size: 15px;
+}
+
+.steps .step-help {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.steps .step-help summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-weight: 500;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.steps .step-help summary::before {
+    content: 'ℹ️';
+    font-size: 12px;
+}
+
+.steps .step-help[open] summary {
+    margin-bottom: 8px;
+}
+
+.steps .step-help p {
+    margin: 0 0 8px;
+    line-height: 1.5;
+}
+
+.steps .step-help p:last-child {
+    margin-bottom: 0;
 }
 
 /* Footer */
