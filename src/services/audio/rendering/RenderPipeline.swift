@@ -813,7 +813,7 @@ final class RenderPipeline {
 
         // 2. Process EQ on the output buffers in-place
         // Processing mode: 0 = full bypass, 1 = normal (EQ + gains), 2 = gains only (compare flat)
-        if context.processingMode != 0 {
+        if context.processingMode == 1 {
             context.processEQ(frameCount: frameCount)
         }
 
