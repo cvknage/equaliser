@@ -13,7 +13,7 @@ final class PresetMigrationTests: XCTestCase {
     // MARK: - Legacy Format (pre-channel-mode)
 
     /// Legacy presets have no `channelMode` or `rightBands` keys.
-    /// They must decode successfully and default to linked mode.
+    /// They must decode successfully and default to linked mode with rightBands copied from left.
     func testLegacyPreset_decodesWithoutChannelMode() throws {
         // JSON that mirrors what the app wrote before the custom DSP migration.
         // No "channelMode" key, no "rightBands" key — exactly as old saves look on disk.
@@ -44,14 +44,23 @@ final class PresetMigrationTests: XCTestCase {
 
         XCTAssertEqual(preset.metadata.name, "Legacy Bass Boost")
         XCTAssertEqual(preset.settings.channelMode, "linked")
-        XCTAssertNil(preset.settings.rightBands)
         XCTAssertEqual(preset.settings.activeBandCount, 3)
-        XCTAssertEqual(preset.settings.bands.count, 3)
-        XCTAssertEqual(preset.settings.bands[0].frequency, 60.0)
-        XCTAssertEqual(preset.settings.bands[0].gain, 6.0)
-        XCTAssertEqual(preset.settings.bands[0].filterType, .parametric)
-        XCTAssertEqual(preset.settings.bands[2].bypass, true)
+        XCTAssertEqual(preset.settings.leftBands.count, 3)
+        // Legacy preset: rightBands should be copied from leftBands
+        XCTAssertEqual(preset.settings.rightBands.count, 3)
+        XCTAssertEqual(preset.settings.leftBands[0].frequency, 60.0)
+        XCTAssertEqual(preset.settings.leftBands[0].gain, 6.0)
+        XCTAssertEqual(preset.settings.leftBands[0].filterType, .parametric)
+        XCTAssertEqual(preset.settings.leftBands[2].bypass, true)
         XCTAssertEqual(preset.settings.inputGain, -4.0)
+        // Verify rightBands equals leftBands
+        for (left, right) in zip(preset.settings.leftBands, preset.settings.rightBands) {
+            XCTAssertEqual(left.frequency, right.frequency)
+            XCTAssertEqual(left.gain, right.gain)
+            XCTAssertEqual(left.q, right.q)
+            XCTAssertEqual(left.filterType, right.filterType)
+            XCTAssertEqual(left.bypass, right.bypass)
+        }
     }
 
     /// Legacy presets without `isFactoryPreset` in metadata must also decode successfully.
@@ -81,16 +90,19 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(preset.metadata.name, "Old User Preset")
         XCTAssertFalse(preset.metadata.isFactoryPreset)
         XCTAssertEqual(preset.settings.channelMode, "linked")
-        XCTAssertEqual(preset.settings.bands[0].gain, 3.0)
+        XCTAssertEqual(preset.settings.leftBands[0].gain, 3.0)
+        // rightBands should be copied from leftBands
+        XCTAssertEqual(preset.settings.rightBands[0].gain, 3.0)
     }
 
-    /// A preset with `channelMode` but no `rightBands` (linked stereo save) must decode.
-    func testLegacyPreset_decodesWithChannelModeButNoRightBands() throws {
+    /// New format presets require channelMode, leftBands, and rightBands.
+    /// In linked mode, both channels are saved (they're identical).
+    func testNewPreset_requiresBothChannels() throws {
         let json = """
         {
-            "version": 1,
+            "version": 2,
             "metadata": {
-                "name": "Linked With Mode",
+                "name": "Linked Preset",
                 "createdAt": 0,
                 "modifiedAt": 0
             },
@@ -99,10 +111,13 @@ final class PresetMigrationTests: XCTestCase {
                 "inputGain": 0.0,
                 "outputGain": 0.0,
                 "activeBandCount": 1,
-                "bands": [
-                    {"frequency": 1000.0, "bandwidth": 0.67, "gain": 0.0, "filterType": 0, "bypass": false}
+                "channelMode": "linked",
+                "leftBands": [
+                    {"frequency": 1000.0, "q": 0.67, "gain": 0.0, "filterType": "Bell", "bypass": false}
                 ],
-                "channelMode": "linked"
+                "rightBands": [
+                    {"frequency": 1000.0, "q": 0.67, "gain": 0.0, "filterType": "Bell", "bypass": false}
+                ]
             }
         }
         """.data(using: .utf8)!
@@ -110,7 +125,10 @@ final class PresetMigrationTests: XCTestCase {
         let preset = try decoder.decode(Preset.self, from: json)
 
         XCTAssertEqual(preset.settings.channelMode, "linked")
-        XCTAssertNil(preset.settings.rightBands)
+        XCTAssertEqual(preset.settings.leftBands.count, 1)
+        XCTAssertEqual(preset.settings.rightBands.count, 1)
+        // In linked mode, bands are identical
+        XCTAssertEqual(preset.settings.leftBands[0].frequency, preset.settings.rightBands[0].frequency)
     }
 
     // MARK: - Filter Type Backward Compatibility
@@ -139,9 +157,9 @@ final class PresetMigrationTests: XCTestCase {
 
         let preset = try decoder.decode(Preset.self, from: json)
 
-        XCTAssertEqual(preset.settings.bands[0].filterType, .lowShelf)
-        XCTAssertEqual(preset.settings.bands[1].filterType, .highShelf)
-        XCTAssertEqual(preset.settings.bands[2].filterType, .notch)
+        XCTAssertEqual(preset.settings.leftBands[0].filterType, .lowShelf)
+        XCTAssertEqual(preset.settings.leftBands[1].filterType, .highShelf)
+        XCTAssertEqual(preset.settings.leftBands[2].filterType, .notch)
         XCTAssertEqual(preset.settings.channelMode, "linked")
     }
 
@@ -165,7 +183,7 @@ final class PresetMigrationTests: XCTestCase {
 
         let preset = try decoder.decode(Preset.self, from: json)
 
-        XCTAssertEqual(preset.settings.bands[0].filterType, .parametric)
+        XCTAssertEqual(preset.settings.leftBands[0].filterType, .parametric)
     }
 
     // MARK: - Current Format Round-Trips
@@ -179,11 +197,11 @@ final class PresetMigrationTests: XCTestCase {
                 inputGain: -2.0,
                 outputGain: 1.0,
                 activeBandCount: 2,
-                bands: [
+                channelMode: "stereo",
+                leftBands: [
                     PresetBand(frequency: 100.0, q: 1.0, gain: 4.0, filterType: .lowShelf),
                     PresetBand(frequency: 8000.0, q: 1.41, gain: -3.0, filterType: .highShelf),
                 ],
-                channelMode: "stereo",
                 rightBands: [
                     PresetBand(frequency: 200.0, q: 0.83, gain: 2.0, filterType: .parametric),
                     PresetBand(frequency: 6000.0, q: 1.2, gain: -1.0, filterType: .highPass),
@@ -195,27 +213,30 @@ final class PresetMigrationTests: XCTestCase {
         let decoded = try decoder.decode(Preset.self, from: data)
 
         XCTAssertEqual(decoded.settings.channelMode, "stereo")
-        XCTAssertEqual(decoded.settings.bands.count, 2)
-        XCTAssertEqual(decoded.settings.bands[0].filterType, .lowShelf)
-        XCTAssertEqual(decoded.settings.bands[1].filterType, .highShelf)
-        XCTAssertEqual(decoded.settings.rightBands?.count, 2)
-        XCTAssertEqual(decoded.settings.rightBands?[0].frequency, 200.0)
-        XCTAssertEqual(decoded.settings.rightBands?[0].filterType, .parametric)
-        XCTAssertEqual(decoded.settings.rightBands?[1].filterType, .highPass)
+        XCTAssertEqual(decoded.settings.leftBands.count, 2)
+        XCTAssertEqual(decoded.settings.leftBands[0].filterType, .lowShelf)
+        XCTAssertEqual(decoded.settings.leftBands[1].filterType, .highShelf)
+        XCTAssertEqual(decoded.settings.rightBands.count, 2)
+        XCTAssertEqual(decoded.settings.rightBands[0].frequency, 200.0)
+        XCTAssertEqual(decoded.settings.rightBands[0].filterType, .parametric)
+        XCTAssertEqual(decoded.settings.rightBands[1].filterType, .highPass)
         XCTAssertEqual(decoded.settings.inputGain, -2.0)
         XCTAssertEqual(decoded.settings.outputGain, 1.0)
     }
 
-    /// Linked mode preset round-trips without rightBands.
+    /// Linked mode preset round-trips with both channels having identical bands.
     func testCurrentPreset_linkedRoundTrip() throws {
         let original = Preset(
             metadata: PresetMetadata(name: "Linked Test", isFactoryPreset: true),
             settings: PresetSettings(
                 activeBandCount: 1,
-                bands: [
+                channelMode: "linked",
+                leftBands: [
                     PresetBand(frequency: 1000.0, q: 1.41, gain: 3.0, filterType: .parametric),
                 ],
-                channelMode: "linked"
+                rightBands: [
+                    PresetBand(frequency: 1000.0, q: 1.41, gain: 3.0, filterType: .parametric),
+                ]
             )
         )
 
@@ -223,8 +244,8 @@ final class PresetMigrationTests: XCTestCase {
         let decoded = try decoder.decode(Preset.self, from: data)
 
         XCTAssertEqual(decoded.settings.channelMode, "linked")
-        XCTAssertNil(decoded.settings.rightBands)
-        XCTAssertEqual(decoded.settings.bands[0].gain, 3.0)
+        XCTAssertEqual(decoded.settings.rightBands.count, 1)
+        XCTAssertEqual(decoded.settings.leftBands[0].gain, 3.0)
         XCTAssertTrue(decoded.metadata.isFactoryPreset)
     }
 
@@ -237,11 +258,15 @@ final class PresetMigrationTests: XCTestCase {
                 inputGain: -6.0,
                 outputGain: 3.0,
                 activeBandCount: 2,
-                bands: [
+                channelMode: "linked",
+                leftBands: [
                     PresetBand(frequency: 250.0, q: 0.83, gain: 8.0, filterType: .lowShelf, bypass: false),
                     PresetBand(frequency: 4000.0, q: 1.41, gain: -4.0, filterType: .highShelf, bypass: true),
                 ],
-                channelMode: "linked"
+                rightBands: [
+                    PresetBand(frequency: 250.0, q: 0.83, gain: 8.0, filterType: .lowShelf, bypass: false),
+                    PresetBand(frequency: 4000.0, q: 1.41, gain: -4.0, filterType: .highShelf, bypass: true),
+                ]
             )
         )
 
@@ -252,13 +277,13 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.inputGain, -6.0)
         XCTAssertEqual(decoded.settings.outputGain, 3.0)
         XCTAssertEqual(decoded.settings.activeBandCount, 2)
-        XCTAssertEqual(decoded.settings.bands[0].frequency, 250.0)
-        XCTAssertEqual(decoded.settings.bands[0].q, 0.83)
-        XCTAssertEqual(decoded.settings.bands[0].gain, 8.0)
-        XCTAssertEqual(decoded.settings.bands[0].filterType, .lowShelf)
-        XCTAssertFalse(decoded.settings.bands[0].bypass)
-        XCTAssertEqual(decoded.settings.bands[1].gain, -4.0)
-        XCTAssertEqual(decoded.settings.bands[1].filterType, .highShelf)
-        XCTAssertTrue(decoded.settings.bands[1].bypass)
+        XCTAssertEqual(decoded.settings.leftBands[0].frequency, 250.0)
+        XCTAssertEqual(decoded.settings.leftBands[0].q, 0.83)
+        XCTAssertEqual(decoded.settings.leftBands[0].gain, 8.0)
+        XCTAssertEqual(decoded.settings.leftBands[0].filterType, .lowShelf)
+        XCTAssertFalse(decoded.settings.leftBands[0].bypass)
+        XCTAssertEqual(decoded.settings.leftBands[1].gain, -4.0)
+        XCTAssertEqual(decoded.settings.leftBands[1].filterType, .highShelf)
+        XCTAssertTrue(decoded.settings.leftBands[1].bypass)
     }
 }

@@ -1,5 +1,37 @@
 import Foundation
 
+/// Coding user info key for preset version.
+/// Allows nested decoders to know which format version they're parsing.
+enum PresetCodingKey {
+    static let version = CodingUserInfoKey(rawValue: "presetVersion")!
+}
+
+/// Decoder wrapper that injects preset version into userInfo.
+private struct VersionedDecoder: Decoder {
+    let wrapped: Decoder
+    let version: Int
+
+    var userInfo: [CodingUserInfoKey: Any] {
+        var info = wrapped.userInfo
+        info[PresetCodingKey.version] = version
+        return info
+    }
+
+    var codingPath: [CodingKey] { wrapped.codingPath }
+
+    func container<Key>(keyedBy type: Key.Type) throws -> KeyedDecodingContainer<Key> where Key: CodingKey {
+        try wrapped.container(keyedBy: type)
+    }
+
+    func unkeyedContainer() throws -> UnkeyedDecodingContainer {
+        try wrapped.unkeyedContainer()
+    }
+
+    func singleValueContainer() throws -> SingleValueDecodingContainer {
+        try wrapped.singleValueContainer()
+    }
+}
+
 /// Metadata for a preset (name, timestamps).
 struct PresetMetadata: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
@@ -45,34 +77,35 @@ struct PresetSettings: Codable, Sendable {
         case inputGain
         case outputGain
         case activeBandCount
-        case bands
+        case leftBands
         case channelMode
         case rightBands
+        case bands  // v1: decode as leftBands and rightBands
     }
 
     var globalBypass: Bool
     var inputGain: Float
     var outputGain: Float
     var activeBandCount: Int
-    var bands: [PresetBand]
     var channelMode: String
-    var rightBands: [PresetBand]?
+    var leftBands: [PresetBand]
+    var rightBands: [PresetBand]
 
     init(
         globalBypass: Bool = false,
         inputGain: Float = 0,
         outputGain: Float = 0,
         activeBandCount: Int = EQConfiguration.defaultBandCount,
-        bands: [PresetBand] = [],
         channelMode: String = "linked",
-        rightBands: [PresetBand]? = nil
+        leftBands: [PresetBand] = [],
+        rightBands: [PresetBand] = []
     ) {
         self.globalBypass = globalBypass
         self.inputGain = inputGain
         self.outputGain = outputGain
         self.activeBandCount = activeBandCount
-        self.bands = bands
         self.channelMode = channelMode
+        self.leftBands = leftBands
         self.rightBands = rightBands
     }
 
@@ -82,11 +115,54 @@ struct PresetSettings: Codable, Sendable {
         inputGain = try container.decode(Float.self, forKey: .inputGain)
         outputGain = try container.decode(Float.self, forKey: .outputGain)
         activeBandCount = try container.decode(Int.self, forKey: .activeBandCount)
-        bands = try container.decode([PresetBand].self, forKey: .bands)
-        // Legacy presets (saved before the custom DSP migration) lack channelMode and
-        // rightBands. Default channelMode to "linked" so old presets load in linked mode.
-        channelMode = try container.decodeIfPresent(String.self, forKey: .channelMode) ?? "linked"
-        rightBands = try container.decodeIfPresent([PresetBand].self, forKey: .rightBands)
+
+        // Get version from userInfo (defaults to current version)
+        let version = decoder.userInfo[PresetCodingKey.version] as? Int ?? Preset.currentVersion
+
+        if version >= 2 {
+            // v2: channelMode, leftBands, rightBands all present
+            channelMode = try container.decode(String.self, forKey: .channelMode)
+            // Manually decode bands with version awareness
+            var leftBandsArray: [PresetBand] = []
+            var leftContainer = try container.nestedUnkeyedContainer(forKey: .leftBands)
+            while !leftContainer.isAtEnd {
+                let bandContainer = try leftContainer.nestedContainer(keyedBy: PresetBand.CodingKeys.self)
+                leftBandsArray.append(try PresetBand(from: bandContainer, version: version))
+            }
+            leftBands = leftBandsArray
+
+            var rightBandsArray: [PresetBand] = []
+            var rightContainer = try container.nestedUnkeyedContainer(forKey: .rightBands)
+            while !rightContainer.isAtEnd {
+                let bandContainer = try rightContainer.nestedContainer(keyedBy: PresetBand.CodingKeys.self)
+                rightBandsArray.append(try PresetBand(from: bandContainer, version: version))
+            }
+            rightBands = rightBandsArray
+        } else {
+            // v1: bands only, no channelMode
+            channelMode = "linked"
+            // Manually decode bands with version awareness
+            var bandsArray: [PresetBand] = []
+            var bandsContainer = try container.nestedUnkeyedContainer(forKey: .bands)
+            while !bandsContainer.isAtEnd {
+                let bandContainer = try bandsContainer.nestedContainer(keyedBy: PresetBand.CodingKeys.self)
+                bandsArray.append(try PresetBand(from: bandContainer, version: version))
+            }
+            leftBands = bandsArray
+            rightBands = bandsArray
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(globalBypass, forKey: .globalBypass)
+        try container.encode(inputGain, forKey: .inputGain)
+        try container.encode(outputGain, forKey: .outputGain)
+        try container.encode(activeBandCount, forKey: .activeBandCount)
+        try container.encode(channelMode, forKey: .channelMode)
+        try container.encode(leftBands, forKey: .leftBands)
+        try container.encode(rightBands, forKey: .rightBands)
+        // Note: We don't encode the legacy "bands" key - clean break for new saves
     }
 }
 
@@ -95,10 +171,10 @@ struct PresetSettings: Codable, Sendable {
 /// Q (quality factor) is stored natively. Legacy presets with `bandwidth` are
 /// converted to Q on load using `BandwidthConverter.bandwidthToQ()`.
 struct PresetBand: Codable, Sendable {
-    private enum CodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case frequency
         case q
-        case bandwidth  // Legacy: for backward compatibility with old presets
+        case bandwidth  // v1: AVAudioUnitEQ uses bandwidth
         case gain
         case filterType
         case bypass
@@ -124,24 +200,39 @@ struct PresetBand: Codable, Sendable {
         self.bypass = bypass
     }
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+    /// Creates a PresetBand by decoding from a container with version awareness.
+    init(from container: KeyedDecodingContainer<CodingKeys>, version: Int) throws {
         frequency = try container.decode(Float.self, forKey: .frequency)
         gain = try container.decode(Float.self, forKey: .gain)
-        let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
-        filterType = FilterType(validatedRawValue: filterTypeRaw) ?? .parametric
         bypass = try container.decode(Bool.self, forKey: .bypass)
 
-        // New format: q field (preferred)
-        // Legacy format: bandwidth field (convert to Q)
-        if let q = try container.decodeIfPresent(Float.self, forKey: .q) {
-            self.q = q
-        } else if let bandwidth = try container.decodeIfPresent(Float.self, forKey: .bandwidth) {
-            // Legacy: convert bandwidth (octaves) to Q
-            self.q = BandwidthConverter.bandwidthToQ(bandwidth)
+        // Decode filterType based on version
+        if version >= 2 {
+            // v2: filterType as String
+            let typeString = try container.decode(String.self, forKey: .filterType)
+            filterType = FilterType(fromCodingKey: typeString)
         } else {
-            self.q = EQConfiguration.defaultQ
+            // v1: filterType as Int
+            let typeInt = try container.decode(Int.self, forKey: .filterType)
+            filterType = FilterType(validatedRawValue: typeInt) ?? .parametric
         }
+
+        // Decode Q based on version
+        if version >= 2 {
+            // v2: q field required
+            q = try container.decode(Float.self, forKey: .q)
+        } else {
+            // v1: bandwidth field, convert to Q
+            let bandwidth = try container.decode(Float.self, forKey: .bandwidth)
+            q = BandwidthConverter.bandwidthToQ(bandwidth)
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Default to current version when decoder doesn't have version in userInfo
+        let version = decoder.userInfo[PresetCodingKey.version] as? Int ?? Preset.currentVersion
+        try self.init(from: container, version: version)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -149,7 +240,7 @@ struct PresetBand: Codable, Sendable {
         try container.encode(frequency, forKey: .frequency)
         try container.encode(q, forKey: .q)
         try container.encode(gain, forKey: .gain)
-        try container.encode(filterType.rawValue, forKey: .filterType)
+        try container.encode(filterType.abbreviation, forKey: .filterType)  // v2: String
         try container.encode(bypass, forKey: .bypass)
     }
 
@@ -176,7 +267,7 @@ struct PresetBand: Codable, Sendable {
 
 /// A complete preset with version, metadata, and settings.
 struct Preset: Codable, Sendable, Identifiable {
-    static let currentVersion = 1
+    static let currentVersion = 2
 
     var version: Int
     var metadata: PresetMetadata
@@ -204,11 +295,9 @@ struct Preset: Codable, Sendable, Identifiable {
             inputGain: inputGain,
             outputGain: outputGain,
             activeBandCount: config.activeBandCount,
-            bands: config.leftState.userEQ.bands.map { PresetBand(from: $0) },
             channelMode: config.channelMode.rawValue,
-            rightBands: config.channelMode == .stereo
-                ? config.rightState.userEQ.bands.map { PresetBand(from: $0) }
-                : nil
+            leftBands: config.leftState.userEQ.bands.map { PresetBand(from: $0) },
+            rightBands: config.rightState.userEQ.bands.map { PresetBand(from: $0) }
         )
     }
 
@@ -225,6 +314,36 @@ struct Preset: Codable, Sendable, Identifiable {
         copy.metadata.name = newName
         copy.metadata.modifiedAt = Date()
         return copy
+    }
+}
+
+// MARK: - Codable with version propagation
+
+extension Preset {
+    enum CodingKeys: String, CodingKey {
+        case version
+        case metadata
+        case settings
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        version = try container.decode(Int.self, forKey: .version)
+        metadata = try container.decode(PresetMetadata.self, forKey: .metadata)
+
+        // Pass version to nested decoders via userInfo
+        let settingsDecoder = VersionedDecoder(
+            wrapped: try container.superDecoder(forKey: .settings),
+            version: version
+        )
+        settings = try PresetSettings(from: settingsDecoder)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(Preset.currentVersion, forKey: .version)
+        try container.encode(metadata, forKey: .metadata)
+        try container.encode(settings, forKey: .settings)
     }
 }
 

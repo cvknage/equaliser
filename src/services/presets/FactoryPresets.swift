@@ -28,7 +28,8 @@ enum FactoryPresets {
                 inputGain: 0,
                 outputGain: 0,
                 activeBandCount: 10,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -56,7 +57,8 @@ enum FactoryPresets {
                 inputGain: -8,
                 outputGain: 0,
                 activeBandCount: 12,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -82,7 +84,8 @@ enum FactoryPresets {
                 inputGain: -6,
                 outputGain: 0,
                 activeBandCount: 10,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -112,7 +115,8 @@ enum FactoryPresets {
                 inputGain: -6,
                 outputGain: 0,
                 activeBandCount: 14,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -138,7 +142,8 @@ enum FactoryPresets {
                 inputGain: -8,
                 outputGain: 0,
                 activeBandCount: 10,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -165,7 +170,8 @@ enum FactoryPresets {
                 inputGain: -3,
                 outputGain: 0,
                 activeBandCount: 11,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -193,7 +199,8 @@ enum FactoryPresets {
                 inputGain: -6,
                 outputGain: 0,
                 activeBandCount: 12,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -222,7 +229,8 @@ enum FactoryPresets {
                 inputGain: -7,
                 outputGain: 0,
                 activeBandCount: 13,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -248,7 +256,8 @@ enum FactoryPresets {
                 inputGain: -2,
                 outputGain: 0,
                 activeBandCount: 10,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -276,7 +285,8 @@ enum FactoryPresets {
                 inputGain: -5,
                 outputGain: 0,
                 activeBandCount: 12,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -301,7 +311,8 @@ enum FactoryPresets {
                 inputGain: -1,
                 outputGain: 0,
                 activeBandCount: 9,
-                bands: bands
+                leftBands: bands,
+                rightBands: bands
             )
         )
     }()
@@ -335,25 +346,22 @@ extension PresetManager {
         let needsReinstall = currentVersion < Self.factoryPresetVersion
 
         for factoryPreset in FactoryPresets.all {
-            if needsReinstall || !presetExists(named: factoryPreset.metadata.name) {
-                do {
-                    // Delete old version if exists
-                    if presetExists(named: factoryPreset.metadata.name) {
-                        try deletePreset(named: factoryPreset.metadata.name)
+            let existingIndex = presets.firstIndex(where: { $0.metadata.name == factoryPreset.metadata.name })
+
+            if needsReinstall {
+                if let index = existingIndex {
+                    let existingPreset = presets[index]
+                    if existingPreset.metadata.isFactoryPreset {
+                        // Pristine factory preset - safe to replace with updated version
+                        try? savePresetWithoutReload(factoryPreset)
                     }
-                    try savePresetWithoutReload(factoryPreset)
-                } catch {
-                    // Ignore errors - factory presets are optional
-                }
-            } else if let existingIndex = presets.firstIndex(where: { $0.metadata.name == factoryPreset.metadata.name }) {
-                // Ensure existing factory presets retain factory flag
-                let existingPreset = presets[existingIndex]
-                if !existingPreset.metadata.isFactoryPreset {
-                    var updatedPreset = existingPreset
-                    updatedPreset.metadata.isFactoryPreset = true
-                    try? savePresetWithoutReload(updatedPreset)
+                    // else: user-modified preset, skip to preserve changes
+                } else {
+                    // New factory preset (added in this version), install it
+                    try? savePresetWithoutReload(factoryPreset)
                 }
             }
+            // When !needsReinstall: do nothing - preserve user's presets
         }
 
         if needsReinstall {

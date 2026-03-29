@@ -142,62 +142,73 @@ enum EasyEffectsImporter {
             throw EasyEffectsImportError.missingEqualizerSection
         }
 
-        // Check for ignored parameters and add warnings
-        if eq["split-channels"] as? Bool == true {
-            warnings.append("Split channels mode is not supported - using mono EQ")
-        }
-
         // Parse bands - EasyEffects stores bands inside "left" and "right" sections
-        var bands: [PresetBand] = []
         let maxBands = EQConfiguration.maxBandCount
+
+        // Check for split-channels flag to determine channel mode
+        let splitChannels = eq["split-channels"] as? Bool ?? false
 
         // Try to get bands from "left" section first (standard EasyEffects format)
         let leftSection = eq["left"] as? [String: Any]
         let rightSection = eq["right"] as? [String: Any]
 
-        // Use left channel as primary, fall back to direct band keys for older formats
-        let bandSource: [String: Any]
-        if let left = leftSection {
-            bandSource = left
+        // Parse left channel bands
+        var leftBands: [PresetBand] = []
+        let leftSource: [String: Any] = leftSection ?? eq
 
-            // Check if right channel differs from left and warn
-            if let right = rightSection {
-                let channelDifferences = compareChannels(left: left, right: right)
-                if !channelDifferences.isEmpty {
-                    warnings.append("Left and right channels differ - using left channel only. Differences: \(channelDifferences.joined(separator: ", "))")
-                }
-            }
-        } else {
-            // Fall back to bands directly in equalizer section (legacy format)
-            bandSource = eq
-        }
-
-        // Parse bands from the selected source
         var bandIndex = 0
         while bandIndex < maxBands {
             let bandKey = "band\(bandIndex)"
-            guard let bandData = bandSource[bandKey] as? [String: Any] else {
+            guard let bandData = leftSource[bandKey] as? [String: Any] else {
                 break
             }
-
-            let band = parseBand(bandData, index: bandIndex, warnings: &warnings)
-            bands.append(band)
+            leftBands.append(parseBand(bandData, index: bandIndex, warnings: &warnings))
             bandIndex += 1
         }
 
         // If no bands found with "band0" format, try numbered format
-        if bands.isEmpty {
+        if leftBands.isEmpty {
             for i in 0..<maxBands {
-                if let bandData = bandSource["\(i)"] as? [String: Any] {
-                    let band = parseBand(bandData, index: i, warnings: &warnings)
-                    bands.append(band)
+                if let bandData = leftSource["\(i)"] as? [String: Any] {
+                    leftBands.append(parseBand(bandData, index: i, warnings: &warnings))
                 }
             }
         }
 
-        logger.info("Imported \(bands.count) bands from EasyEffects preset")
+        // Parse right channel bands if in stereo mode
+        var rightBands: [PresetBand]
+        var channelMode: String
 
-        if bands.isEmpty {
+        if splitChannels, let right = rightSection {
+            // Stereo mode: parse right channel separately
+            rightBands = []
+            var rightIndex = 0
+            while rightIndex < maxBands {
+                let bandKey = "band\(rightIndex)"
+                guard let bandData = right[bandKey] as? [String: Any] else {
+                    break
+                }
+                rightBands.append(parseBand(bandData, index: rightIndex, warnings: &warnings))
+                rightIndex += 1
+            }
+            // If no bands found with "band0" format, try numbered format
+            if rightBands.isEmpty {
+                for i in 0..<maxBands {
+                    if let bandData = right["\(i)"] as? [String: Any] {
+                        rightBands.append(parseBand(bandData, index: i, warnings: &warnings))
+                    }
+                }
+            }
+            channelMode = "stereo"
+        } else {
+            // Linked mode: copy left bands to right
+            rightBands = leftBands
+            channelMode = "linked"
+        }
+
+        logger.info("Imported \(leftBands.count) bands from EasyEffects preset (channelMode: \(channelMode))")
+
+        if leftBands.isEmpty {
             warnings.append("No EQ bands found in preset")
         }
 
@@ -205,8 +216,10 @@ enum EasyEffectsImporter {
             globalBypass: false,
             inputGain: inputGain,
             outputGain: outputGain,
-            activeBandCount: bands.count,
-            bands: bands
+            activeBandCount: leftBands.count,
+            channelMode: channelMode,
+            leftBands: leftBands,
+            rightBands: rightBands
         )
 
         let preset = Preset(
@@ -215,42 +228,6 @@ enum EasyEffectsImporter {
         )
 
         return EasyEffectsImportResult(preset: preset, warnings: warnings)
-    }
-
-    /// Compares left and right channel bands and returns a list of differences.
-    private static func compareChannels(left: [String: Any], right: [String: Any]) -> [String] {
-        var differences: [String] = []
-
-        // Get all band keys from both channels
-        let leftBandKeys = left.keys.filter { $0.hasPrefix("band") }.sorted()
-        let rightBandKeys = right.keys.filter { $0.hasPrefix("band") }.sorted()
-
-        if leftBandKeys.count != rightBandKeys.count {
-            differences.append("band count (\(leftBandKeys.count) vs \(rightBandKeys.count))")
-            return differences
-        }
-
-        // Compare each band
-        for bandKey in leftBandKeys {
-            guard let leftBand = left[bandKey] as? [String: Any],
-                  let rightBand = right[bandKey] as? [String: Any] else {
-                continue
-            }
-
-            // Compare key properties
-            let leftFreq = (leftBand["frequency"] as? NSNumber)?.floatValue ?? 0
-            let rightFreq = (rightBand["frequency"] as? NSNumber)?.floatValue ?? 0
-            let leftGain = (leftBand["gain"] as? NSNumber)?.floatValue ?? 0
-            let rightGain = (rightBand["gain"] as? NSNumber)?.floatValue ?? 0
-            let leftQ = (leftBand["q"] as? NSNumber)?.floatValue ?? 0
-            let rightQ = (rightBand["q"] as? NSNumber)?.floatValue ?? 0
-
-            if abs(leftFreq - rightFreq) > 0.01 || abs(leftGain - rightGain) > 0.01 || abs(leftQ - rightQ) > 0.01 {
-                differences.append(bandKey)
-            }
-        }
-
-        return differences
     }
 
     private static func parseBand(_ data: [String: Any], index: Int, warnings: inout [String]) -> PresetBand {

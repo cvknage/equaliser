@@ -37,10 +37,10 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
 
         XCTAssertEqual(result.preset.metadata.name, "Test")
-        XCTAssertEqual(result.preset.settings.bands.count, 1)
+        XCTAssertEqual(result.preset.settings.leftBands.count, 1)
         XCTAssertEqual(result.preset.settings.activeBandCount, 1)
 
-        let band = result.preset.settings.bands[0]
+        let band = result.preset.settings.leftBands[0]
         XCTAssertEqual(band.frequency, 1000.0)
         XCTAssertEqual(band.gain, 3.0)
         XCTAssertEqual(band.filterType, .parametric)
@@ -80,7 +80,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
             """.data(using: .utf8)!
 
             let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
-            XCTAssertEqual(result.preset.settings.bands[0].filterType, expectedType,
+            XCTAssertEqual(result.preset.settings.leftBands[0].filterType, expectedType,
                            "Filter type '\(easyEffectsType)' should map to \(expectedType)")
         }
     }
@@ -106,7 +106,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
         """.data(using: .utf8)!
 
         let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
-        let q = result.preset.settings.bands[0].q
+        let q = result.preset.settings.leftBands[0].q
 
         // Q should be preserved from the import
         XCTAssertEqual(q, 1.41, accuracy: 0.01)
@@ -129,13 +129,13 @@ final class EasyEffectsImportExportTests: XCTestCase {
 
         let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
 
-        XCTAssertEqual(result.preset.settings.bands.count, 3)
+        XCTAssertEqual(result.preset.settings.leftBands.count, 3)
         XCTAssertEqual(result.preset.settings.activeBandCount, 3)
 
         // Verify order is preserved
-        XCTAssertEqual(result.preset.settings.bands[0].frequency, 100.0)
-        XCTAssertEqual(result.preset.settings.bands[1].frequency, 1000.0)
-        XCTAssertEqual(result.preset.settings.bands[2].frequency, 10000.0)
+        XCTAssertEqual(result.preset.settings.leftBands[0].frequency, 100.0)
+        XCTAssertEqual(result.preset.settings.leftBands[1].frequency, 1000.0)
+        XCTAssertEqual(result.preset.settings.leftBands[2].frequency, 10000.0)
     }
 
     func testImport_muteToBypass() throws {
@@ -153,7 +153,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
 
         let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
 
-        XCTAssertTrue(result.preset.settings.bands[0].bypass)
+        XCTAssertTrue(result.preset.settings.leftBands[0].bypass)
     }
 
     func testImport_inputOutputGain() throws {
@@ -215,7 +215,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 inputGain: 0,
                 outputGain: 0,
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false)]
+                leftBands: [PresetBand(frequency: 1000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false)],
+                rightBands: [PresetBand(frequency: 1000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false)]
             )
         )
 
@@ -233,7 +234,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
             metadata: PresetMetadata(name: "Test"),
             settings: PresetSettings(
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, q: 1.41, gain: 0, filterType: .parametric, bypass: false)]
+                leftBands: [PresetBand(frequency: 1000, q: 1.41, gain: 0, filterType: .parametric, bypass: false)],
+                rightBands: [PresetBand(frequency: 1000, q: 1.41, gain: 0, filterType: .parametric, bypass: false)]
             )
         )
 
@@ -267,7 +269,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 metadata: PresetMetadata(name: "Test"),
                 settings: PresetSettings(
                     activeBandCount: 1,
-                    bands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: filterType, bypass: false)]
+                    leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: filterType, bypass: false)],
+                    rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: filterType, bypass: false)]
                 )
             )
 
@@ -289,7 +292,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
             metadata: PresetMetadata(name: "Test"),
             settings: PresetSettings(
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: true)]
+                leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: true)],
+                rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: true)]
             )
         )
 
@@ -312,7 +316,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 inputGain: -2.0,
                 outputGain: 3.0,
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)]
+                leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)],
+                rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)]
             )
         )
 
@@ -346,7 +351,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 inputGain: -1.5,
                 outputGain: 2.0,
                 activeBandCount: 5,
-                bands: originalBands
+                leftBands: originalBands,
+                rightBands: originalBands
             )
         )
 
@@ -362,9 +368,9 @@ final class EasyEffectsImportExportTests: XCTestCase {
         XCTAssertEqual(imported.settings.outputGain, original.settings.outputGain, accuracy: 0.01)
         XCTAssertEqual(imported.settings.activeBandCount, original.settings.activeBandCount)
 
-        // Verify each band
-        for (index, importedBand) in imported.settings.bands.enumerated() {
-            let originalBand = original.settings.bands[index]
+        // Verify each left band
+        for (index, importedBand) in imported.settings.leftBands.enumerated() {
+            let originalBand = original.settings.leftBands[index]
 
             XCTAssertEqual(importedBand.frequency, originalBand.frequency, accuracy: 0.01,
                            "Band \(index) frequency mismatch")
@@ -390,14 +396,15 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 metadata: PresetMetadata(name: "Q Test"),
                 settings: PresetSettings(
                     activeBandCount: 1,
-                    bands: [PresetBand(frequency: 1000, q: q, gain: 0, filterType: .parametric, bypass: false)]
+                    leftBands: [PresetBand(frequency: 1000, q: q, gain: 0, filterType: .parametric, bypass: false)],
+                    rightBands: [PresetBand(frequency: 1000, q: q, gain: 0, filterType: .parametric, bypass: false)]
                 )
             )
 
             let exportedData = try EasyEffectsExporter.export(preset)
             let importResult = try EasyEffectsImporter.importPreset(from: exportedData, name: "Q Test")
 
-            let importedQ = importResult.preset.settings.bands[0].q
+            let importedQ = importResult.preset.settings.leftBands[0].q
 
             XCTAssertEqual(importedQ, q, accuracy: 0.02, "Q value \(q) failed round-trip")
         }
@@ -425,5 +432,198 @@ final class EasyEffectsImportExportTests: XCTestCase {
         )
 
         XCTAssertEqual(EasyEffectsExporter.filename(for: preset), "Test-Preset-Name.json")
+    }
+
+    // MARK: - Split Channel Tests
+
+    func testImport_splitChannelsFalse_importsAsLinked() throws {
+        // Preset with split-channels: false should import as linked mode
+        let json = """
+        {
+            "output": {
+                "equalizer#0": {
+                    "input-gain": 0.0,
+                    "output-gain": 0.0,
+                    "split-channels": false,
+                    "left": {
+                        "band0": { "frequency": 1000.0, "gain": 3.0, "q": 1.41, "type": "Bell", "mute": false }
+                    },
+                    "right": {
+                        "band0": { "frequency": 1000.0, "gain": 3.0, "q": 1.41, "type": "Bell", "mute": false }
+                    }
+                }
+            }
+        }
+        """.data(using: .utf8)!
+
+        let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
+
+        XCTAssertEqual(result.preset.settings.channelMode, "linked")
+        // Both channels should have the same bands (copied from left)
+        XCTAssertEqual(result.preset.settings.leftBands.count, 1)
+        XCTAssertEqual(result.preset.settings.rightBands.count, 1)
+        XCTAssertEqual(result.preset.settings.leftBands[0].frequency, 1000.0)
+        XCTAssertEqual(result.preset.settings.rightBands[0].frequency, 1000.0)
+    }
+
+    func testImport_splitChannelsTrue_importsAsStereo() throws {
+        // Preset with split-channels: true should import as stereo mode with different L/R
+        let json = """
+        {
+            "output": {
+                "equalizer#0": {
+                    "input-gain": 0.0,
+                    "output-gain": 0.0,
+                    "split-channels": true,
+                    "left": {
+                        "band0": { "frequency": 100.0, "gain": 4.0, "q": 1.0, "type": "Bell", "mute": false },
+                        "band1": { "frequency": 1000.0, "gain": 2.0, "q": 1.41, "type": "Bell", "mute": false }
+                    },
+                    "right": {
+                        "band0": { "frequency": 200.0, "gain": -2.0, "q": 1.0, "type": "Bell", "mute": false },
+                        "band1": { "frequency": 2000.0, "gain": 1.0, "q": 1.41, "type": "Bell", "mute": false }
+                    }
+                }
+            }
+        }
+        """.data(using: .utf8)!
+
+        let result = try EasyEffectsImporter.importPreset(from: json, name: "Stereo Test")
+
+        XCTAssertEqual(result.preset.settings.channelMode, "stereo")
+        XCTAssertEqual(result.preset.settings.leftBands.count, 2)
+        XCTAssertEqual(result.preset.settings.rightBands.count, 2)
+
+        // Left channel
+        XCTAssertEqual(result.preset.settings.leftBands[0].frequency, 100.0)
+        XCTAssertEqual(result.preset.settings.leftBands[0].gain, 4.0)
+        XCTAssertEqual(result.preset.settings.leftBands[1].frequency, 1000.0)
+
+        // Right channel
+        XCTAssertEqual(result.preset.settings.rightBands[0].frequency, 200.0)
+        XCTAssertEqual(result.preset.settings.rightBands[0].gain, -2.0)
+        XCTAssertEqual(result.preset.settings.rightBands[1].frequency, 2000.0)
+    }
+
+    func testImport_noSplitChannelsKey_importsAsLinked() throws {
+        // Preset without split-channels key should default to linked mode
+        let json = """
+        {
+            "output": {
+                "equalizer#0": {
+                    "input-gain": 0.0,
+                    "output-gain": 0.0,
+                    "left": {
+                        "band0": { "frequency": 500.0, "gain": 0.0, "q": 1.0, "type": "Bell", "mute": false }
+                    }
+                }
+            }
+        }
+        """.data(using: .utf8)!
+
+        let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
+
+        XCTAssertEqual(result.preset.settings.channelMode, "linked")
+        // Right bands should be copied from left
+        XCTAssertEqual(result.preset.settings.rightBands.count, 1)
+        XCTAssertEqual(result.preset.settings.rightBands[0].frequency, 500.0)
+    }
+
+    func testExport_linkedMode_setsSplitChannelsFalse() throws {
+        let preset = Preset(
+            metadata: PresetMetadata(name: "Linked Test"),
+            settings: PresetSettings(
+                activeBandCount: 1,
+                channelMode: "linked",
+                leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)],
+                rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)]
+            )
+        )
+
+        let data = try EasyEffectsExporter.export(preset)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        let output = json["output"] as! [String: Any]
+        let equalizer = output["equalizer#0"] as! [String: Any]
+        let splitChannels = equalizer["split-channels"] as! Bool
+
+        XCTAssertFalse(splitChannels)
+    }
+
+    func testExport_stereoMode_setsSplitChannelsTrue() throws {
+        let preset = Preset(
+            metadata: PresetMetadata(name: "Stereo Test"),
+            settings: PresetSettings(
+                activeBandCount: 1,
+                channelMode: "stereo",
+                leftBands: [PresetBand(frequency: 100, q: 1.0, gain: 4.0, filterType: .parametric, bypass: false)],
+                rightBands: [PresetBand(frequency: 200, q: 1.0, gain: -2.0, filterType: .parametric, bypass: false)]
+            )
+        )
+
+        let data = try EasyEffectsExporter.export(preset)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        let output = json["output"] as! [String: Any]
+        let equalizer = output["equalizer#0"] as! [String: Any]
+        let splitChannels = equalizer["split-channels"] as! Bool
+
+        XCTAssertTrue(splitChannels)
+
+        // Verify left and right bands are different
+        let left = equalizer["left"] as! [String: Any]
+        let right = equalizer["right"] as! [String: Any]
+        let leftBand0 = left["band0"] as! [String: Any]
+        let rightBand0 = right["band0"] as! [String: Any]
+
+        XCTAssertEqual(leftBand0["frequency"] as? Double, 100.0)
+        XCTAssertEqual(rightBand0["frequency"] as? Double, 200.0)
+        XCTAssertEqual(leftBand0["gain"] as? Double, 4.0)
+        XCTAssertEqual(rightBand0["gain"] as? Double, -2.0)
+    }
+
+    func testExport_stereoRoundTrip_preservesDifferentChannels() throws {
+        // Create a stereo preset with different L/R bands
+        let original = Preset(
+            metadata: PresetMetadata(name: "Stereo Round Trip"),
+            settings: PresetSettings(
+                globalBypass: false,
+                inputGain: -2.0,
+                outputGain: 1.0,
+                activeBandCount: 2,
+                channelMode: "stereo",
+                leftBands: [
+                    PresetBand(frequency: 100, q: 1.0, gain: 4.0, filterType: .lowShelf, bypass: false),
+                    PresetBand(frequency: 8000, q: 1.41, gain: -3.0, filterType: .highShelf, bypass: false),
+                ],
+                rightBands: [
+                    PresetBand(frequency: 200, q: 0.83, gain: 2.0, filterType: .parametric, bypass: false),
+                    PresetBand(frequency: 6000, q: 1.2, gain: -1.0, filterType: .highPass, bypass: false),
+                ]
+            )
+        )
+
+        // Export to EasyEffects format
+        let exportedData = try EasyEffectsExporter.export(original)
+
+        // Import back
+        let importResult = try EasyEffectsImporter.importPreset(from: exportedData, name: original.metadata.name)
+        let imported = importResult.preset
+
+        // Verify channel mode is stereo
+        XCTAssertEqual(imported.settings.channelMode, "stereo")
+
+        // Verify left channel preserved
+        XCTAssertEqual(imported.settings.leftBands.count, 2)
+        XCTAssertEqual(imported.settings.leftBands[0].frequency, 100.0)
+        XCTAssertEqual(imported.settings.leftBands[0].gain, 4.0)
+        XCTAssertEqual(imported.settings.leftBands[0].filterType, .lowShelf)
+        XCTAssertEqual(imported.settings.leftBands[1].frequency, 8000.0)
+
+        // Verify right channel preserved
+        XCTAssertEqual(imported.settings.rightBands.count, 2)
+        XCTAssertEqual(imported.settings.rightBands[0].frequency, 200.0)
+        XCTAssertEqual(imported.settings.rightBands[0].gain, 2.0)
+        XCTAssertEqual(imported.settings.rightBands[1].frequency, 6000.0)
     }
 }

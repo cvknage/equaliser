@@ -182,8 +182,16 @@ final class PresetManager: ObservableObject {
     // MARK: - CRUD Operations
 
     /// Saves a preset to disk.
+    /// If saving over a factory preset, marks it as user-owned (isFactoryPreset=false).
     func savePreset(_ preset: Preset) throws {
-        try savePresetWithoutReload(preset)
+        var presetToSave = preset
+
+        // If overwriting a factory preset, mark as user-owned
+        if let existing = self.preset(named: preset.metadata.name), existing.metadata.isFactoryPreset {
+            presetToSave.metadata.isFactoryPreset = false
+        }
+
+        try savePresetWithoutReload(presetToSave)
         loadAllPresets()
     }
     
@@ -316,8 +324,11 @@ final class PresetManager: ObservableObject {
     // MARK: - Preset Creation and Application
 
     /// Creates a new preset from the current EQ configuration.
+    /// Note: New presets always have isFactoryPreset=false (user-owned).
+    @MainActor
     func createPreset(named name: String, from config: EQConfiguration, inputGain: Float, outputGain: Float) throws -> Preset {
-        let preset = Preset(name: name, from: config, inputGain: inputGain, outputGain: outputGain)
+        var preset = Preset(name: name, from: config, inputGain: inputGain, outputGain: outputGain)
+        preset.metadata.isFactoryPreset = false  // Explicit: user presets are never factory
         try savePreset(preset)
         return preset
     }
@@ -336,7 +347,7 @@ final class PresetManager: ObservableObject {
         config.setActiveBandCount(preset.settings.activeBandCount)
 
         // Apply left channel band settings
-        for (index, band) in preset.settings.bands.enumerated() {
+        for (index, band) in preset.settings.leftBands.enumerated() {
             guard index < config.bands.count else { break }
             config.updateBandFrequency(index: index, frequency: band.frequency)
             config.updateBandQ(index: index, q: band.q)
@@ -345,16 +356,14 @@ final class PresetManager: ObservableObject {
             config.updateBandBypass(index: index, bypass: band.bypass)
         }
 
-        // Apply right channel band settings if in stereo mode
-        if let rightBands = preset.settings.rightBands, config.channelMode == .stereo {
-            for (index, band) in rightBands.enumerated() {
-                guard index < config.rightState.userEQ.bands.count else { break }
-                config.updateBandFrequency(index: index, frequency: band.frequency, channel: .right)
-                config.updateBandQ(index: index, q: band.q, channel: .right)
-                config.updateBandGain(index: index, gain: band.gain, channel: .right)
-                config.updateBandFilterType(index: index, filterType: band.filterType, channel: .right)
-                config.updateBandBypass(index: index, bypass: band.bypass, channel: .right)
-            }
+        // Apply right channel band settings
+        for (index, band) in preset.settings.rightBands.enumerated() {
+            guard index < config.rightState.userEQ.bands.count else { break }
+            config.updateBandFrequency(index: index, frequency: band.frequency, channel: .right)
+            config.updateBandQ(index: index, q: band.q, channel: .right)
+            config.updateBandGain(index: index, gain: band.gain, channel: .right)
+            config.updateBandFilterType(index: index, filterType: band.filterType, channel: .right)
+            config.updateBandBypass(index: index, bypass: band.bypass, channel: .right)
         }
     }
 
@@ -403,7 +412,7 @@ final class PresetManager: ObservableObject {
 
         for i in 0..<activeBandCount {
             let currentBand = bands[i]
-            let presetBand = settings.bands[i]
+            let presetBand = settings.leftBands[i]
 
             guard currentBand.frequency == presetBand.frequency,
                   currentBand.gain == presetBand.gain,

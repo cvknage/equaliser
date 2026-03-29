@@ -118,13 +118,13 @@ final class PresetCodableTests: XCTestCase {
     }
 
     func testPresetBand_unknownFilterType() throws {
-        // Simulate decoding with an unknown filter type raw value
+        // v2 format: filterType as string (abbreviation), unknown types fall back to parametric
         let json = """
         {
             "frequency": 500.0,
             "q": 0.5,
             "gain": 2.0,
-            "filterType": 888,
+            "filterType": "Unknown",
             "bypass": false
         }
         """.data(using: .utf8)!
@@ -225,7 +225,7 @@ final class PresetCodableTests: XCTestCase {
     // MARK: - PresetSettings Tests
 
     func testPresetSettings_roundTrip() throws {
-        let bands = [
+        let leftBands = [
             PresetBand(frequency: 100, q: 1.0, gain: -3.0, filterType: .lowShelf, bypass: false),
             PresetBand(frequency: 1000, q: 1.41, gain: 2.0, filterType: .parametric, bypass: false),
             PresetBand(frequency: 10000, q: 1.0, gain: -1.0, filterType: .highShelf, bypass: true)
@@ -236,7 +236,8 @@ final class PresetCodableTests: XCTestCase {
             inputGain: -3.0,
             outputGain: 1.5,
             activeBandCount: 3,
-            bands: bands
+            leftBands: leftBands,
+            rightBands: leftBands
         )
 
         let data = try encoder.encode(original)
@@ -246,7 +247,8 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.inputGain, original.inputGain)
         XCTAssertEqual(decoded.outputGain, original.outputGain)
         XCTAssertEqual(decoded.activeBandCount, original.activeBandCount)
-        XCTAssertEqual(decoded.bands.count, original.bands.count)
+        XCTAssertEqual(decoded.leftBands.count, original.leftBands.count)
+        XCTAssertEqual(decoded.rightBands.count, original.rightBands.count)
     }
 
     func testPresetSettings_defaultValues() {
@@ -256,13 +258,15 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(settings.inputGain, 0)
         XCTAssertEqual(settings.outputGain, 0)
         XCTAssertEqual(settings.activeBandCount, EQConfiguration.defaultBandCount)
-        XCTAssertTrue(settings.bands.isEmpty)
+        XCTAssertTrue(settings.leftBands.isEmpty)
+        XCTAssertTrue(settings.rightBands.isEmpty)
+        XCTAssertEqual(settings.channelMode, "linked")
     }
 
     // MARK: - Preset Tests
 
     func testPreset_roundTrip_fullPreset() throws {
-        let bands = [
+        let leftBands = [
             PresetBand(frequency: 60, q: 1.2, gain: 4.0, filterType: .lowShelf, bypass: false),
             PresetBand(frequency: 250, q: 1.0, gain: -2.0, filterType: .parametric, bypass: false),
             PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false),
@@ -275,7 +279,8 @@ final class PresetCodableTests: XCTestCase {
             inputGain: -2.0,
             outputGain: 1.0,
             activeBandCount: 5,
-            bands: bands
+            leftBands: leftBands,
+            rightBands: leftBands
         )
 
         let original = Preset(
@@ -293,12 +298,13 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.settings.inputGain, original.settings.inputGain)
         XCTAssertEqual(decoded.settings.outputGain, original.settings.outputGain)
         XCTAssertEqual(decoded.settings.activeBandCount, original.settings.activeBandCount)
-        XCTAssertEqual(decoded.settings.bands.count, original.settings.bands.count)
+        XCTAssertEqual(decoded.settings.leftBands.count, original.settings.leftBands.count)
+        XCTAssertEqual(decoded.settings.rightBands.count, original.settings.rightBands.count)
         XCTAssertTrue(decoded.metadata.isFactoryPreset)
 
-        // Verify individual bands
-        for (index, decodedBand) in decoded.settings.bands.enumerated() {
-            let originalBand = original.settings.bands[index]
+        // Verify individual left bands
+        for (index, decodedBand) in decoded.settings.leftBands.enumerated() {
+            let originalBand = original.settings.leftBands[index]
             XCTAssertEqual(decodedBand.frequency, originalBand.frequency, "Band \(index) frequency mismatch")
             XCTAssertEqual(decodedBand.q, originalBand.q, "Band \(index) q mismatch")
             XCTAssertEqual(decodedBand.gain, originalBand.gain, "Band \(index) gain mismatch")
@@ -308,7 +314,7 @@ final class PresetCodableTests: XCTestCase {
     }
 
     func testPreset_currentVersion() {
-        XCTAssertEqual(Preset.currentVersion, 1)
+        XCTAssertEqual(Preset.currentVersion, 2)
     }
 
     func testPreset_fileExtension() {

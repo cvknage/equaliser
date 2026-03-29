@@ -90,3 +90,26 @@ extension FilterType {
         ]
     }
 }
+
+// MARK: - Coding Key
+
+extension FilterType {
+    /// Creates FilterType from a coding key string (abbreviation).
+    /// Returns .parametric for unknown strings.
+    init(fromCodingKey key: String) {
+        switch key {
+        case "Bell": self = .parametric
+        case "LP": self = .lowPass
+        case "HP": self = .highPass
+        case "LS": self = .lowShelf
+        case "HS": self = .highShelf
+        case "BP": self = .bandPass
+        case "Notch": self = .notch
+        case "RLP": self = .resonantLowPass
+        case "RHP": self = .resonantHighPass
+        case "RLS": self = .resonantLowShelf
+        case "RHS": self = .resonantHighShelf
+        default: self = .parametric
+        }
+    }
+}

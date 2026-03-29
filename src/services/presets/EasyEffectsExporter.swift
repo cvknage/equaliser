@@ -71,25 +71,34 @@ enum EasyEffectsExporter {
     // MARK: - JSON Building
 
     private static func buildEasyEffectsJSON(from preset: Preset) -> [String: Any] {
-        // Build band dictionaries for left and right channels (identical)
-        var bands: [String: Any] = [:]
-        for (index, band) in preset.settings.bands.prefix(preset.settings.activeBandCount).enumerated() {
-            bands["band\(index)"] = buildBandJSON(from: band)
+        // Build left bands
+        var leftBands: [String: Any] = [:]
+        for (index, band) in preset.settings.leftBands.prefix(preset.settings.activeBandCount).enumerated() {
+            leftBands["band\(index)"] = buildBandJSON(from: band)
         }
+
+        // Build right bands
+        var rightBands: [String: Any] = [:]
+        for (index, band) in preset.settings.rightBands.prefix(preset.settings.activeBandCount).enumerated() {
+            rightBands["band\(index)"] = buildBandJSON(from: band)
+        }
+
+        // Determine split-channels based on channel mode
+        let isStereo = preset.settings.channelMode == "stereo"
 
         // Build the equalizer section with left/right channels
         let equalizer: [String: Any] = [
             "balance": 0.0,
             "bypass": preset.settings.globalBypass,
             "input-gain": Double(preset.settings.inputGain),
-            "left": bands,
+            "left": leftBands,
             "mode": "IIR",
             "num-bands": preset.settings.activeBandCount,
             "output-gain": Double(preset.settings.outputGain),
             "pitch-left": 0.0,
             "pitch-right": 0.0,
-            "right": bands,  // Same as left since we don't support split channels
-            "split-channels": false,
+            "right": rightBands,
+            "split-channels": isStereo,
         ]
 
         // Build the full EasyEffects structure
