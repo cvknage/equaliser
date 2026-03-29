@@ -180,13 +180,13 @@ final class PresetMigrationTests: XCTestCase {
                 outputGain: 1.0,
                 activeBandCount: 2,
                 bands: [
-                    PresetBand(frequency: 100.0, bandwidth: 1.0, gain: 4.0, filterType: .lowShelf),
-                    PresetBand(frequency: 8000.0, bandwidth: 0.5, gain: -3.0, filterType: .highShelf),
+                    PresetBand(frequency: 100.0, q: 1.0, gain: 4.0, filterType: .lowShelf),
+                    PresetBand(frequency: 8000.0, q: 1.41, gain: -3.0, filterType: .highShelf),
                 ],
                 channelMode: "stereo",
                 rightBands: [
-                    PresetBand(frequency: 200.0, bandwidth: 1.2, gain: 2.0, filterType: .parametric),
-                    PresetBand(frequency: 6000.0, bandwidth: 0.8, gain: -1.0, filterType: .highPass),
+                    PresetBand(frequency: 200.0, q: 0.83, gain: 2.0, filterType: .parametric),
+                    PresetBand(frequency: 6000.0, q: 1.2, gain: -1.0, filterType: .highPass),
                 ]
             )
         )
@@ -213,7 +213,7 @@ final class PresetMigrationTests: XCTestCase {
             settings: PresetSettings(
                 activeBandCount: 1,
                 bands: [
-                    PresetBand(frequency: 1000.0, bandwidth: 0.67, gain: 3.0, filterType: .parametric),
+                    PresetBand(frequency: 1000.0, q: 1.41, gain: 3.0, filterType: .parametric),
                 ],
                 channelMode: "linked"
             )
@@ -238,8 +238,8 @@ final class PresetMigrationTests: XCTestCase {
                 outputGain: 3.0,
                 activeBandCount: 2,
                 bands: [
-                    PresetBand(frequency: 250.0, bandwidth: 1.5, gain: 8.0, filterType: .lowShelf, bypass: false),
-                    PresetBand(frequency: 4000.0, bandwidth: 0.5, gain: -4.0, filterType: .highShelf, bypass: true),
+                    PresetBand(frequency: 250.0, q: 0.83, gain: 8.0, filterType: .lowShelf, bypass: false),
+                    PresetBand(frequency: 4000.0, q: 1.41, gain: -4.0, filterType: .highShelf, bypass: true),
                 ],
                 channelMode: "linked"
             )
@@ -253,7 +253,7 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.outputGain, 3.0)
         XCTAssertEqual(decoded.settings.activeBandCount, 2)
         XCTAssertEqual(decoded.settings.bands[0].frequency, 250.0)
-        XCTAssertEqual(decoded.settings.bands[0].bandwidth, 1.5)
+        XCTAssertEqual(decoded.settings.bands[0].q, 0.83)
         XCTAssertEqual(decoded.settings.bands[0].gain, 8.0)
         XCTAssertEqual(decoded.settings.bands[0].filterType, .lowShelf)
         XCTAssertFalse(decoded.settings.bands[0].bypass)

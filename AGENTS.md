@@ -292,7 +292,7 @@ let coeffs = BiquadMath.calculateCoefficients(
     type: .parametric,      // FilterType enum
     sampleRate: 48000.0,
     frequency: 1000.0,
-    bandwidth: 1.0,
+    q: 1.41,                // ~1 octave bandwidth
     gain: 6.0               // dB
 )
 

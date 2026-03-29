@@ -6,7 +6,7 @@ struct EQBandSliderView: View {
     let band: EQBandConfiguration
     @Binding var gain: Float
     let frequencyUpdate: (Float) -> Void
-    let bandwidthUpdate: (Float) -> Void
+    let qUpdate: (Float) -> Void
     let filterTypeUpdate: (FilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
@@ -56,7 +56,7 @@ struct EQBandSliderView: View {
                         gain = AudioConstants.clampGain(newGain)
                     },
                     frequencyUpdate: frequencyUpdate,
-                    bandwidthUpdate: bandwidthUpdate,
+                    qUpdate: qUpdate,
                     filterTypeUpdate: filterTypeUpdate,
                     bypassUpdate: bypassUpdate
                 )
@@ -140,13 +140,13 @@ struct EQBandDetailPopover: View {
 
     let gainUpdate: (Float) -> Void
     let frequencyUpdate: (Float) -> Void
-    let bandwidthUpdate: (Float) -> Void
+    let qUpdate: (Float) -> Void
     let filterTypeUpdate: (FilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
     @State private var gain: Float
     @State private var frequency: Float
-    @State private var bandwidth: Float
+    @State private var q: Float
     @State private var filterType: FilterType
     @State private var bypass: Bool
 
@@ -157,12 +157,12 @@ struct EQBandDetailPopover: View {
     init(band: EQBandConfiguration,
          gainUpdate: @escaping (Float) -> Void,
          frequencyUpdate: @escaping (Float) -> Void,
-         bandwidthUpdate: @escaping (Float) -> Void,
+         qUpdate: @escaping (Float) -> Void,
          filterTypeUpdate: @escaping (FilterType) -> Void,
          bypassUpdate: @escaping (Bool) -> Void) {
         _gain = State(initialValue: band.gain)
         _frequency = State(initialValue: band.frequency)
-        _bandwidth = State(initialValue: band.bandwidth)
+        _q = State(initialValue: band.q)
         _filterType = State(initialValue: band.filterType)
         _bypass = State(initialValue: band.bypass)
         _gainText = State(initialValue: String(format: "%.1f", band.gain))
@@ -171,7 +171,7 @@ struct EQBandDetailPopover: View {
         _bandwidthText = State(initialValue: "")
         self.gainUpdate = gainUpdate
         self.frequencyUpdate = frequencyUpdate
-        self.bandwidthUpdate = bandwidthUpdate
+        self.qUpdate = qUpdate
         self.filterTypeUpdate = filterTypeUpdate
         self.bypassUpdate = bypassUpdate
     }
@@ -218,6 +218,8 @@ struct EQBandDetailPopover: View {
             }
 
             // Bandwidth / Q Factor
+            // UI displays bandwidth or Q based on user preference, but model stores Q.
+            // Conversion happens at the boundary.
             HStack {
                 Text(bandwidthLabel)
                 Spacer()
@@ -225,20 +227,29 @@ struct EQBandDetailPopover: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
                     .multilineTextAlignment(.trailing)
-                    .onSubmit {
-                        if let newBandwidth = BandwidthConverter.parseInput(bandwidthText, mode: store.bandwidthDisplayMode) {
-                            let clamped = BandwidthConverter.clampBandwidth(newBandwidth)
-                            bandwidth = clamped
-                            bandwidthText = BandwidthConverter.formatForInput(bandwidth: clamped, mode: store.bandwidthDisplayMode)
-                            bandwidthUpdate(clamped)
+                     .onSubmit {
+                        // parseInput returns the raw value in the mode's unit:
+                        // .octaves → bandwidth in octaves, .qFactor → Q factor
+                        if let inputValue = BandwidthConverter.parseInput(bandwidthText, mode: store.bandwidthDisplayMode) {
+                            let qValue: Float
+                            switch store.bandwidthDisplayMode {
+                            case .octaves:
+                                let clampedBandwidth = BandwidthConverter.clampBandwidth(inputValue)
+                                qValue = BandwidthConverter.bandwidthToQ(clampedBandwidth)
+                            case .qFactor:
+                                qValue = BandwidthConverter.clampQ(inputValue)
+                            }
+                            q = qValue
+                            bandwidthText = BandwidthConverter.formatForInput(q: qValue, mode: store.bandwidthDisplayMode)
+                            qUpdate(qValue)
                         }
                     }
             }
             .onAppear {
-                bandwidthText = BandwidthConverter.formatForInput(bandwidth: bandwidth, mode: store.bandwidthDisplayMode)
+                bandwidthText = BandwidthConverter.formatForInput(q: q, mode: store.bandwidthDisplayMode)
             }
             .onChange(of: store.bandwidthDisplayMode) { _, newMode in
-                bandwidthText = BandwidthConverter.formatForInput(bandwidth: bandwidth, mode: newMode)
+                bandwidthText = BandwidthConverter.formatForInput(q: q, mode: newMode)
             }
 
             Divider()

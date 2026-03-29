@@ -20,9 +20,9 @@ struct EQBandGridView: View {
                                 let clamped = min(max(value, 20), 20_000)
                                 store.updateBandFrequency(index: index, frequency: clamped)
                             },
-                            bandwidthUpdate: { value in
-                                let clamped = min(max(value, 0.05), 5)
-                                store.updateBandBandwidth(index: index, bandwidth: clamped)
+                            qUpdate: { value in
+                                let clamped = BandwidthConverter.clampQ(value)
+                                store.updateBandQ(index: index, q: clamped)
                             },
                             filterTypeUpdate: { store.updateBandFilterType(index: index, filterType: $0) },
                             bypassUpdate: { store.updateBandBypass(index: index, bypass: $0) }

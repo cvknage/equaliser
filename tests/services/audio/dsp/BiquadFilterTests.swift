@@ -68,7 +68,7 @@ final class BiquadFilterTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
         filter.setCoefficients(coeffs, resetState: true)
@@ -107,7 +107,7 @@ final class BiquadFilterTests: XCTestCase {
             type: .lowPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707,
+            q: 0.707,
             gain: 0.0
         )
         filter.setCoefficients(coeffs, resetState: true)
@@ -147,7 +147,7 @@ final class BiquadFilterTests: XCTestCase {
             type: .highPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707,
+            q: 0.707,
             gain: 0.0
         )
         filter.setCoefficients(coeffs, resetState: true)
@@ -190,7 +190,7 @@ final class BiquadFilterTests: XCTestCase {
             type: .lowPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707,
+            q: 0.707,
             gain: 0.0
         )
         filter.setCoefficients(lowPassCoeffs, resetState: true)
@@ -248,7 +248,7 @@ final class BiquadFilterTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 

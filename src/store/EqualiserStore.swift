@@ -533,10 +533,10 @@ final class EqualiserStore: ObservableObject {
         presetManager.markAsModified()
     }
     
-    /// Updates the bandwidth for a specific EQ band.
-    func updateBandBandwidth(index: Int, bandwidth: Float) {
-        eqConfiguration.updateBandBandwidth(index: index, bandwidth: bandwidth)
-        routingCoordinator.updateBandBandwidth(index: index)
+    /// Updates the Q factor for a specific EQ band.
+    func updateBandQ(index: Int, q: Float) {
+        eqConfiguration.updateBandQ(index: index, q: q)
+        routingCoordinator.updateBandQ(index: index)
         presetManager.markAsModified()
     }
     

@@ -339,7 +339,7 @@ final class PresetManager: ObservableObject {
         for (index, band) in preset.settings.bands.enumerated() {
             guard index < config.bands.count else { break }
             config.updateBandFrequency(index: index, frequency: band.frequency)
-            config.updateBandBandwidth(index: index, bandwidth: band.bandwidth)
+            config.updateBandQ(index: index, q: band.q)
             config.updateBandGain(index: index, gain: band.gain)
             config.updateBandFilterType(index: index, filterType: band.filterType)
             config.updateBandBypass(index: index, bypass: band.bypass)
@@ -350,7 +350,7 @@ final class PresetManager: ObservableObject {
             for (index, band) in rightBands.enumerated() {
                 guard index < config.rightState.userEQ.bands.count else { break }
                 config.updateBandFrequency(index: index, frequency: band.frequency, channel: .right)
-                config.updateBandBandwidth(index: index, bandwidth: band.bandwidth, channel: .right)
+                config.updateBandQ(index: index, q: band.q, channel: .right)
                 config.updateBandGain(index: index, gain: band.gain, channel: .right)
                 config.updateBandFilterType(index: index, filterType: band.filterType, channel: .right)
                 config.updateBandBypass(index: index, bypass: band.bypass, channel: .right)
@@ -407,7 +407,7 @@ final class PresetManager: ObservableObject {
 
             guard currentBand.frequency == presetBand.frequency,
                   currentBand.gain == presetBand.gain,
-                  currentBand.bandwidth == presetBand.bandwidth,
+                  currentBand.q == presetBand.q,
                   currentBand.filterType == presetBand.filterType,
                   currentBand.bypass == presetBand.bypass else {
                 return false

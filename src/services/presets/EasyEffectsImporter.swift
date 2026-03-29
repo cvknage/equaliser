@@ -36,7 +36,7 @@ struct EasyEffectsImportResult {
 /// **Mappable fields:**
 /// - `frequency` → direct copy
 /// - `gain` → direct copy
-/// - `q` → convert to bandwidth using standard formula
+/// - `q` → direct copy (EasyEffects uses Q natively)
 /// - `type` → maps to `AVAudioUnitEQFilterType`
 /// - `mute` → maps to `bypass`
 /// - `input-gain`, `output-gain` → direct copy
@@ -260,18 +260,15 @@ enum EasyEffectsImporter {
         let rawQ = (data["q"] as? NSNumber)?.floatValue ?? 1.41 // Default ~1 octave
         let mute = data["mute"] as? Bool ?? false
         let typeString = data["type"] as? String ?? "Bell"
-        
+
         // Validate and clamp values using AudioConstants (single source of truth)
         let frequency = AudioConstants.clampFrequency(rawFrequency)
         let gain = AudioConstants.clampGain(rawGain)
-        
-        // Convert Q to bandwidth and clamp
-        let rawBandwidth = BandwidthConverter.qToBandwidth(rawQ)
-        let bandwidth = AudioConstants.clampBandwidth(rawBandwidth)
-        
+        let q = BandwidthConverter.clampQ(rawQ)
+
         // Convert filter type
         let filterType = mapFilterType(typeString)
-        
+
         // Warn if values were clamped
         if frequency != rawFrequency {
             warnings.append("Band \(index): frequency clamped from \(rawFrequency) Hz to \(frequency) Hz")
@@ -279,18 +276,18 @@ enum EasyEffectsImporter {
         if gain != rawGain {
             warnings.append("Band \(index): gain clamped from \(rawGain) dB to \(gain) dB")
         }
-        if bandwidth != rawBandwidth {
-            warnings.append("Band \(index): bandwidth adjusted from \(rawBandwidth) to \(bandwidth) octaves")
+        if q != rawQ {
+            warnings.append("Band \(index): Q adjusted from \(rawQ) to \(q)")
         }
-        
+
         // Check for ignored parameters
         if data["solo"] as? Bool == true {
             warnings.append("Band \(index): Solo mode is ignored")
         }
-        
+
         return PresetBand(
             frequency: frequency,
-            bandwidth: BandwidthConverter.clampBandwidth(bandwidth),
+            q: q,
             gain: gain,
             filterType: filterType,
             bypass: mute

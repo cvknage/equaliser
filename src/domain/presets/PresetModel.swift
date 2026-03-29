@@ -91,30 +91,34 @@ struct PresetSettings: Codable, Sendable {
 }
 
 /// A single band in a preset (simplified from EQBandConfiguration for preset storage).
+///
+/// Q (quality factor) is stored natively. Legacy presets with `bandwidth` are
+/// converted to Q on load using `BandwidthConverter.bandwidthToQ()`.
 struct PresetBand: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case frequency
-        case bandwidth
+        case q
+        case bandwidth  // Legacy: for backward compatibility with old presets
         case gain
         case filterType
         case bypass
     }
 
     var frequency: Float
-    var bandwidth: Float
+    var q: Float
     var gain: Float
     var filterType: FilterType
     var bypass: Bool
 
     init(
         frequency: Float,
-        bandwidth: Float,
+        q: Float,
         gain: Float,
         filterType: FilterType = .parametric,
         bypass: Bool = false
     ) {
         self.frequency = frequency
-        self.bandwidth = bandwidth
+        self.q = q
         self.gain = gain
         self.filterType = filterType
         self.bypass = bypass
@@ -123,17 +127,27 @@ struct PresetBand: Codable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         frequency = try container.decode(Float.self, forKey: .frequency)
-        bandwidth = try container.decode(Float.self, forKey: .bandwidth)
         gain = try container.decode(Float.self, forKey: .gain)
         let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
         filterType = FilterType(validatedRawValue: filterTypeRaw) ?? .parametric
         bypass = try container.decode(Bool.self, forKey: .bypass)
+
+        // New format: q field (preferred)
+        // Legacy format: bandwidth field (convert to Q)
+        if let q = try container.decodeIfPresent(Float.self, forKey: .q) {
+            self.q = q
+        } else if let bandwidth = try container.decodeIfPresent(Float.self, forKey: .bandwidth) {
+            // Legacy: convert bandwidth (octaves) to Q
+            self.q = BandwidthConverter.bandwidthToQ(bandwidth)
+        } else {
+            self.q = EQConfiguration.defaultQ
+        }
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(frequency, forKey: .frequency)
-        try container.encode(bandwidth, forKey: .bandwidth)
+        try container.encode(q, forKey: .q)
         try container.encode(gain, forKey: .gain)
         try container.encode(filterType.rawValue, forKey: .filterType)
         try container.encode(bypass, forKey: .bypass)
@@ -142,7 +156,7 @@ struct PresetBand: Codable, Sendable {
     /// Converts from EQBandConfiguration.
     init(from eqBand: EQBandConfiguration) {
         self.frequency = eqBand.frequency
-        self.bandwidth = eqBand.bandwidth
+        self.q = eqBand.q
         self.gain = eqBand.gain
         self.filterType = eqBand.filterType
         self.bypass = eqBand.bypass
@@ -152,7 +166,7 @@ struct PresetBand: Codable, Sendable {
     func toEQBandConfiguration() -> EQBandConfiguration {
         EQBandConfiguration(
             frequency: frequency,
-            bandwidth: bandwidth,
+            q: q,
             gain: gain,
             filterType: filterType,
             bypass: bypass

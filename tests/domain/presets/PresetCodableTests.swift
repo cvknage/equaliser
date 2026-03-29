@@ -10,7 +10,7 @@ final class PresetCodableTests: XCTestCase {
     func testEQBandConfiguration_roundTrip() throws {
         let original = EQBandConfiguration(
             frequency: 1000.0,
-            bandwidth: 0.67,
+            q: 1.41,
             gain: 3.5,
             filterType: .parametric,
             bypass: false
@@ -20,7 +20,7 @@ final class PresetCodableTests: XCTestCase {
         let decoded = try decoder.decode(EQBandConfiguration.self, from: data)
 
         XCTAssertEqual(decoded.frequency, original.frequency)
-        XCTAssertEqual(decoded.bandwidth, original.bandwidth)
+        XCTAssertEqual(decoded.q, original.q)
         XCTAssertEqual(decoded.gain, original.gain)
         XCTAssertEqual(decoded.filterType, original.filterType)
         XCTAssertEqual(decoded.bypass, original.bypass)
@@ -44,7 +44,7 @@ final class PresetCodableTests: XCTestCase {
         for filterType in filterTypes {
             let band = EQBandConfiguration(
                 frequency: 1000.0,
-                bandwidth: 1.0,
+                q: 1.0,
                 gain: 0,
                 filterType: filterType,
                 bypass: false
@@ -62,7 +62,7 @@ final class PresetCodableTests: XCTestCase {
         let json = """
         {
             "frequency": 1000.0,
-            "bandwidth": 1.0,
+            "q": 1.0,
             "gain": 0.0,
             "filterType": 999,
             "bypass": false
@@ -74,7 +74,7 @@ final class PresetCodableTests: XCTestCase {
         // Unknown filter types should fall back to parametric
         XCTAssertEqual(decoded.filterType, .parametric)
         XCTAssertEqual(decoded.frequency, 1000.0)
-        XCTAssertEqual(decoded.bandwidth, 1.0)
+        XCTAssertEqual(decoded.q, 1.0)
         XCTAssertEqual(decoded.gain, 0.0)
         XCTAssertFalse(decoded.bypass)
     }
@@ -83,17 +83,17 @@ final class PresetCodableTests: XCTestCase {
         let band = EQBandConfiguration.parametric(frequency: 440.0)
 
         XCTAssertEqual(band.frequency, 440.0)
-        XCTAssertEqual(band.bandwidth, 0.67) // Default bandwidth
+        XCTAssertEqual(band.q, EQConfiguration.defaultQ)
         XCTAssertEqual(band.gain, 0)
         XCTAssertEqual(band.filterType, .parametric)
         XCTAssertFalse(band.bypass)
     }
 
-    func testEQBandConfiguration_parametricFactory_customBandwidth() {
-        let band = EQBandConfiguration.parametric(frequency: 440.0, bandwidth: 1.5)
+    func testEQBandConfiguration_parametricFactory_customQ() {
+        let band = EQBandConfiguration.parametric(frequency: 440.0, q: 2.0)
 
         XCTAssertEqual(band.frequency, 440.0)
-        XCTAssertEqual(band.bandwidth, 1.5)
+        XCTAssertEqual(band.q, 2.0)
     }
 
     // MARK: - PresetBand Tests
@@ -101,7 +101,7 @@ final class PresetCodableTests: XCTestCase {
     func testPresetBand_roundTrip() throws {
         let original = PresetBand(
             frequency: 2000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: -6.0,
             filterType: .highShelf,
             bypass: true
@@ -111,7 +111,7 @@ final class PresetCodableTests: XCTestCase {
         let decoded = try decoder.decode(PresetBand.self, from: data)
 
         XCTAssertEqual(decoded.frequency, original.frequency)
-        XCTAssertEqual(decoded.bandwidth, original.bandwidth)
+        XCTAssertEqual(decoded.q, original.q)
         XCTAssertEqual(decoded.gain, original.gain)
         XCTAssertEqual(decoded.filterType, original.filterType)
         XCTAssertEqual(decoded.bypass, original.bypass)
@@ -122,7 +122,7 @@ final class PresetCodableTests: XCTestCase {
         let json = """
         {
             "frequency": 500.0,
-            "bandwidth": 0.5,
+            "q": 0.5,
             "gain": 2.0,
             "filterType": 888,
             "bypass": false
@@ -134,7 +134,7 @@ final class PresetCodableTests: XCTestCase {
         // Unknown filter types should fall back to parametric
         XCTAssertEqual(decoded.filterType, .parametric)
         XCTAssertEqual(decoded.frequency, 500.0)
-        XCTAssertEqual(decoded.bandwidth, 0.5)
+        XCTAssertEqual(decoded.q, 0.5)
         XCTAssertEqual(decoded.gain, 2.0)
         XCTAssertFalse(decoded.bypass)
     }
@@ -142,7 +142,7 @@ final class PresetCodableTests: XCTestCase {
     func testPresetBand_conversionFromEQBandConfiguration() {
         let eqBand = EQBandConfiguration(
             frequency: 3000.0,
-            bandwidth: 0.8,
+            q: 0.8,
             gain: 4.0,
             filterType: .lowShelf,
             bypass: true
@@ -151,7 +151,7 @@ final class PresetCodableTests: XCTestCase {
         let presetBand = PresetBand(from: eqBand)
 
         XCTAssertEqual(presetBand.frequency, eqBand.frequency)
-        XCTAssertEqual(presetBand.bandwidth, eqBand.bandwidth)
+        XCTAssertEqual(presetBand.q, eqBand.q)
         XCTAssertEqual(presetBand.gain, eqBand.gain)
         XCTAssertEqual(presetBand.filterType, eqBand.filterType)
         XCTAssertEqual(presetBand.bypass, eqBand.bypass)
@@ -160,7 +160,7 @@ final class PresetCodableTests: XCTestCase {
     func testPresetBand_conversionToEQBandConfiguration() {
         let presetBand = PresetBand(
             frequency: 4000.0,
-            bandwidth: 1.2,
+            q: 1.2,
             gain: -2.0,
             filterType: .bandPass,
             bypass: false
@@ -169,7 +169,7 @@ final class PresetCodableTests: XCTestCase {
         let eqBand = presetBand.toEQBandConfiguration()
 
         XCTAssertEqual(eqBand.frequency, presetBand.frequency)
-        XCTAssertEqual(eqBand.bandwidth, presetBand.bandwidth)
+        XCTAssertEqual(eqBand.q, presetBand.q)
         XCTAssertEqual(eqBand.gain, presetBand.gain)
         XCTAssertEqual(eqBand.filterType, presetBand.filterType)
         XCTAssertEqual(eqBand.bypass, presetBand.bypass)
@@ -226,9 +226,9 @@ final class PresetCodableTests: XCTestCase {
 
     func testPresetSettings_roundTrip() throws {
         let bands = [
-            PresetBand(frequency: 100, bandwidth: 1.0, gain: -3.0, filterType: .lowShelf, bypass: false),
-            PresetBand(frequency: 1000, bandwidth: 0.5, gain: 2.0, filterType: .parametric, bypass: false),
-            PresetBand(frequency: 10000, bandwidth: 1.0, gain: -1.0, filterType: .highShelf, bypass: true)
+            PresetBand(frequency: 100, q: 1.0, gain: -3.0, filterType: .lowShelf, bypass: false),
+            PresetBand(frequency: 1000, q: 1.41, gain: 2.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 10000, q: 1.0, gain: -1.0, filterType: .highShelf, bypass: true)
         ]
 
         let original = PresetSettings(
@@ -263,11 +263,11 @@ final class PresetCodableTests: XCTestCase {
 
     func testPreset_roundTrip_fullPreset() throws {
         let bands = [
-            PresetBand(frequency: 60, bandwidth: 0.8, gain: 4.0, filterType: .lowShelf, bypass: false),
-            PresetBand(frequency: 250, bandwidth: 1.0, gain: -2.0, filterType: .parametric, bypass: false),
-            PresetBand(frequency: 1000, bandwidth: 1.0, gain: 0, filterType: .parametric, bypass: false),
-            PresetBand(frequency: 4000, bandwidth: 0.67, gain: 3.0, filterType: .parametric, bypass: false),
-            PresetBand(frequency: 12000, bandwidth: 1.2, gain: 2.0, filterType: .highShelf, bypass: false)
+            PresetBand(frequency: 60, q: 1.2, gain: 4.0, filterType: .lowShelf, bypass: false),
+            PresetBand(frequency: 250, q: 1.0, gain: -2.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 4000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 12000, q: 0.83, gain: 2.0, filterType: .highShelf, bypass: false)
         ]
 
         let settings = PresetSettings(
@@ -300,7 +300,7 @@ final class PresetCodableTests: XCTestCase {
         for (index, decodedBand) in decoded.settings.bands.enumerated() {
             let originalBand = original.settings.bands[index]
             XCTAssertEqual(decodedBand.frequency, originalBand.frequency, "Band \(index) frequency mismatch")
-            XCTAssertEqual(decodedBand.bandwidth, originalBand.bandwidth, "Band \(index) bandwidth mismatch")
+            XCTAssertEqual(decodedBand.q, originalBand.q, "Band \(index) q mismatch")
             XCTAssertEqual(decodedBand.gain, originalBand.gain, "Band \(index) gain mismatch")
             XCTAssertEqual(decodedBand.filterType, originalBand.filterType, "Band \(index) filterType mismatch")
             XCTAssertEqual(decodedBand.bypass, originalBand.bypass, "Band \(index) bypass mismatch")

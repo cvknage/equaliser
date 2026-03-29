@@ -122,9 +122,12 @@ final class EQViewModel {
         store.updateBandFrequency(index: index, frequency: frequency)
     }
     
-    /// Updates bandwidth for a specific band.
-    func updateBandBandwidth(index: Int, bandwidth: Float) {
-        store.updateBandBandwidth(index: index, bandwidth: bandwidth)
+    /// Updates Q factor for a specific band.
+    /// - Parameters:
+    ///   - index: Band index
+    ///   - q: Q factor value
+    func updateBandQ(index: Int, q: Float) {
+        store.updateBandQ(index: index, q: q)
     }
     
     /// Updates filter type for a specific band.

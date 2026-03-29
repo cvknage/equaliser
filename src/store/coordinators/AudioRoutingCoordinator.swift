@@ -578,8 +578,8 @@ final class AudioRoutingCoordinator: ObservableObject {
         stageBandCoefficients(index: index, config: config)
     }
 
-    /// Updates a band's bandwidth by recalculating and staging coefficients.
-    func updateBandBandwidth(index: Int) {
+    /// Updates a band's Q factor by recalculating and staging coefficients.
+    func updateBandQ(index: Int) {
         guard index >= 0 && index < eqConfiguration.bands.count else { return }
         let config = eqConfiguration.bands[index]
         stageBandCoefficients(index: index, config: config)
@@ -624,7 +624,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             type: config.filterType,
             sampleRate: currentSampleRate,
             frequency: Double(config.frequency),
-            bandwidth: Double(config.bandwidth),
+            q: Double(config.q),
             gain: Double(config.gain)
         )
 
@@ -661,7 +661,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                 type: config.filterType,
                 sampleRate: currentSampleRate,
                 frequency: Double(config.frequency),
-                bandwidth: Double(config.bandwidth),
+                q: Double(config.q),
                 gain: Double(config.gain)
             )
             leftCoefficients.append(coeff)
@@ -693,7 +693,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                     type: config.filterType,
                     sampleRate: currentSampleRate,
                     frequency: Double(config.frequency),
-                    bandwidth: Double(config.bandwidth),
+                    q: Double(config.q),
                     gain: Double(config.gain)
                 )
                 rightCoefficients.append(coeff)

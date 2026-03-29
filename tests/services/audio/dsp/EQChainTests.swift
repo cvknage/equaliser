@@ -41,7 +41,7 @@ final class EQChainTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 
@@ -86,7 +86,7 @@ final class EQChainTests: XCTestCase {
                 type: .parametric,
                 sampleRate: sampleRate,
                 frequency: 100.0 * Double(i + 1) * 100,
-                bandwidth: 1.0,
+                q: 1.0,
                 gain: Double(i + 1) * 2
             )
             coeffs.append(c)
@@ -128,7 +128,7 @@ final class EQChainTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
         chain.stageBandUpdate(index: 0, coefficients: coeffs, bypass: true)
@@ -162,7 +162,7 @@ final class EQChainTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 
@@ -201,7 +201,7 @@ final class EQChainTests: XCTestCase {
                 type: .parametric,
                 sampleRate: sampleRate,
                 frequency: 500.0 + Double(i) * 500,
-                bandwidth: 1.0,
+                q: 1.0,
                 gain: 3.0
             )
             coeffs.append(c)
@@ -246,7 +246,7 @@ final class EQChainTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 

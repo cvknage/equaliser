@@ -27,7 +27,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 
@@ -43,7 +43,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: -6.0
         )
 
@@ -59,7 +59,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 0.0
         )
 
@@ -76,7 +76,7 @@ final class BiquadMathTests: XCTestCase {
             type: .lowPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707, // Butterworth Q
+            q: 0.707, // Butterworth Q
             gain: 0.0
         )
 
@@ -92,7 +92,7 @@ final class BiquadMathTests: XCTestCase {
             type: .lowPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707,
+            q: 0.707,
             gain: 0.0
         )
 
@@ -108,7 +108,7 @@ final class BiquadMathTests: XCTestCase {
             type: .highPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707, // Butterworth Q
+            q: 0.707, // Butterworth Q
             gain: 0.0
         )
 
@@ -125,7 +125,7 @@ final class BiquadMathTests: XCTestCase {
             type: .highPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.707,
+            q: 0.707,
             gain: 0.0
         )
 
@@ -139,11 +139,13 @@ final class BiquadMathTests: XCTestCase {
     // MARK: - Shelf Tests
 
     func testLowShelfBoost() {
+        // Shelves use shelf slope parameter (S), which maps from Q via: S = 1 / sqrt(2*Q)
+        // Q = 0.707 gives approximately Butterworth response (S ≈ 0.9)
         let coeffs = BiquadMath.calculateCoefficients(
             type: .lowShelf,
             sampleRate: sampleRate,
             frequency: 200.0,
-            bandwidth: 0.0, // Not used for shelves
+            q: 0.707, // Butterworth Q
             gain: 6.0
         )
 
@@ -158,7 +160,7 @@ final class BiquadMathTests: XCTestCase {
             type: .highShelf,
             sampleRate: sampleRate,
             frequency: 8000.0,
-            bandwidth: 0.0,
+            q: 0.707, // Butterworth Q
             gain: 6.0
         )
 
@@ -173,7 +175,7 @@ final class BiquadMathTests: XCTestCase {
             type: .lowShelf,
             sampleRate: sampleRate,
             frequency: 200.0,
-            bandwidth: 0.0,
+            q: 0.707, // Butterworth Q
             gain: 0.0
         )
 
@@ -189,7 +191,7 @@ final class BiquadMathTests: XCTestCase {
             type: .bandPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 0.0
         )
 
@@ -203,7 +205,7 @@ final class BiquadMathTests: XCTestCase {
             type: .notch,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 0.0
         )
 
@@ -220,7 +222,7 @@ final class BiquadMathTests: XCTestCase {
             type: .resonantLowPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 5.0, // High Q for resonance
+            q: 5.0, // High Q for resonance
             gain: 0.0
         )
 
@@ -236,7 +238,7 @@ final class BiquadMathTests: XCTestCase {
             type: .resonantHighPass,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 5.0,
+            q: 5.0,
             gain: 0.0
         )
 
@@ -252,7 +254,7 @@ final class BiquadMathTests: XCTestCase {
             type: .resonantLowShelf,
             sampleRate: sampleRate,
             frequency: 200.0,
-            bandwidth: 2.0, // Q = 2
+            q: 2.0, // Q = 2
             gain: 6.0
         )
 
@@ -260,7 +262,7 @@ final class BiquadMathTests: XCTestCase {
             type: .resonantHighShelf,
             sampleRate: sampleRate,
             frequency: 8000.0,
-            bandwidth: 2.0,
+            q: 2.0,
             gain: 6.0
         )
 
@@ -277,7 +279,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 20.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 
@@ -295,7 +297,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 20000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 
@@ -313,7 +315,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 0.1, // Very narrow
+            q: 0.1, // Very narrow
             gain: 6.0
         )
 
@@ -328,7 +330,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 8.0, // Very wide
+            q: 8.0, // Very wide
             gain: 6.0
         )
 
@@ -347,7 +349,7 @@ final class BiquadMathTests: XCTestCase {
                 type: filterType,
                 sampleRate: sampleRate,
                 frequency: 1000.0,
-                bandwidth: 0.67,
+                q: 0.67,
                 gain: 6.0
             )
 
@@ -367,7 +369,7 @@ final class BiquadMathTests: XCTestCase {
             type: .parametric,
             sampleRate: sampleRate,
             frequency: 1000.0,
-            bandwidth: 1.0,
+            q: 1.0,
             gain: 6.0
         )
 

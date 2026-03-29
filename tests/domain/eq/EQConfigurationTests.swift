@@ -154,9 +154,9 @@ final class EQConfigurationTests: XCTestCase {
         XCTAssertEqual(config.activeBandCount, 64)
     }
 
-    func testDefaultBandwidth() {
-        // Verify default bandwidth constant
-        XCTAssertEqual(EQConfiguration.defaultBandwidth, 0.67)
+    func testDefaultQ() {
+        // Verify default Q constant (~1 octave bandwidth)
+        XCTAssertEqual(EQConfiguration.defaultQ, 1.41, accuracy: 0.01)
     }
 
     // MARK: - Band Update Tests
@@ -178,11 +178,11 @@ final class EQConfigurationTests: XCTestCase {
     }
 
     @MainActor
-    func testUpdateBandBandwidth() {
+    func testUpdateBandQ() {
         let config = EQConfiguration(initialBandCount: 10)
-        config.updateBandBandwidth(index: 3, bandwidth: 1.5)
+        config.updateBandQ(index: 3, q: 2.0)
 
-        XCTAssertEqual(config.bands[3].bandwidth, 1.5, accuracy: 0.001)
+        XCTAssertEqual(config.bands[3].q, 2.0, accuracy: 0.001)
     }
 
     @MainActor

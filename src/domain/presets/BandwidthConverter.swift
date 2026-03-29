@@ -24,11 +24,13 @@ enum BandwidthDisplayMode: String, Codable, CaseIterable, Sendable {
     }
 }
 
-/// Utilities for converting between Q factor and bandwidth (octaves).
+/// Utilities for converting between Q factor and bandwidth (octaves), and for
+/// formatting and parsing those values for display.
 ///
-/// These formulas are the standard conversions used in audio engineering:
+/// Q factor is the internal storage format used throughout the model. Bandwidth
+/// in octaves is a display preference only. The standard conversion formulas are:
 /// - Q is a dimensionless value representing filter selectivity
-/// - Bandwidth in octaves represents the frequency range between -3dB points
+/// - Bandwidth in octaves represents the frequency range between -3 dB points
 ///
 /// Reference: https://www.rane.com/note170.html
 enum BandwidthConverter {
@@ -58,55 +60,52 @@ enum BandwidthConverter {
 
     // MARK: - Formatting Functions
 
-    /// Formats a bandwidth value for display based on the selected mode.
+    /// Formats a Q factor value for display based on the selected mode.
     ///
     /// - Parameters:
-    ///   - bandwidth: The bandwidth in octaves (internal storage format).
+    ///   - q: The Q factor (internal storage format).
     ///   - mode: The display mode preference.
     /// - Returns: A formatted string with unit.
-    static func format(bandwidth: Float, mode: BandwidthDisplayMode) -> String {
+    static func format(q: Float, mode: BandwidthDisplayMode) -> String {
         switch mode {
         case .octaves:
-            return String(format: "%.2f oct", bandwidth)
+            return String(format: "%.2f oct", qToBandwidth(q))
         case .qFactor:
-            let q = bandwidthToQ(bandwidth)
             return String(format: "Q %.2f", q)
         }
     }
 
-    /// Formats a bandwidth value for input field based on the selected mode.
+    /// Formats a Q factor value for a text input field based on the selected mode.
     ///
     /// - Parameters:
-    ///   - bandwidth: The bandwidth in octaves (internal storage format).
+    ///   - q: The Q factor (internal storage format).
     ///   - mode: The display mode preference.
     /// - Returns: A formatted string without unit (for text field input).
-    static func formatForInput(bandwidth: Float, mode: BandwidthDisplayMode) -> String {
+    static func formatForInput(q: Float, mode: BandwidthDisplayMode) -> String {
         switch mode {
         case .octaves:
-            return String(format: "%.2f", bandwidth)
+            return String(format: "%.2f", qToBandwidth(q))
         case .qFactor:
-            let q = bandwidthToQ(bandwidth)
             return String(format: "%.2f", q)
         }
     }
 
-    /// Converts a user-input value to bandwidth in octaves based on display mode.
+    /// Parses a user-entered string into a raw float value.
+    ///
+    /// Returns the raw parsed float without any unit conversion — the value is
+    /// in whatever unit the current display mode represents (octaves for `.octaves`,
+    /// Q factor for `.qFactor`). The caller is responsible for clamping and
+    /// converting to Q for storage.
     ///
     /// - Parameters:
-    ///   - value: The user-entered value.
-    ///   - mode: The display mode that determines how to interpret the value.
-    /// - Returns: Bandwidth in octaves, or nil if the value is invalid.
+    ///   - value: The user-entered string.
+    ///   - mode: The display mode (determines the unit of the returned value).
+    /// - Returns: The parsed float, or nil if the string is not a valid positive number.
     static func parseInput(_ value: String, mode: BandwidthDisplayMode) -> Float? {
         guard let floatValue = Float(value), floatValue > 0 else {
             return nil
         }
-
-        switch mode {
-        case .octaves:
-            return floatValue
-        case .qFactor:
-            return qToBandwidth(floatValue)
-        }
+        return floatValue
     }
 
     // MARK: - Reference Values

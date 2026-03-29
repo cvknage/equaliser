@@ -106,10 +106,10 @@ final class EasyEffectsImportExportTests: XCTestCase {
         """.data(using: .utf8)!
 
         let result = try EasyEffectsImporter.importPreset(from: json, name: "Test")
-        let bandwidth = result.preset.settings.bands[0].bandwidth
+        let q = result.preset.settings.bands[0].q
 
-        // Q = 1.41 ≈ 1.0 octave
-        XCTAssertEqual(bandwidth, 1.0, accuracy: 0.1)
+        // Q should be preserved from the import
+        XCTAssertEqual(q, 1.41, accuracy: 0.01)
     }
 
     func testImport_multipleBands() throws {
@@ -215,7 +215,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 inputGain: 0,
                 outputGain: 0,
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, bandwidth: 1.0, gain: 3.0, filterType: .parametric, bypass: false)]
+                bands: [PresetBand(frequency: 1000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false)]
             )
         )
 
@@ -227,13 +227,13 @@ final class EasyEffectsImportExportTests: XCTestCase {
         XCTAssertNotNil(json?["output"])
     }
 
-    func testExport_bandwidthToQConversion() throws {
-        // 1.0 octave bandwidth should convert to Q ≈ 1.41
+    func testExport_qPreserved() throws {
+        // Q is stored natively, so it should round-trip unchanged
         let preset = Preset(
             metadata: PresetMetadata(name: "Test"),
             settings: PresetSettings(
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, bandwidth: 1.0, gain: 0, filterType: .parametric, bypass: false)]
+                bands: [PresetBand(frequency: 1000, q: 1.41, gain: 0, filterType: .parametric, bypass: false)]
             )
         )
 
@@ -247,8 +247,8 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let band0 = left["band0"] as! [String: Any]
         let q = band0["q"] as! Double
 
-        // 1.0 octave ≈ Q of 1.41
-        XCTAssertEqual(q, 1.41, accuracy: 0.1)
+        // Q should be preserved exactly
+        XCTAssertEqual(q, 1.41, accuracy: 0.01)
     }
 
     func testExport_filterTypeMapping() throws {
@@ -267,7 +267,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 metadata: PresetMetadata(name: "Test"),
                 settings: PresetSettings(
                     activeBandCount: 1,
-                    bands: [PresetBand(frequency: 1000, bandwidth: 1.0, gain: 0, filterType: filterType, bypass: false)]
+                    bands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: filterType, bypass: false)]
                 )
             )
 
@@ -289,7 +289,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
             metadata: PresetMetadata(name: "Test"),
             settings: PresetSettings(
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, bandwidth: 1.0, gain: 0, filterType: .parametric, bypass: true)]
+                bands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: true)]
             )
         )
 
@@ -312,7 +312,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 inputGain: -2.0,
                 outputGain: 3.0,
                 activeBandCount: 1,
-                bands: [PresetBand(frequency: 1000, bandwidth: 1.0, gain: 0, filterType: .parametric, bypass: false)]
+                bands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)]
             )
         )
 
@@ -332,11 +332,11 @@ final class EasyEffectsImportExportTests: XCTestCase {
 
     func testExportImport_roundTrip() throws {
         let originalBands = [
-            PresetBand(frequency: 60, bandwidth: 0.8, gain: 4.0, filterType: .lowShelf, bypass: false),
-            PresetBand(frequency: 250, bandwidth: 1.0, gain: -2.0, filterType: .parametric, bypass: false),
-            PresetBand(frequency: 1000, bandwidth: 0.67, gain: 0, filterType: .parametric, bypass: true),
-            PresetBand(frequency: 4000, bandwidth: 1.2, gain: 3.0, filterType: .parametric, bypass: false),
-            PresetBand(frequency: 12000, bandwidth: 1.5, gain: 2.0, filterType: .highShelf, bypass: false)
+            PresetBand(frequency: 60, q: 0.8, gain: 4.0, filterType: .lowShelf, bypass: false),
+            PresetBand(frequency: 250, q: 1.0, gain: -2.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 1000, q: 0.67, gain: 0, filterType: .parametric, bypass: true),
+            PresetBand(frequency: 4000, q: 1.2, gain: 3.0, filterType: .parametric, bypass: false),
+            PresetBand(frequency: 12000, q: 1.5, gain: 2.0, filterType: .highShelf, bypass: false)
         ]
 
         let original = Preset(
@@ -375,9 +375,9 @@ final class EasyEffectsImportExportTests: XCTestCase {
             XCTAssertEqual(importedBand.bypass, originalBand.bypass,
                            "Band \(index) bypass mismatch")
 
-            // Bandwidth may have slight rounding due to Q conversion
-            XCTAssertEqual(importedBand.bandwidth, originalBand.bandwidth, accuracy: 0.05,
-                           "Band \(index) bandwidth mismatch")
+            // Q may have slight rounding due to conversion
+            XCTAssertEqual(importedBand.q, originalBand.q, accuracy: 0.02,
+                           "Band \(index) q mismatch")
         }
     }
 
@@ -386,23 +386,20 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let testQValues: [Float] = [0.707, 1.0, 1.41, 2.0, 4.36]
 
         for q in testQValues {
-            let bandwidth = BandwidthConverter.qToBandwidth(q)
-
             let preset = Preset(
                 metadata: PresetMetadata(name: "Q Test"),
                 settings: PresetSettings(
                     activeBandCount: 1,
-                    bands: [PresetBand(frequency: 1000, bandwidth: bandwidth, gain: 0, filterType: .parametric, bypass: false)]
+                    bands: [PresetBand(frequency: 1000, q: q, gain: 0, filterType: .parametric, bypass: false)]
                 )
             )
 
             let exportedData = try EasyEffectsExporter.export(preset)
             let importResult = try EasyEffectsImporter.importPreset(from: exportedData, name: "Q Test")
 
-            let importedBandwidth = importResult.preset.settings.bands[0].bandwidth
-            let roundTrippedQ = BandwidthConverter.bandwidthToQ(importedBandwidth)
+            let importedQ = importResult.preset.settings.bands[0].q
 
-            XCTAssertEqual(roundTrippedQ, q, accuracy: 0.02, "Q value \(q) failed round-trip")
+            XCTAssertEqual(importedQ, q, accuracy: 0.02, "Q value \(q) failed round-trip")
         }
     }
 

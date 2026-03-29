@@ -46,12 +46,6 @@ enum AudioConstants {
     /// Matches the UI slider range in EqualiserStore.
     static let maxGain: Float = 36
     
-    /// Minimum bandwidth in octaves.
-    static let minBandwidth: Float = 0.1
-    
-    /// Maximum bandwidth in octaves.
-    static let maxBandwidth: Float = 8.0
-    
     // MARK: - Computed Properties
     
     /// Valid gain range for EQ band sliders.
@@ -68,10 +62,5 @@ enum AudioConstants {
     /// Clamps gain to valid EQ range.
     static func clampGain(_ value: Float) -> Float {
         max(minGain, min(maxGain, value))
-    }
-    
-    /// Clamps bandwidth to valid range.
-    static func clampBandwidth(_ value: Float) -> Float {
-        max(minBandwidth, min(maxBandwidth, value))
     }
 }

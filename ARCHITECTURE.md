@@ -284,7 +284,7 @@ The app uses a **custom biquad DSP engine** instead of `AVAudioUnitEQ`. This pro
 [UI: Gain Slider Drag]
         │
         ▼
-BiquadMath.calculateCoefficients(type, freq, bandwidth, gain)
+BiquadMath.calculateCoefficients(type, freq, q, gain)
         │ Returns Double-precision coefficients
         ▼
 AudioRoutingCoordinator.stageBandCoefficients(index, config)

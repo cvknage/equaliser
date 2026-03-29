@@ -11,18 +11,23 @@ enum ChannelFocus: String, Codable, Sendable {
 }
 
 /// Configuration for a single EQ band.
+///
+/// Q (quality factor) is stored natively. Bandwidth in octaves is a display preference
+/// that can be converted to/from Q using `BandwidthConverter`. Q is the value used
+/// directly by the biquad coefficient calculations.
 struct EQBandConfiguration: Codable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case frequency
-        case bandwidth
+        case q
+        case bandwidth  // Legacy: for backward compatibility with old presets
         case gain
         case filterType
         case bypass
     }
 
-    init(frequency: Float, bandwidth: Float, gain: Float, filterType: FilterType, bypass: Bool) {
+    init(frequency: Float, q: Float, gain: Float, filterType: FilterType, bypass: Bool) {
         self.frequency = frequency
-        self.bandwidth = bandwidth
+        self.q = q
         self.gain = gain
         self.filterType = filterType
         self.bypass = bypass
@@ -31,33 +36,43 @@ struct EQBandConfiguration: Codable, Sendable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         frequency = try container.decode(Float.self, forKey: .frequency)
-        bandwidth = try container.decode(Float.self, forKey: .bandwidth)
         gain = try container.decode(Float.self, forKey: .gain)
         let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
         filterType = FilterType(validatedRawValue: filterTypeRaw) ?? .parametric
         bypass = try container.decode(Bool.self, forKey: .bypass)
+
+        // New format: q field (preferred)
+        // Legacy format: bandwidth field (convert to Q)
+        if let q = try container.decodeIfPresent(Float.self, forKey: .q) {
+            self.q = q
+        } else if let bandwidth = try container.decodeIfPresent(Float.self, forKey: .bandwidth) {
+            // Legacy: convert bandwidth (octaves) to Q
+            self.q = BandwidthConverter.bandwidthToQ(bandwidth)
+        } else {
+            self.q = EQConfiguration.defaultQ
+        }
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(frequency, forKey: .frequency)
-        try container.encode(bandwidth, forKey: .bandwidth)
+        try container.encode(q, forKey: .q)
         try container.encode(gain, forKey: .gain)
         try container.encode(filterType.rawValue, forKey: .filterType)
         try container.encode(bypass, forKey: .bypass)
     }
 
     var frequency: Float
-    var bandwidth: Float
+    var q: Float
     var gain: Float
     var filterType: FilterType
     var bypass: Bool
 
     /// Default parametric band configuration.
-    static func parametric(frequency: Float, bandwidth: Float = 0.67) -> EQBandConfiguration {
+    static func parametric(frequency: Float, q: Float = EQConfiguration.defaultQ) -> EQBandConfiguration {
         EQBandConfiguration(
             frequency: frequency,
-            bandwidth: bandwidth,
+            q: q,
             gain: 0,
             filterType: .parametric,
             bypass: false
@@ -74,7 +89,8 @@ final class EQConfiguration: ObservableObject {
 
     nonisolated static let maxBandCount: Int = 64
     nonisolated static let defaultBandCount: Int = 10
-    nonisolated static let defaultBandwidth: Float = 0.67
+    /// Default Q factor for EQ bands (~1 octave bandwidth, industry standard).
+    nonisolated static let defaultQ: Float = 1.41
 
     // MARK: - Private Properties
 
@@ -179,11 +195,11 @@ final class EQConfiguration: ObservableObject {
                     let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
                     leftState.userEQ.bands[i] = EQBandConfiguration.parametric(
                         frequency: freq,
-                        bandwidth: EQConfiguration.defaultBandwidth
+                        q: EQConfiguration.defaultQ
                     )
                     rightState.userEQ.bands[i] = EQBandConfiguration.parametric(
                         frequency: freq,
-                        bandwidth: EQConfiguration.defaultBandwidth
+                        q: EQConfiguration.defaultQ
                     )
                 }
             }
@@ -194,7 +210,7 @@ final class EQConfiguration: ObservableObject {
             for (index, frequency) in frequencies.enumerated() {
                 let band = EQBandConfiguration.parametric(
                     frequency: frequency,
-                    bandwidth: EQConfiguration.defaultBandwidth
+                    q: EQConfiguration.defaultQ
                 )
                 leftState.userEQ.bands[index] = band
                 rightState.userEQ.bands[index] = band
@@ -223,7 +239,7 @@ final class EQConfiguration: ObservableObject {
         for (index, frequency) in frequencies.enumerated() {
             let band = EQBandConfiguration.parametric(
                 frequency: frequency,
-                bandwidth: EQConfiguration.defaultBandwidth
+                q: EQConfiguration.defaultQ
             )
             leftState.userEQ.bands[index] = band
             rightState.userEQ.bands[index] = band
@@ -266,7 +282,7 @@ final class EQConfiguration: ObservableObject {
         defaultFrequencies().map { frequency in
             EQBandConfiguration.parametric(
                 frequency: frequency,
-                bandwidth: defaultBandwidth
+                q: defaultQ
             )
         }
     }
@@ -357,34 +373,34 @@ final class EQConfiguration: ObservableObject {
         objectWillChange.send()
     }
 
-    /// Updates the bandwidth for a specific band.
-    func updateBandBandwidth(index: Int, bandwidth: Float) {
+    /// Updates the Q factor for a specific band.
+    func updateBandQ(index: Int, q: Float) {
         guard isValidIndex(index) else { return }
 
         if channelMode == .linked {
-            leftState.userEQ.bands[index].bandwidth = bandwidth
-            rightState.userEQ.bands[index].bandwidth = bandwidth
+            leftState.userEQ.bands[index].q = q
+            rightState.userEQ.bands[index].q = q
         } else {
             if editingChannel == .left {
-                leftState.userEQ.bands[index].bandwidth = bandwidth
+                leftState.userEQ.bands[index].q = q
             } else {
-                rightState.userEQ.bands[index].bandwidth = bandwidth
+                rightState.userEQ.bands[index].q = q
             }
         }
         objectWillChange.send()
     }
 
-    /// Updates the bandwidth for a specific band on a specific channel.
-    func updateBandBandwidth(index: Int, bandwidth: Float, channel: EQChannelTarget) {
+    /// Updates the Q factor for a specific band on a specific channel.
+    func updateBandQ(index: Int, q: Float, channel: EQChannelTarget) {
         guard isValidIndex(index) else { return }
 
         let targetChannel = channelMode == .linked ? .both : channel
 
         if targetChannel == .both || targetChannel == .left {
-            leftState.userEQ.bands[index].bandwidth = bandwidth
+            leftState.userEQ.bands[index].q = q
         }
         if targetChannel == .both || targetChannel == .right {
-            rightState.userEQ.bands[index].bandwidth = bandwidth
+            rightState.userEQ.bands[index].q = q
         }
         objectWillChange.send()
     }

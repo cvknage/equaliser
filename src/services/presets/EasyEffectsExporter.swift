@@ -103,18 +103,15 @@ enum EasyEffectsExporter {
     }
 
     private static func buildBandJSON(from band: PresetBand) -> [String: Any] {
-        let q = BandwidthConverter.bandwidthToQ(band.bandwidth)
-        let typeString = mapFilterType(band.filterType)
-
         return [
             "frequency": Double(band.frequency),
             "gain": Double(band.gain),
             "mode": "APO (DR)",
             "mute": band.bypass,
-            "q": Double(q),
+            "q": Double(band.q),
             "slope": "x1",
             "solo": false,
-            "type": typeString,
+            "type": mapFilterType(band.filterType),
             "width": 4.0,
         ]
     }

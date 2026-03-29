@@ -7,6 +7,10 @@ import Foundation
 /// at low frequencies need this precision). Results can be converted to Float
 /// when building vDSP setups.
 ///
+/// Q (quality factor) is used uniformly for all filter types. For parametric
+/// EQs, Q relates to bandwidth by: Q = 1 / (2 * sinh(ln(2)/2 * BW)).
+/// Use `BandwidthConverter.bandwidthToQ()` to convert bandwidth to Q for display.
+///
 /// Reference: https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt
 enum BiquadMath {
     // MARK: - Main Entry Point
@@ -17,14 +21,14 @@ enum BiquadMath {
     ///   - type: The filter type (parametric, low-pass, high-pass, etc.)
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Centre/cutoff frequency in Hz
-    ///   - bandwidth: Bandwidth in octaves (for standard types) or Q (for resonant types)
+    ///   - q: Q factor (quality factor) for all filter types
     ///   - gain: Gain in dB (for parametric and shelf types)
     /// - Returns: Normalised biquad coefficients
     static func calculateCoefficients(
         type: FilterType,
         sampleRate: Double,
         frequency: Double,
-        bandwidth: Double,
+        q: Double,
         gain: Double
     ) -> BiquadCoefficients {
         switch type {
@@ -32,70 +36,72 @@ enum BiquadMath {
             return peakingEQ(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                bandwidth: bandwidth,
+                q: q,
                 gain: gain
             )
         case .lowPass:
             return lowPass(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                q: bandwidthToQ(bandwidth)
+                q: q
             )
         case .highPass:
             return highPass(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                q: bandwidthToQ(bandwidth)
+                q: q
             )
         case .lowShelf:
             return lowShelf(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                gain: gain
+                gain: gain,
+                q: q
             )
         case .highShelf:
             return highShelf(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                gain: gain
+                gain: gain,
+                q: q
             )
         case .bandPass:
             return bandPass(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                bandwidth: bandwidth
+                q: q
             )
         case .notch:
             return notch(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                bandwidth: bandwidth
+                q: q
             )
         case .resonantLowPass:
             return lowPass(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                q: bandwidth // For resonant types, bandwidth is Q directly
+                q: q
             )
         case .resonantHighPass:
             return highPass(
                 sampleRate: sampleRate,
                 frequency: frequency,
-                q: bandwidth // For resonant types, bandwidth is Q directly
+                q: q
             )
         case .resonantLowShelf:
             return lowShelf(
                 sampleRate: sampleRate,
                 frequency: frequency,
                 gain: gain,
-                q: bandwidth // For resonant types, bandwidth is Q directly
+                q: q
             )
         case .resonantHighShelf:
             return highShelf(
                 sampleRate: sampleRate,
                 frequency: frequency,
                 gain: gain,
-                q: bandwidth // For resonant types, bandwidth is Q directly
+                q: q
             )
         }
     }
@@ -108,24 +114,19 @@ enum BiquadMath {
     /// - Parameters:
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Centre frequency in Hz
-    ///   - bandwidth: Bandwidth in octaves
+    ///   - q: Q factor (filter steepness)
     ///   - gain: Gain in dB (positive = boost, negative = cut)
     static func peakingEQ(
         sampleRate: Double,
         frequency: Double,
-        bandwidth: Double,
+        q: Double,
         gain: Double
     ) -> BiquadCoefficients {
         let A = pow(10.0, gain / 40.0) // Gain as amplitude ratio (squared)
         let omega = 2.0 * .pi * frequency / sampleRate
         let sinOmega = sin(omega)
         let cosOmega = cos(omega)
-
-        // Bandwidth to Q: Q = sinOmega / (2 * sinh(ln(2)/2 * bandwidth * sinOmega/cosOmega))
-        // Simplified: alpha = sinOmega * sinh(ln(2)/2 * bandwidth * omega/sinOmega)
-        // Or more commonly: alpha = sinOmega * sinh(ln(2)/2 * BW * sinOmega)
-        // Using the standard RBJ formula:
-        let alpha = sinOmega * sinh(log(2.0) / 2.0 * bandwidth * omega / sinOmega)
+        let alpha = sinOmega / (2.0 * q)
 
         let b0 = 1.0 + alpha * A
         let b1 = -2.0 * cosOmega
@@ -204,7 +205,10 @@ enum BiquadMath {
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Shelf frequency in Hz
     ///   - gain: Gain in dB (positive = boost, negative = cut)
-    ///   - q: Q factor for shelf slope (default 0.707 for standard shelf)
+    ///   - q: Q factor for shelf slope (default 0.707 for Butterworth/maximally-flat shelf)
+    ///
+    /// Coefficients follow the RBJ Audio EQ Cookbook lowShelf formula using
+    /// `alpha = sin(w0)/(2*Q)`, so `2*sqrt(A)*alpha = sqrt(A)*sin(w0)/Q`.
     static func lowShelf(
         sampleRate: Double,
         frequency: Double,
@@ -215,17 +219,16 @@ enum BiquadMath {
         let omega = 2.0 * .pi * frequency / sampleRate
         let sinOmega = sin(omega)
         let cosOmega = cos(omega)
+        // RBJ cookbook: alpha = sin(w0)/(2*Q), 2*sqrt(A)*alpha = sqrt(A)*sin(w0)/Q
+        let alpha = sinOmega / (2.0 * q)
+        let twoSqrtA_alpha = 2.0 * sqrt(A) * alpha
 
-        // Shelf slope from Q: higher Q = steeper transition
-        // beta = sqrt(A*A + 1) / q gives resonant shelf behaviour
-        let beta = sqrt(A * A + 1.0) / q
-
-        let b0 = A * ((A + 1.0) - (A - 1.0) * cosOmega + beta * sinOmega)
+        let b0 = A * ((A + 1.0) - (A - 1.0) * cosOmega + twoSqrtA_alpha)
         let b1 = 2.0 * A * ((A - 1.0) - (A + 1.0) * cosOmega)
-        let b2 = A * ((A + 1.0) - (A - 1.0) * cosOmega - beta * sinOmega)
-        let a0 = (A + 1.0) + (A - 1.0) * cosOmega + beta * sinOmega
+        let b2 = A * ((A + 1.0) - (A - 1.0) * cosOmega - twoSqrtA_alpha)
+        let a0 = (A + 1.0) + (A - 1.0) * cosOmega + twoSqrtA_alpha
         let a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cosOmega)
-        let a2 = (A + 1.0) + (A - 1.0) * cosOmega - beta * sinOmega
+        let a2 = (A + 1.0) + (A - 1.0) * cosOmega - twoSqrtA_alpha
 
         return normalise(b0: b0, b1: b1, b2: b2, a0: a0, a1: a1, a2: a2)
     }
@@ -239,7 +242,10 @@ enum BiquadMath {
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Shelf frequency in Hz
     ///   - gain: Gain in dB (positive = boost, negative = cut)
-    ///   - q: Q factor for shelf slope (default 0.707 for standard shelf)
+    ///   - q: Q factor for shelf slope (default 0.707 for Butterworth/maximally-flat shelf)
+    ///
+    /// Coefficients follow the RBJ Audio EQ Cookbook highShelf formula using
+    /// `alpha = sin(w0)/(2*Q)`, so `2*sqrt(A)*alpha = sqrt(A)*sin(w0)/Q`.
     static func highShelf(
         sampleRate: Double,
         frequency: Double,
@@ -250,17 +256,16 @@ enum BiquadMath {
         let omega = 2.0 * .pi * frequency / sampleRate
         let sinOmega = sin(omega)
         let cosOmega = cos(omega)
+        // RBJ cookbook: alpha = sin(w0)/(2*Q), 2*sqrt(A)*alpha = sqrt(A)*sin(w0)/Q
+        let alpha = sinOmega / (2.0 * q)
+        let twoSqrtA_alpha = 2.0 * sqrt(A) * alpha
 
-        // Shelf slope from Q: higher Q = steeper transition
-        // beta = sqrt(A*A + 1) / q gives resonant shelf behaviour
-        let beta = sqrt(A * A + 1.0) / q
-
-        let b0 = A * ((A + 1.0) + (A - 1.0) * cosOmega + beta * sinOmega)
+        let b0 = A * ((A + 1.0) + (A - 1.0) * cosOmega + twoSqrtA_alpha)
         let b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cosOmega)
-        let b2 = A * ((A + 1.0) + (A - 1.0) * cosOmega - beta * sinOmega)
-        let a0 = (A + 1.0) - (A - 1.0) * cosOmega + beta * sinOmega
+        let b2 = A * ((A + 1.0) + (A - 1.0) * cosOmega - twoSqrtA_alpha)
+        let a0 = (A + 1.0) - (A - 1.0) * cosOmega + twoSqrtA_alpha
         let a1 = 2.0 * ((A - 1.0) - (A + 1.0) * cosOmega)
-        let a2 = (A + 1.0) - (A - 1.0) * cosOmega - beta * sinOmega
+        let a2 = (A + 1.0) - (A - 1.0) * cosOmega - twoSqrtA_alpha
 
         return normalise(b0: b0, b1: b1, b2: b2, a0: a0, a1: a1, a2: a2)
     }
@@ -273,16 +278,16 @@ enum BiquadMath {
     /// - Parameters:
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Centre frequency in Hz
-    ///   - bandwidth: Bandwidth in octaves
+    ///   - q: Q factor (filter steepness)
     static func bandPass(
         sampleRate: Double,
         frequency: Double,
-        bandwidth: Double
+        q: Double
     ) -> BiquadCoefficients {
         let omega = 2.0 * .pi * frequency / sampleRate
         let sinOmega = sin(omega)
         let cosOmega = cos(omega)
-        let alpha = sinOmega * sinh(log(2.0) / 2.0 * bandwidth * omega / sinOmega)
+        let alpha = sinOmega / (2.0 * q)
 
         let b0 = alpha
         let b1 = 0.0
@@ -302,16 +307,16 @@ enum BiquadMath {
     /// - Parameters:
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Centre frequency in Hz
-    ///   - bandwidth: Bandwidth in octaves
+    ///   - q: Q factor (filter steepness)
     static func notch(
         sampleRate: Double,
         frequency: Double,
-        bandwidth: Double
+        q: Double
     ) -> BiquadCoefficients {
         let omega = 2.0 * .pi * frequency / sampleRate
         let sinOmega = sin(omega)
         let cosOmega = cos(omega)
-        let alpha = sinOmega * sinh(log(2.0) / 2.0 * bandwidth * omega / sinOmega)
+        let alpha = sinOmega / (2.0 * q)
 
         let b0 = 1.0
         let b1 = -2.0 * cosOmega
@@ -323,21 +328,7 @@ enum BiquadMath {
         return normalise(b0: b0, b1: b1, b2: b2, a0: a0, a1: a1, a2: a2)
     }
 
-    // MARK: - Helper Functions
-
-    /// Converts bandwidth in octaves to Q factor.
-    ///
-    /// For a peaking filter with bandwidth in octaves, Q is:
-    ///   Q = 1 / (2 * sinh(ln(2)/2 * BW))
-    static func bandwidthToQ(_ bandwidth: Double) -> Double {
-        // Standard Butterworth Q for 2nd-order filter
-        // This is a simplification — actual Q from bandwidth uses:
-        // Q = 1 / (2 * sinh(ln(2)/2 * bandwidth))
-        // For bandwidth = 0.67 (typical musical Q), Q ≈ 2.15
-        // For bandwidth = 1.0 (1 octave), Q ≈ 1.41
-        // For bandwidth = 2/3 (2/3 octave), Q ≈ 2.15
-        return 1.0 / (2.0 * sinh(log(2.0) / 2.0 * bandwidth))
-    }
+    // MARK: - Normalisation
 
     /// Normalises biquad coefficients by dividing by a0.
     ///
@@ -361,4 +352,3 @@ enum BiquadMath {
         )
     }
 }
-
