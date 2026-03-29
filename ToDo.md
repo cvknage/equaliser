@@ -139,10 +139,26 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Test with various AirPlay receivers (Apple TV, HomePod, AirPlay speakers)
 - [ ] Document AirPlay limitations and latency considerations for users
 
-## 17. L/R Channel EQ
-- [ ] Investigate dual-channel EQ architecture with separate band settings per channel
-- [ ] Add channel selection UI (Linked/Stereo/Left/Right modes)
-- [ ] Implement per-channel band gain storage in preset model
-- [ ] Update EQ rendering to apply channel-specific gains during processing
-- [ ] Add stereo link/unlink toggle for each band or global
-- [ ] Test with mono and stereo audio sources to verify channel separation
+## 17. Custom DSP Implementation (Completed)
+- [x] Create `FilterType` enum with 11 filter types matching AVAudioUnitEQFilterType raw values
+- [x] Implement `BiquadMath` with RBJ Cookbook coefficient calculation (pure functions)
+- [x] Create `BiquadCoefficients` value type (Equatable, Sendable)
+- [x] Implement `BiquadFilter` using vDSP biquad with pre-allocated delay elements
+- [x] Implement `EQChain` with lock-free coefficient updates via ManagedAtomic
+- [x] Add dirty-tracking to only rebuild changed filters in `applyPendingUpdates()`
+- [x] Add `resetState` parameter to preserve filter memory during slider drags
+- [x] Remove `AVAudioEngine` and `AVAudioUnitEQ` dependencies
+- [x] Delete `ManualRenderingEngine.swift` and `AudioRenderContext.swift`
+- [x] Integrate custom DSP into `RenderCallbackContext` with per-channel chains
+- [x] Migrate `EQBandConfiguration.filterType` from `AVAudioUnitEQFilterType` to `FilterType`
+- [x] Add backward-compatible preset decoding for legacy presets
+- [x] Add unit tests for BiquadMath, BiquadFilter, EQChain, and FilterType
+- [x] Add preset migration tests for legacy format compatibility
+
+## 18. L/R Channel EQ (Completed)
+- [x] Per-channel EQ state in `EQConfiguration` (`leftState`, `rightState`, `channelMode`)
+- [x] Channel selection UI (Linked/Stereo modes with L/R focus toggle)
+- [x] `EQChain` instantiated per-channel in `RenderCallbackContext`
+- [x] `EQChannelTarget` routes coefficient updates to correct chain(s)
+- [x] Per-channel band storage in preset model (`rightBands` optional field)
+- [x] Backward-compatible preset decoding for legacy presets without channel mode

@@ -1,4 +1,3 @@
-import AVFoundation
 import Foundation
 import os.log
 
@@ -122,7 +121,7 @@ enum EasyEffectsExporter {
 
     // MARK: - Type Mapping
 
-    private static func mapFilterType(_ type: AVAudioUnitEQFilterType) -> String {
+    private static func mapFilterType(_ type: FilterType) -> String {
         switch type {
         case .parametric:
             return "Bell"
@@ -136,7 +135,7 @@ enum EasyEffectsExporter {
             return "Hi-shelf"
         case .bandPass:
             return "Band-pass"
-        case .bandStop:
+        case .notch:
             return "Notch"
         case .resonantLowPass:
             return "Lo-pass"
@@ -146,8 +145,6 @@ enum EasyEffectsExporter {
             return "Lo-shelf"
         case .resonantHighShelf:
             return "Hi-shelf"
-        @unknown default:
-            return "Bell"
         }
     }
 }

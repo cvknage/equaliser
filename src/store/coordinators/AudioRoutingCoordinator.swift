@@ -43,13 +43,17 @@ final class AudioRoutingCoordinator: ObservableObject {
     private let driverNameManager: DriverNameManager
     
     // MARK: - Private Properties
-    
+
     private var renderPipeline: RenderPipeline?
     private var volumeManager: VolumeManager?
     private var observedOutputDeviceID: AudioDeviceID?
     private var isReconfiguring = false
     private var cancellables = Set<AnyCancellable>()
-    
+
+    /// Current sample rate for coefficient calculations.
+    /// Updated when pipeline starts or sample rate changes.
+    private var currentSampleRate: Double = 48000.0
+
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "AudioRoutingCoordinator")
     
     // MARK: - Initialization
@@ -409,7 +413,13 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.info("Routing active: \(inputName) → \(outputName)")
             meterStore.setRenderPipeline(pipeline)
             meterStore.startMeterUpdates()
-            
+
+            // Store sample rate for coefficient calculations
+            currentSampleRate = pipeline.sampleRate
+
+            // Stage initial EQ coefficients
+            reapplyAllCoefficients()
+
             // Set up volume sync between driver and output device (automatic mode only)
             // Note: Boost gain callback is only needed for HAL input capture mode.
             // In shared memory mode, samples come from the driver at full volume
@@ -423,7 +433,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                 }
                 volumeManager?.setupVolumeSync(driverID: driverID, outputID: outputDeviceID)
             }
-            
+
         case .failure(let error):
             routingStatus = .error("Start failed: \(error.localizedDescription)")
             logger.error("Pipeline start failed: \(error.localizedDescription)")
@@ -548,49 +558,157 @@ final class AudioRoutingCoordinator: ObservableObject {
     func updateProcessingMode(systemEQOff: Bool, compareMode: CompareMode) {
         renderPipeline?.updateProcessingMode(systemEQOff: systemEQOff, compareMode: compareMode)
     }
-    
+
     /// Updates the input gain on the render pipeline.
     func updateInputGain(linear: Float) {
         renderPipeline?.updateInputGain(linear: linear)
     }
-    
+
     /// Updates the output gain on the render pipeline.
     func updateOutputGain(linear: Float) {
         renderPipeline?.updateOutputGain(linear: linear)
     }
-    
-    /// Updates a band's gain on the render pipeline.
+
+    // MARK: - EQ Coefficient Staging
+
+    /// Updates a band's gain by recalculating and staging coefficients.
     func updateBandGain(index: Int) {
-        renderPipeline?.updateBandGain(index: index)
+        guard index >= 0 && index < eqConfiguration.bands.count else { return }
+        let config = eqConfiguration.bands[index]
+        stageBandCoefficients(index: index, config: config)
     }
-    
-    /// Updates a band's bandwidth on the render pipeline.
+
+    /// Updates a band's bandwidth by recalculating and staging coefficients.
     func updateBandBandwidth(index: Int) {
-        renderPipeline?.updateBandBandwidth(index: index)
+        guard index >= 0 && index < eqConfiguration.bands.count else { return }
+        let config = eqConfiguration.bands[index]
+        stageBandCoefficients(index: index, config: config)
     }
-    
-    /// Updates a band's frequency on the render pipeline.
+
+    /// Updates a band's frequency by recalculating and staging coefficients.
     func updateBandFrequency(index: Int) {
-        renderPipeline?.updateBandFrequency(index: index)
+        guard index >= 0 && index < eqConfiguration.bands.count else { return }
+        let config = eqConfiguration.bands[index]
+        stageBandCoefficients(index: index, config: config)
     }
-    
-    /// Updates a band's filter type on the render pipeline.
+
+    /// Updates a band's filter type by recalculating and staging coefficients.
     func updateBandFilterType(index: Int) {
-        renderPipeline?.updateBandFilterType(index: index)
+        guard index >= 0 && index < eqConfiguration.bands.count else { return }
+        let config = eqConfiguration.bands[index]
+        stageBandCoefficients(index: index, config: config)
     }
-    
-    /// Updates a band's bypass state on the render pipeline.
+
+    /// Updates a band's bypass state.
     func updateBandBypass(index: Int) {
-        renderPipeline?.updateBandBypass(index: index)
+        guard index >= 0 && index < eqConfiguration.bands.count else { return }
+        let config = eqConfiguration.bands[index]
+        stageBandCoefficients(index: index, config: config)
     }
-    
-    /// Returns the current band capacity of the render pipeline, or 0 if not active.
+
+    /// Returns the current band capacity from EQConfiguration.
     func currentBandCapacity() -> Int {
-        renderPipeline?.bandCapacity ?? 0
+        eqConfiguration.activeBandCount
     }
-    /// Reapplies the entire configuration to the render pipeline.
+
+    /// Reapplies all coefficients from the current configuration.
     func reapplyConfiguration() {
-        renderPipeline?.reapplyConfiguration()
+        reapplyAllCoefficients()
+    }
+
+    // MARK: - Private Coefficient Helpers
+
+    /// Stages coefficients for a single band.
+    private func stageBandCoefficients(index: Int, config: EQBandConfiguration) {
+        let coefficients = BiquadMath.calculateCoefficients(
+            type: config.filterType,
+            sampleRate: currentSampleRate,
+            frequency: Double(config.frequency),
+            bandwidth: Double(config.bandwidth),
+            gain: Double(config.gain)
+        )
+
+        // Use channel mode and editing channel from configuration
+        let target: EQChannelTarget = eqConfiguration.channelMode == .linked ? .both :
+            (eqConfiguration.editingChannel == .left ? .left : .right)
+
+        renderPipeline?.updateBandCoefficients(
+            channel: target,
+            layerIndex: EQLayerConstants.userEQLayerIndex,
+            bandIndex: index,
+            coefficients: coefficients,
+            bypass: config.bypass
+        )
+    }
+
+    /// Recalculates and stages all coefficients for all active bands.
+    private func reapplyAllCoefficients() {
+        let activeCount = eqConfiguration.activeBandCount
+
+        // Get the appropriate bands based on channel mode
+        let leftBands = eqConfiguration.leftState.userEQ.bands
+        let rightBands = eqConfiguration.rightState.userEQ.bands
+
+        // Stage coefficients for left channel
+        var leftCoefficients: [BiquadCoefficients] = []
+        var leftBypassFlags: [Bool] = []
+
+        for index in 0..<activeCount {
+            guard index < leftBands.count else { break }
+            let config = leftBands[index]
+
+            let coeff = BiquadMath.calculateCoefficients(
+                type: config.filterType,
+                sampleRate: currentSampleRate,
+                frequency: Double(config.frequency),
+                bandwidth: Double(config.bandwidth),
+                gain: Double(config.gain)
+            )
+            leftCoefficients.append(coeff)
+            leftBypassFlags.append(config.bypass)
+        }
+
+        // Determine channel target based on mode
+        let leftTarget: EQChannelTarget = eqConfiguration.channelMode == .linked ? .both : .left
+
+        renderPipeline?.stageFullEQUpdate(
+            channel: leftTarget,
+            layerIndex: EQLayerConstants.userEQLayerIndex,
+            coefficients: leftCoefficients,
+            bypassFlags: leftBypassFlags,
+            activeBandCount: activeCount,
+            layerBypass: eqConfiguration.globalBypass
+        )
+
+        // In stereo mode, also stage right channel coefficients
+        if eqConfiguration.channelMode == .stereo {
+            var rightCoefficients: [BiquadCoefficients] = []
+            var rightBypassFlags: [Bool] = []
+
+            for index in 0..<activeCount {
+                guard index < rightBands.count else { break }
+                let config = rightBands[index]
+
+                let coeff = BiquadMath.calculateCoefficients(
+                    type: config.filterType,
+                    sampleRate: currentSampleRate,
+                    frequency: Double(config.frequency),
+                    bandwidth: Double(config.bandwidth),
+                    gain: Double(config.gain)
+                )
+                rightCoefficients.append(coeff)
+                rightBypassFlags.append(config.bypass)
+            }
+
+            renderPipeline?.stageFullEQUpdate(
+                channel: .right,
+                layerIndex: EQLayerConstants.userEQLayerIndex,
+                coefficients: rightCoefficients,
+                bypassFlags: rightBypassFlags,
+                activeBandCount: activeCount,
+                layerBypass: eqConfiguration.globalBypass
+            )
+        }
     }
     
     // MARK: - Private Methods

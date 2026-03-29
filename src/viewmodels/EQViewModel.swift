@@ -1,7 +1,6 @@
 // EQViewModel.swift
 // Presentation logic for EQ configuration
 
-import AVFoundation
 import SwiftUI
 
 /// View model for EQ band configuration UI.
@@ -10,23 +9,36 @@ import SwiftUI
 @Observable
 final class EQViewModel {
     private unowned let store: EqualiserStore
-    
+
     init(store: EqualiserStore) {
         self.store = store
     }
-    
+
     // MARK: - Band Configuration
-    
+
     /// Number of active EQ bands.
     var bandCount: Int {
         store.bandCount
     }
-    
+
     /// All band configurations.
     var bands: [EQBandConfiguration] {
         store.eqConfiguration.bands
     }
-    
+
+    // MARK: - Channel Mode
+
+    /// Current channel processing mode.
+    var channelMode: ChannelMode {
+        store.channelMode
+    }
+
+    /// Which channel is currently being edited (only meaningful in stereo mode).
+    var channelFocus: ChannelFocus {
+        get { store.channelFocus }
+        set { store.channelFocus = newValue }
+    }
+
     // MARK: - Gain State
     
     /// Input gain in dB.
@@ -116,7 +128,7 @@ final class EQViewModel {
     }
     
     /// Updates filter type for a specific band.
-    func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
+    func updateBandFilterType(index: Int, filterType: FilterType) {
         store.updateBandFilterType(index: index, filterType: filterType)
     }
     

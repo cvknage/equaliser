@@ -1,4 +1,3 @@
-import AVFoundation
 import XCTest
 @testable import Equaliser
 
@@ -28,14 +27,14 @@ final class PresetCodableTests: XCTestCase {
     }
 
     func testEQBandConfiguration_allFilterTypes() throws {
-        let filterTypes: [AVAudioUnitEQFilterType] = [
+        let filterTypes: [FilterType] = [
             .parametric,
             .lowPass,
             .highPass,
             .resonantLowPass,
             .resonantHighPass,
             .bandPass,
-            .bandStop,
+            .notch,
             .lowShelf,
             .highShelf,
             .resonantLowShelf,

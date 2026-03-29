@@ -327,10 +327,15 @@ final class PresetManager: ObservableObject {
         // Apply global settings
         config.globalBypass = preset.settings.globalBypass
 
+        // Apply channel mode
+        if let channelMode = ChannelMode(rawValue: preset.settings.channelMode) {
+            config.setChannelMode(channelMode)
+        }
+
         // Apply band count
         config.setActiveBandCount(preset.settings.activeBandCount)
 
-        // Apply band settings
+        // Apply left channel band settings
         for (index, band) in preset.settings.bands.enumerated() {
             guard index < config.bands.count else { break }
             config.updateBandFrequency(index: index, frequency: band.frequency)
@@ -338,6 +343,18 @@ final class PresetManager: ObservableObject {
             config.updateBandGain(index: index, gain: band.gain)
             config.updateBandFilterType(index: index, filterType: band.filterType)
             config.updateBandBypass(index: index, bypass: band.bypass)
+        }
+
+        // Apply right channel band settings if in stereo mode
+        if let rightBands = preset.settings.rightBands, config.channelMode == .stereo {
+            for (index, band) in rightBands.enumerated() {
+                guard index < config.rightState.userEQ.bands.count else { break }
+                config.updateBandFrequency(index: index, frequency: band.frequency, channel: .right)
+                config.updateBandBandwidth(index: index, bandwidth: band.bandwidth, channel: .right)
+                config.updateBandGain(index: index, gain: band.gain, channel: .right)
+                config.updateBandFilterType(index: index, filterType: band.filterType, channel: .right)
+                config.updateBandBypass(index: index, bypass: band.bypass, channel: .right)
+            }
         }
     }
 

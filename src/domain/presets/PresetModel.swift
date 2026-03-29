@@ -1,4 +1,3 @@
-import AVFoundation
 import Foundation
 
 /// Metadata for a preset (name, timestamps).
@@ -41,24 +40,53 @@ struct PresetMetadata: Codable, Sendable {
 
 /// Settings snapshot for a preset, mirrors EQConfiguration state.
 struct PresetSettings: Codable, Sendable {
+    private enum CodingKeys: String, CodingKey {
+        case globalBypass
+        case inputGain
+        case outputGain
+        case activeBandCount
+        case bands
+        case channelMode
+        case rightBands
+    }
+
     var globalBypass: Bool
     var inputGain: Float
     var outputGain: Float
     var activeBandCount: Int
     var bands: [PresetBand]
+    var channelMode: String
+    var rightBands: [PresetBand]?
 
     init(
         globalBypass: Bool = false,
         inputGain: Float = 0,
         outputGain: Float = 0,
         activeBandCount: Int = EQConfiguration.defaultBandCount,
-        bands: [PresetBand] = []
+        bands: [PresetBand] = [],
+        channelMode: String = "linked",
+        rightBands: [PresetBand]? = nil
     ) {
         self.globalBypass = globalBypass
         self.inputGain = inputGain
         self.outputGain = outputGain
         self.activeBandCount = activeBandCount
         self.bands = bands
+        self.channelMode = channelMode
+        self.rightBands = rightBands
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        globalBypass = try container.decode(Bool.self, forKey: .globalBypass)
+        inputGain = try container.decode(Float.self, forKey: .inputGain)
+        outputGain = try container.decode(Float.self, forKey: .outputGain)
+        activeBandCount = try container.decode(Int.self, forKey: .activeBandCount)
+        bands = try container.decode([PresetBand].self, forKey: .bands)
+        // Legacy presets (saved before the custom DSP migration) lack channelMode and
+        // rightBands. Default channelMode to "linked" so old presets load in linked mode.
+        channelMode = try container.decodeIfPresent(String.self, forKey: .channelMode) ?? "linked"
+        rightBands = try container.decodeIfPresent([PresetBand].self, forKey: .rightBands)
     }
 }
 
@@ -75,14 +103,14 @@ struct PresetBand: Codable, Sendable {
     var frequency: Float
     var bandwidth: Float
     var gain: Float
-    var filterType: AVAudioUnitEQFilterType
+    var filterType: FilterType
     var bypass: Bool
 
     init(
         frequency: Float,
         bandwidth: Float,
         gain: Float,
-        filterType: AVAudioUnitEQFilterType = .parametric,
+        filterType: FilterType = .parametric,
         bypass: Bool = false
     ) {
         self.frequency = frequency
@@ -98,7 +126,7 @@ struct PresetBand: Codable, Sendable {
         bandwidth = try container.decode(Float.self, forKey: .bandwidth)
         gain = try container.decode(Float.self, forKey: .gain)
         let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
-        filterType = AVAudioUnitEQFilterType(validatedRawValue: filterTypeRaw) ?? .parametric
+        filterType = FilterType(validatedRawValue: filterTypeRaw) ?? .parametric
         bypass = try container.decode(Bool.self, forKey: .bypass)
     }
 
@@ -162,7 +190,11 @@ struct Preset: Codable, Sendable, Identifiable {
             inputGain: inputGain,
             outputGain: outputGain,
             activeBandCount: config.activeBandCount,
-            bands: config.bands.map { PresetBand(from: $0) }
+            bands: config.leftState.userEQ.bands.map { PresetBand(from: $0) },
+            channelMode: config.channelMode.rawValue,
+            rightBands: config.channelMode == .stereo
+                ? config.rightState.userEQ.bands.map { PresetBand(from: $0) }
+                : nil
         )
     }
 

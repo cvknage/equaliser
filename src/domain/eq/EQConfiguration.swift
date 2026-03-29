@@ -1,6 +1,14 @@
-import AVFoundation
 import Foundation
 import os.log
+
+// MARK: - Channel Editing Target
+
+/// Which channel to edit in stereo mode.
+/// In linked mode, this is ignored (both channels edited together).
+enum ChannelFocus: String, Codable, Sendable {
+    case left
+    case right
+}
 
 /// Configuration for a single EQ band.
 struct EQBandConfiguration: Codable, Sendable {
@@ -12,7 +20,7 @@ struct EQBandConfiguration: Codable, Sendable {
         case bypass
     }
 
-    init(frequency: Float, bandwidth: Float, gain: Float, filterType: AVAudioUnitEQFilterType, bypass: Bool) {
+    init(frequency: Float, bandwidth: Float, gain: Float, filterType: FilterType, bypass: Bool) {
         self.frequency = frequency
         self.bandwidth = bandwidth
         self.gain = gain
@@ -26,7 +34,7 @@ struct EQBandConfiguration: Codable, Sendable {
         bandwidth = try container.decode(Float.self, forKey: .bandwidth)
         gain = try container.decode(Float.self, forKey: .gain)
         let filterTypeRaw = try container.decode(Int.self, forKey: .filterType)
-        filterType = AVAudioUnitEQFilterType(validatedRawValue: filterTypeRaw) ?? .parametric
+        filterType = FilterType(validatedRawValue: filterTypeRaw) ?? .parametric
         bypass = try container.decode(Bool.self, forKey: .bypass)
     }
 
@@ -42,7 +50,7 @@ struct EQBandConfiguration: Codable, Sendable {
     var frequency: Float
     var bandwidth: Float
     var gain: Float
-    var filterType: AVAudioUnitEQFilterType
+    var filterType: FilterType
     var bypass: Bool
 
     /// Default parametric band configuration.
@@ -83,38 +91,63 @@ final class EQConfiguration: ObservableObject {
     /// Output gain applied after EQ processing (in dB).
     @Published var outputGain: Float = 0
 
+    /// Channel processing mode.
+    /// - linked: Same EQ applied to both L and R (default)
+    /// - stereo: Independent L and R EQ settings
+    @Published var channelMode: ChannelMode = .linked
+
+    /// Which channel is currently being edited in stereo mode.
+    /// In linked mode, this is ignored.
+    @Published var editingChannel: ChannelFocus = .left
+
     /// Current number of active bands exposed to the UI and audio engine.
     @Published private(set) var activeBandCount: Int
 
+    /// Per-channel EQ state.
+    /// Left channel state is used for linked mode.
+    @Published private(set) var leftState: ChannelEQState
+    @Published private(set) var rightState: ChannelEQState
+
     /// Configuration for all bands (always sized to `maxBandCount`).
-    @Published private(set) var bands: [EQBandConfiguration]
+    /// Returns bands for the currently edited channel:
+    /// - In linked mode: left channel bands (both channels have same settings)
+    /// - In stereo mode: bands for the channel being edited
+    var bands: [EQBandConfiguration] {
+        switch channelMode {
+        case .linked:
+            return leftState.userEQ.bands
+        case .stereo:
+            return editingChannel == .left
+                ? leftState.userEQ.bands
+                : rightState.userEQ.bands
+        }
+    }
 
     // MARK: - Initialization
 
     init(initialBandCount: Int = EQConfiguration.defaultBandCount) {
-        let frequencies = EQConfiguration.defaultFrequencies()
-        bands = frequencies.map { frequency in
-            EQBandConfiguration.parametric(
-                frequency: frequency,
-                bandwidth: EQConfiguration.defaultBandwidth
-            )
-        }
+        leftState = ChannelEQState(layers: [.userEQ(bandCount: initialBandCount)])
+        rightState = ChannelEQState(layers: [.userEQ(bandCount: initialBandCount)])
         activeBandCount = EQConfiguration.clampBandCount(initialBandCount)
     }
 
     convenience init(from snapshot: AppStateSnapshot) {
-        self.init(initialBandCount: snapshot.activeBandCount)
+        // Snapshot decoding handles legacy migration, so we can use states directly
+        let bandCount = snapshot.leftState.userEQ.activeBandCount
+
+        self.init(initialBandCount: bandCount)
         globalBypass = snapshot.globalBypass
         inputGain = snapshot.inputGain
         outputGain = snapshot.outputGain
-        activeBandCount = snapshot.activeBandCount
+        channelMode = snapshot.channelMode
+        editingChannel = snapshot.channelFocus
 
-        // Validate band count before restoring
-        if snapshot.bands.count == EQConfiguration.maxBandCount {
-            bands = snapshot.bands
-        } else {
-            Self.logger.warning("Snapshot has \(snapshot.bands.count) bands, expected \(EQConfiguration.maxBandCount). Using default bands.")
-        }
+        // Restore channel states directly (migration handled in AppStateSnapshot.decode)
+        leftState = snapshot.leftState
+        rightState = snapshot.rightState
+
+        // Ensure active band count matches left channel
+        activeBandCount = bandCount
     }
 
     // MARK: - Band Count Management
@@ -140,9 +173,15 @@ final class EQConfiguration: ObservableObject {
                 let maxFreq: Float = 26000
                 let newBandCount = clamped - oldCount
                 let ratio = pow(maxFreq / lastFreq, 1 / Float(newBandCount + 1))
+
+                // Update both channels
                 for i in oldCount..<clamped {
                     let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
-                    bands[i] = EQBandConfiguration.parametric(
+                    leftState.userEQ.bands[i] = EQBandConfiguration.parametric(
+                        frequency: freq,
+                        bandwidth: EQConfiguration.defaultBandwidth
+                    )
+                    rightState.userEQ.bands[i] = EQBandConfiguration.parametric(
                         frequency: freq,
                         bandwidth: EQConfiguration.defaultBandwidth
                     )
@@ -153,12 +192,18 @@ final class EQConfiguration: ObservableObject {
             // No modifications - respread all bands across full spectrum
             let frequencies = EQConfiguration.frequenciesForBandCount(clamped)
             for (index, frequency) in frequencies.enumerated() {
-                bands[index] = EQBandConfiguration.parametric(
+                let band = EQBandConfiguration.parametric(
                     frequency: frequency,
                     bandwidth: EQConfiguration.defaultBandwidth
                 )
+                leftState.userEQ.bands[index] = band
+                rightState.userEQ.bands[index] = band
             }
         }
+
+        // Update active band count in both channels
+        leftState.userEQ.activeBandCount = clamped
+        rightState.userEQ.activeBandCount = clamped
 
         activeBandCount = clamped
         return clamped
@@ -176,10 +221,12 @@ final class EQConfiguration: ObservableObject {
     func resetBandsWithFrequencySpread() {
         let frequencies = EQConfiguration.frequenciesForBandCount(activeBandCount)
         for (index, frequency) in frequencies.enumerated() {
-            bands[index] = EQBandConfiguration.parametric(
+            let band = EQBandConfiguration.parametric(
                 frequency: frequency,
                 bandwidth: EQConfiguration.defaultBandwidth
             )
+            leftState.userEQ.bands[index] = band
+            rightState.userEQ.bands[index] = band
         }
     }
 
@@ -224,125 +271,217 @@ final class EQConfiguration: ObservableObject {
         }
     }
 
+    // MARK: - Channel Mode Management
+
+    /// Sets the channel mode.
+    /// When switching from linked to stereo, copies left channel state to right.
+    func setChannelMode(_ newMode: ChannelMode) {
+        guard newMode != channelMode else { return }
+
+        if newMode == .stereo && channelMode == .linked {
+            // Copy left state to right when switching to stereo
+            rightState = leftState
+        }
+
+        channelMode = newMode
+        objectWillChange.send()
+    }
+
+    // MARK: - Channel State Access
+
+    /// Returns the channel state for the specified editing context.
+    /// In linked mode, always returns left state.
+    /// In stereo mode, returns the state for the currently edited channel.
+    func channelState(for channel: EQChannelTarget) -> ChannelEQState {
+        switch (channelMode, channel) {
+        case (.linked, _):
+            return leftState
+        case (.stereo, .left), (.stereo, .both):
+            return leftState
+        case (.stereo, .right):
+            return rightState
+        }
+    }
+
     // MARK: - Band Updates
 
     private func isValidIndex(_ index: Int) -> Bool {
-        index >= 0 && index < bands.count
+        index >= 0 && index < EQConfiguration.maxBandCount
+    }
+
+    /// Returns the bands for the currently edited channel.
+    /// In linked mode, returns left channel bands.
+    /// In stereo mode, returns bands for the editing channel.
+    private var currentEditingBands: [EQBandConfiguration] {
+        switch channelMode {
+        case .linked:
+            return leftState.userEQ.bands
+        case .stereo:
+            return editingChannel == .left
+                ? leftState.userEQ.bands
+                : rightState.userEQ.bands
+        }
     }
 
     /// Updates the gain for a specific band.
+    /// In linked mode, updates both channels.
+    /// In stereo mode, updates only the currently edited channel.
     func updateBandGain(index: Int, gain: Float) {
         guard isValidIndex(index) else { return }
-        bands[index].gain = gain
+
+        if channelMode == .linked {
+            leftState.userEQ.bands[index].gain = gain
+            rightState.userEQ.bands[index].gain = gain
+        } else {
+            if editingChannel == .left {
+                leftState.userEQ.bands[index].gain = gain
+            } else {
+                rightState.userEQ.bands[index].gain = gain
+            }
+        }
+        objectWillChange.send()
+    }
+
+    /// Updates the gain for a specific band on a specific channel.
+    func updateBandGain(index: Int, gain: Float, channel: EQChannelTarget) {
+        guard isValidIndex(index) else { return }
+
+        let targetChannel = channelMode == .linked ? .both : channel
+
+        if targetChannel == .both || targetChannel == .left {
+            leftState.userEQ.bands[index].gain = gain
+        }
+        if targetChannel == .both || targetChannel == .right {
+            rightState.userEQ.bands[index].gain = gain
+        }
         objectWillChange.send()
     }
 
     /// Updates the bandwidth for a specific band.
     func updateBandBandwidth(index: Int, bandwidth: Float) {
         guard isValidIndex(index) else { return }
-        bands[index].bandwidth = bandwidth
+
+        if channelMode == .linked {
+            leftState.userEQ.bands[index].bandwidth = bandwidth
+            rightState.userEQ.bands[index].bandwidth = bandwidth
+        } else {
+            if editingChannel == .left {
+                leftState.userEQ.bands[index].bandwidth = bandwidth
+            } else {
+                rightState.userEQ.bands[index].bandwidth = bandwidth
+            }
+        }
+        objectWillChange.send()
+    }
+
+    /// Updates the bandwidth for a specific band on a specific channel.
+    func updateBandBandwidth(index: Int, bandwidth: Float, channel: EQChannelTarget) {
+        guard isValidIndex(index) else { return }
+
+        let targetChannel = channelMode == .linked ? .both : channel
+
+        if targetChannel == .both || targetChannel == .left {
+            leftState.userEQ.bands[index].bandwidth = bandwidth
+        }
+        if targetChannel == .both || targetChannel == .right {
+            rightState.userEQ.bands[index].bandwidth = bandwidth
+        }
         objectWillChange.send()
     }
 
     /// Updates the frequency for a specific band.
     func updateBandFrequency(index: Int, frequency: Float) {
         guard isValidIndex(index) else { return }
-        bands[index].frequency = frequency
+
+        if channelMode == .linked {
+            leftState.userEQ.bands[index].frequency = frequency
+            rightState.userEQ.bands[index].frequency = frequency
+        } else {
+            if editingChannel == .left {
+                leftState.userEQ.bands[index].frequency = frequency
+            } else {
+                rightState.userEQ.bands[index].frequency = frequency
+            }
+        }
+        objectWillChange.send()
+    }
+
+    /// Updates the frequency for a specific band on a specific channel.
+    func updateBandFrequency(index: Int, frequency: Float, channel: EQChannelTarget) {
+        guard isValidIndex(index) else { return }
+
+        let targetChannel = channelMode == .linked ? .both : channel
+
+        if targetChannel == .both || targetChannel == .left {
+            leftState.userEQ.bands[index].frequency = frequency
+        }
+        if targetChannel == .both || targetChannel == .right {
+            rightState.userEQ.bands[index].frequency = frequency
+        }
         objectWillChange.send()
     }
 
     /// Updates the bypass state for a specific band.
     func updateBandBypass(index: Int, bypass: Bool) {
         guard isValidIndex(index) else { return }
-        bands[index].bypass = bypass
+
+        if channelMode == .linked {
+            leftState.userEQ.bands[index].bypass = bypass
+            rightState.userEQ.bands[index].bypass = bypass
+        } else {
+            if editingChannel == .left {
+                leftState.userEQ.bands[index].bypass = bypass
+            } else {
+                rightState.userEQ.bands[index].bypass = bypass
+            }
+        }
+        objectWillChange.send()
+    }
+
+    /// Updates the bypass state for a specific band on a specific channel.
+    func updateBandBypass(index: Int, bypass: Bool, channel: EQChannelTarget) {
+        guard isValidIndex(index) else { return }
+
+        let targetChannel = channelMode == .linked ? .both : channel
+
+        if targetChannel == .both || targetChannel == .left {
+            leftState.userEQ.bands[index].bypass = bypass
+        }
+        if targetChannel == .both || targetChannel == .right {
+            rightState.userEQ.bands[index].bypass = bypass
+        }
         objectWillChange.send()
     }
 
     /// Updates the filter type for a specific band.
-    func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
+    func updateBandFilterType(index: Int, filterType: FilterType) {
         guard isValidIndex(index) else { return }
-        bands[index].filterType = filterType
+
+        if channelMode == .linked {
+            leftState.userEQ.bands[index].filterType = filterType
+            rightState.userEQ.bands[index].filterType = filterType
+        } else {
+            if editingChannel == .left {
+                leftState.userEQ.bands[index].filterType = filterType
+            } else {
+                rightState.userEQ.bands[index].filterType = filterType
+            }
+        }
         objectWillChange.send()
     }
 
-    // MARK: - EQ Application Helpers
+    /// Updates the filter type for a specific band on a specific channel.
+    func updateBandFilterType(index: Int, filterType: FilterType, channel: EQChannelTarget) {
+        guard isValidIndex(index) else { return }
 
-    func apply(to eqUnits: [AVAudioUnitEQ]) {
-        guard !eqUnits.isEmpty else { return }
+        let targetChannel = channelMode == .linked ? .both : channel
 
-        for unit in eqUnits {
-            unit.bypass = globalBypass
+        if targetChannel == .both || targetChannel == .left {
+            leftState.userEQ.bands[index].filterType = filterType
         }
-
-        let capacity = totalCapacity(of: eqUnits)
-        let targetCount = min(activeBandCount, capacity)
-
-        // Apply settings to active bands
-        for index in 0..<targetCount {
-            guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { continue }
-            let config = bands[index]
-            let band = unit.bands[bandIndex]
-            band.filterType = config.filterType
-            band.frequency = config.frequency
-            band.bandwidth = config.bandwidth
-            band.gain = config.gain
-            band.bypass = config.bypass
+        if targetChannel == .both || targetChannel == .right {
+            rightState.userEQ.bands[index].filterType = filterType
         }
-
-        // Bypass unused bands (beyond activeBandCount) to prevent stale settings
-        for index in targetCount..<capacity {
-            guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { continue }
-            unit.bands[bandIndex].bypass = true
-        }
-    }
-
-    func applyBypass(to eqUnits: [AVAudioUnitEQ]) {
-        for unit in eqUnits {
-            unit.bypass = globalBypass
-        }
-    }
-
-    func applyBandGain(index: Int, to eqUnits: [AVAudioUnitEQ]) {
-        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
-        unit.bands[bandIndex].gain = bands[index].gain
-    }
-
-    func applyBandBandwidth(index: Int, to eqUnits: [AVAudioUnitEQ]) {
-        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
-        unit.bands[bandIndex].bandwidth = bands[index].bandwidth
-    }
-
-    func applyBandFrequency(index: Int, to eqUnits: [AVAudioUnitEQ]) {
-        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
-        unit.bands[bandIndex].frequency = bands[index].frequency
-    }
-
-    func applyBandFilterType(index: Int, to eqUnits: [AVAudioUnitEQ]) {
-        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
-        unit.bands[bandIndex].filterType = bands[index].filterType
-    }
-
-    func applyBandBypass(index: Int, to eqUnits: [AVAudioUnitEQ]) {
-        guard let (unit, bandIndex) = bandLocation(for: index, in: eqUnits) else { return }
-        unit.bands[bandIndex].bypass = bands[index].bypass
-    }
-
-    // MARK: - Helpers
-
-    private func totalCapacity(of eqUnits: [AVAudioUnitEQ]) -> Int {
-        eqUnits.reduce(0) { $0 + $1.bands.count }
-    }
-
-    private func bandLocation(for index: Int, in eqUnits: [AVAudioUnitEQ]) -> (AVAudioUnitEQ, Int)? {
-        guard index >= 0 else { return nil }
-        var remaining = index
-        for unit in eqUnits {
-            let capacity = unit.bands.count
-            if remaining < capacity {
-                return (unit, remaining)
-            }
-            remaining -= capacity
-        }
-        return nil
+        objectWillChange.send()
     }
 }

@@ -1,4 +1,3 @@
-import AVFoundation
 import XCTest
 @testable import Equaliser
 
@@ -27,9 +26,9 @@ final class EQConfigurationTests: XCTestCase {
         // Test logarithmic spacing for band counts that don't use standard frequencies
         // 10 bands uses standard frequencies: 32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000
         let bandCount = 10
-        
+
         let frequencies = EQConfiguration.frequenciesForBandCount(bandCount)
-        
+
         XCTAssertEqual(frequencies, [32, 64, 128, 256, 512, 1000, 2000, 4000, 8000, 16000])
     }
 
@@ -160,60 +159,340 @@ final class EQConfigurationTests: XCTestCase {
         XCTAssertEqual(EQConfiguration.defaultBandwidth, 0.67)
     }
 
-    // MARK: - Apply to EQ Units Tests
+    // MARK: - Band Update Tests
 
     @MainActor
-    func testApply_toEQUnits_appliesActiveBands() {
+    func testUpdateBandGain() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.updateBandGain(index: 0, gain: 6.0)
+
+        XCTAssertEqual(config.bands[0].gain, 6.0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testUpdateBandFrequency() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.updateBandFrequency(index: 2, frequency: 500)
+
+        XCTAssertEqual(config.bands[2].frequency, 500, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testUpdateBandBandwidth() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.updateBandBandwidth(index: 3, bandwidth: 1.5)
+
+        XCTAssertEqual(config.bands[3].bandwidth, 1.5, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testUpdateBandBypass() {
+        let config = EQConfiguration(initialBandCount: 10)
+        XCTAssertFalse(config.bands[0].bypass)
+
+        config.updateBandBypass(index: 0, bypass: true)
+        XCTAssertTrue(config.bands[0].bypass)
+
+        config.updateBandBypass(index: 0, bypass: false)
+        XCTAssertFalse(config.bands[0].bypass)
+    }
+
+    @MainActor
+    func testUpdateBandFilterType() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.updateBandFilterType(index: 1, filterType: .lowPass)
+
+        XCTAssertEqual(config.bands[1].filterType, .lowPass)
+    }
+
+    @MainActor
+    func testGlobalBypass() {
+        let config = EQConfiguration()
+        XCTAssertFalse(config.globalBypass)
+
+        config.globalBypass = true
+        XCTAssertTrue(config.globalBypass)
+    }
+
+    @MainActor
+    func testInputOutputGain() {
+        let config = EQConfiguration()
+        XCTAssertEqual(config.inputGain, 0, accuracy: 0.001)
+        XCTAssertEqual(config.outputGain, 0, accuracy: 0.001)
+
+        config.inputGain = 6.0
+        config.outputGain = -3.0
+
+        XCTAssertEqual(config.inputGain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.outputGain, -3.0, accuracy: 0.001)
+    }
+
+    // MARK: - Active Band Count Tests
+
+    @MainActor
+    func testSetActiveBandCount_preservesConfiguredBands() {
+        let config = EQConfiguration(initialBandCount: 10)
+        // Modify some band gains
+        config.updateBandGain(index: 0, gain: 6.0)
+        config.updateBandGain(index: 5, gain: -3.0)
+
+        // Increase band count (preserve configured bands)
+        config.setActiveBandCount(16, preserveConfiguredBands: true)
+
+        // Verify the original bands still have their settings
+        XCTAssertEqual(config.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.bands[5].gain, -3.0, accuracy: 0.001)
+        XCTAssertEqual(config.activeBandCount, 16)
+    }
+
+    @MainActor
+    func testSetActiveBandCount_decreasingBandCount() {
+        let config = EQConfiguration(initialBandCount: 32)
+        // Modify some band gains
+        config.updateBandGain(index: 0, gain: 6.0)
+        config.updateBandGain(index: 5, gain: -3.0)
+
+        // Decrease band count
+        config.setActiveBandCount(10, preserveConfiguredBands: true)
+
+        // Verify the original bands still have their settings
+        XCTAssertEqual(config.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.bands[5].gain, -3.0, accuracy: 0.001)
+        XCTAssertEqual(config.activeBandCount, 10)
+    }
+
+    @MainActor
+    func testSetActiveBandCount_withoutPreserveRespreadsFrequencies() {
         let config = EQConfiguration(initialBandCount: 10)
         // Modify some band settings
         config.updateBandGain(index: 0, gain: 6.0)
         config.updateBandGain(index: 5, gain: -3.0)
-        config.updateBandFrequency(index: 2, frequency: 500)
 
-        let eqUnit = AVAudioUnitEQ(numberOfBands: 32)
+        // Increase band count without preserving configured bands
+        config.setActiveBandCount(16, preserveConfiguredBands: false)
 
-        config.apply(to: [eqUnit])
+        // Verify bands were reset (gain should be 0)
+        XCTAssertEqual(config.bands[0].gain, 0, accuracy: 0.001)
+        XCTAssertEqual(config.bands[5].gain, 0, accuracy: 0.001)
+        XCTAssertEqual(config.activeBandCount, 16)
+    }
 
-        // Verify active bands have correct settings
-        XCTAssertEqual(eqUnit.bands[0].gain, 6.0, accuracy: 0.001)
-        XCTAssertEqual(eqUnit.bands[5].gain, -3.0, accuracy: 0.001)
-        XCTAssertEqual(eqUnit.bands[2].frequency, 500, accuracy: 0.001)
+    // MARK: - Channel Mode Tests
+
+    @MainActor
+    func testChannelMode_defaultIsLinked() {
+        let config = EQConfiguration()
+        XCTAssertEqual(config.channelMode, .linked)
     }
 
     @MainActor
-    func testApply_toEQUnits_bypassesUnusedBands() {
+    func testChannelMode_switchToStereoCopiesLeftToRight() {
         let config = EQConfiguration(initialBandCount: 10)
-        let eqUnit = AVAudioUnitEQ(numberOfBands: 32)
 
-        config.apply(to: [eqUnit])
+        // Modify left channel
+        config.updateBandGain(index: 0, gain: 6.0)
+        config.updateBandGain(index: 5, gain: -3.0)
 
-        // Bands 0-9 should have their bypass set from config (false by default)
-        for i in 0..<10 {
-            XCTAssertFalse(eqUnit.bands[i].bypass, "Active band \(i) should not be bypassed")
-        }
-        // Bands 10-31 should be bypassed (true)
-        for i in 10..<32 {
-            XCTAssertTrue(eqUnit.bands[i].bypass, "Unused band \(i) should be bypassed")
-        }
+        // Switch to stereo mode
+        config.setChannelMode(.stereo)
+
+        XCTAssertEqual(config.channelMode, .stereo)
+
+        // Right channel should have same values as left
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[5].gain, -3.0, accuracy: 0.001)
     }
 
     @MainActor
-    func testApply_toEQUnits_decreasingBandCount() {
-        // Start with 32 bands, then decrease to 10
-        let config = EQConfiguration(initialBandCount: 32)
-        config.setActiveBandCount(10, preserveConfiguredBands: false)
+    func testChannelMode_linkedModeUpdatesBothChannels() {
+        let config = EQConfiguration(initialBandCount: 10)
+        XCTAssertEqual(config.channelMode, .linked)  // Default is linked
 
-        let eqUnit = AVAudioUnitEQ(numberOfBands: 32)
+        // Update gain in linked mode
+        config.updateBandGain(index: 0, gain: 6.0)
 
-        config.apply(to: [eqUnit])
+        // Both channels should have the same value
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+    }
 
-        // Bands 0-9 should be active (not bypassed)
-        for i in 0..<10 {
-            XCTAssertFalse(eqUnit.bands[i].bypass, "Active band \(i) should not be bypassed")
-        }
-        // Bands 10-31 should be bypassed (the unused bands)
-        for i in 10..<32 {
-            XCTAssertTrue(eqUnit.bands[i].bypass, "Unused band \(i) should be bypassed after decreasing band count")
-        }
+    @MainActor
+    func testChannelMode_stereoModeUpdatesOnlyEditedChannel() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.setChannelMode(.stereo)
+        config.editingChannel = .left
+
+        // Update gain on left channel
+        config.updateBandGain(index: 0, gain: 6.0)
+
+        // Only left should be updated
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 0, accuracy: 0.001)
+
+        // Switch to right channel and update
+        config.editingChannel = .right
+        config.updateBandGain(index: 0, gain: -3.0)
+
+        // Only right should be updated
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, -3.0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testChannelMode_channelSpecificUpdate() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.setChannelMode(.stereo)
+
+        // Update left channel specifically
+        config.updateBandGain(index: 0, gain: 6.0, channel: .left)
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 0, accuracy: 0.001)
+
+        // Update right channel specifically
+        config.updateBandGain(index: 0, gain: -3.0, channel: .right)
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, -3.0, accuracy: 0.001)
+
+        // Update both channels
+        config.updateBandGain(index: 0, gain: 0, channel: .both)
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testChannelMode_linkedModeIgnoresChannelParameter() {
+        let config = EQConfiguration(initialBandCount: 10)
+        XCTAssertEqual(config.channelMode, .linked)  // Ensure linked
+
+        // In linked mode, channel parameter is ignored - both channels updated
+        config.updateBandGain(index: 0, gain: 6.0, channel: .left)
+
+        // Both channels should have the same value despite specifying .left
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testChannelFocus_defaultIsLeft() {
+        let config = EQConfiguration()
+        XCTAssertEqual(config.editingChannel, .left)
+    }
+
+    // MARK: - Bands Property Tests
+
+    @MainActor
+    func testBands_linkedMode_returnsLeftChannel() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.updateBandGain(index: 0, gain: 6.0)
+
+        // In linked mode, bands should return left channel
+        XCTAssertEqual(config.channelMode, .linked)
+        XCTAssertEqual(config.bands[0].gain, 6.0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testBands_stereoMode_returnsEditedChannel() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.setChannelMode(.stereo)
+
+        // Edit left channel
+        config.editingChannel = .left
+        config.updateBandGain(index: 0, gain: 6.0)
+
+        // bands should return left channel gains
+        XCTAssertEqual(config.bands[0].gain, 6.0, accuracy: 0.001)
+
+        // Switch to editing right channel
+        config.editingChannel = .right
+        config.updateBandGain(index: 0, gain: -3.0)
+
+        // bands should now return right channel gains
+        XCTAssertEqual(config.bands[0].gain, -3.0, accuracy: 0.001)
+
+        // Verify left channel is unchanged
+        XCTAssertEqual(config.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+    }
+
+    // MARK: - Snapshot Tests
+
+    @MainActor
+    func testSnapshot_roundtripPreservesState() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.globalBypass = true
+        config.inputGain = 3.5
+        config.outputGain = -2.0
+        config.setChannelMode(.stereo)
+
+        // Set different gains on each channel
+        config.editingChannel = .left
+        config.updateBandGain(index: 0, gain: 6.0)
+        config.editingChannel = .right
+        config.updateBandGain(index: 0, gain: -3.0)
+
+        // Create snapshot
+        let snapshot = AppStateSnapshot(
+            globalBypass: config.globalBypass,
+            inputGain: config.inputGain,
+            outputGain: config.outputGain,
+            channelMode: config.channelMode,
+            channelFocus: config.editingChannel,
+            leftState: config.leftState,
+            rightState: config.rightState,
+            inputDeviceID: nil,
+            outputDeviceID: "test-device",
+            bandwidthDisplayMode: "octaves",
+            manualModeEnabled: false,
+            captureMode: 0,
+            metersEnabled: true
+        )
+
+        // Create new config from snapshot
+        let restored = EQConfiguration(from: snapshot)
+
+        // Verify restoration
+        XCTAssertEqual(restored.globalBypass, true)
+        XCTAssertEqual(restored.inputGain, 3.5, accuracy: 0.001)
+        XCTAssertEqual(restored.outputGain, -2.0, accuracy: 0.001)
+        XCTAssertEqual(restored.channelMode, .stereo)
+        XCTAssertEqual(restored.editingChannel, .right)
+        XCTAssertEqual(restored.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(restored.rightState.userEQ.bands[0].gain, -3.0, accuracy: 0.001)
+    }
+
+    @MainActor
+    func testSnapshot_stereoModePreservesBothChannels() {
+        let config = EQConfiguration(initialBandCount: 10)
+        config.setChannelMode(.stereo)
+
+        // Set different gains on each channel
+        config.editingChannel = .left
+        config.updateBandGain(index: 0, gain: 6.0)
+        config.editingChannel = .right
+        config.updateBandGain(index: 0, gain: -3.0)
+
+        // Create snapshot
+        let snapshot = AppStateSnapshot(
+            globalBypass: false,
+            inputGain: 0,
+            outputGain: 0,
+            channelMode: config.channelMode,
+            channelFocus: config.editingChannel,
+            leftState: config.leftState,
+            rightState: config.rightState,
+            inputDeviceID: nil,
+            outputDeviceID: nil,
+            bandwidthDisplayMode: "octaves",
+            manualModeEnabled: false,
+            captureMode: 0,
+            metersEnabled: true
+        )
+
+        // Restore from snapshot
+        let restored = EQConfiguration(from: snapshot)
+
+        // Verify both channels preserved
+        XCTAssertEqual(restored.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
+        XCTAssertEqual(restored.rightState.userEQ.bands[0].gain, -3.0, accuracy: 0.001)
+        XCTAssertEqual(restored.channelMode, .stereo)
     }
 }

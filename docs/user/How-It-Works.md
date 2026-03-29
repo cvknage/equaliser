@@ -181,7 +181,7 @@ macOS shows an orange microphone icon in Control Center whenever an app has an o
 
 ## The Equaliser Engine
 
-Equaliser uses **Apple's AVAudioUnitEQ** — the system's built-in N-Band Parametric Equalizer — for audio processing. This provides native performance and tight Core Audio integration, supporting up to 64 bands of parametric EQ.
+Equaliser uses a **custom biquad DSP engine** for audio processing. This provides native performance through Apple's vDSP framework, supporting up to 64 bands of parametric EQ with low latency and real-time safety.
 
 ### Parametric EQ
 

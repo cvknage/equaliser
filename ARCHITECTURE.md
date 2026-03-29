@@ -34,6 +34,11 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 |------|---------|
 | `src/store/EqualiserStore.swift` | Thin coordinator delegating to coordinators |
 | `src/domain/eq/EQConfiguration.swift` | EQ band data (storage-free) |
+| `src/domain/eq/FilterType.swift` | 11 filter types (parametric, shelves, etc.) |
+| `src/domain/eq/BiquadCoefficients.swift` | Biquad coefficient value type (Equatable, Sendable) |
+| `src/domain/eq/BiquadMath.swift` | RBJ Cookbook coefficient calculation (pure functions) |
+| `src/domain/eq/ChannelEQState.swift` | Per-channel EQ state (layers, bands) |
+| `src/domain/eq/ChannelMode.swift` | Linked vs stereo mode enum |
 | `src/domain/device/DeviceChangeDetector.swift` | Built-in device diff detection (pure) |
 | `src/domain/device/DeviceChangeEvent.swift` | Device change event types (pure) |
 | `src/domain/device/HeadphoneSwitchPolicy.swift` | Headphone switch decision logic (pure) |
@@ -41,6 +46,8 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | `src/services/audio/AudioConstants.swift` | Centralized audio/EQ constants and validation |
 | `src/services/audio/DriverNameManager.swift` | Driver naming with CoreAudio refresh workaround |
 | `src/services/audio/rendering/RenderPipeline.swift` | Dual HAL + EQ processing |
+| `src/services/audio/dsp/BiquadFilter.swift` | vDSP biquad wrapper with delay elements |
+| `src/services/audio/dsp/EQChain.swift` | Per-channel filter chain with lock-free updates |
 | `src/domain/capture/CaptureMode.swift` | Capture mode enum (halInput, sharedMemory) |
 | `src/services/audio/capture/DriverCapture.swift` | Shared memory capture from driver |
 | `src/services/audio/capture/SharedMemoryCapture.swift` | Lock-free ring buffer reader |
@@ -207,6 +214,97 @@ View models hold `unowned` store references and derive presentation state:
     private unowned let store: EqualiserStore
     var statusColor: Color { /* derive from store.routingStatus */ }
 }
+```
+
+## DSP Architecture
+
+The app uses a **custom biquad DSP engine** instead of `AVAudioUnitEQ`. This provides low-latency, real-time safe EQ processing with up to 64 bands per channel.
+
+### Layered Design
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Main Thread (UI / Configuration)                               │
+│                                                                 │
+│  EQConfiguration ──▶ AudioRoutingCoordinator                    │
+│                              │                                  │
+│                              ▼                                  │
+│                    BiquadMath.calculateCoefficients()           │
+│                              │                                  │
+│                              ▼                                  │
+│                    RenderPipeline.updateBandCoefficients()      │
+│                              │                                  │
+│                              ▼                                  │
+│                    EQChain.stageBandUpdate()                    │
+│                              │                                  │
+│                    ManagedAtomic<Bool> (hasPendingUpdate)       │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ .releasing
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Audio Thread (Real-Time)                                           │
+│                                                                     │
+│  RenderCallbackContext.processEQ()                                  │
+│        │                                                            │
+│        ▼                                                            │
+│  EQChain.applyPendingUpdates()                                      │
+│        │ - hasPendingUpdate.exchange(false, .acquiringAndReleasing) │
+│        │ - Only rebuild filters whose coefficients changed          │
+│        │ - resetState: false for slider drags                       │
+│        ▼                                                            │
+│  EQChain.process(buffer:)                                           │
+│        │ - Iterate active bands                                     │
+│        │ - Skip bypassed bands                                      │
+│        ▼                                                            │
+│  BiquadFilter.process() ──▶ vDSP_biquad                             │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Components
+
+| Component | Responsibility | Thread |
+|-----------|----------------|--------|
+| `BiquadMath` | Calculate biquad coefficients (RBJ Cookbook) | Main thread |
+| `BiquadCoefficients` | Value type for b0/b1/b2/a1/a2 | Shared (Sendable) |
+| `BiquadFilter` | vDSP wrapper, owns delay elements | Audio thread only |
+| `EQChain` | Per-channel filter chain with lock-free updates | Shared via atomics |
+| `EQChannelTarget` | Routes updates to left/right/both channels | Main thread |
+
+### Real-Time Safety
+
+1. **No allocation**: All biquad setups and delay elements pre-allocated at init
+2. **No locks**: Coefficient updates via `ManagedAtomic<Bool>` flag
+3. **Dirty-tracking**: Only changed coefficients trigger vDSP setup rebuild
+4. **State preservation**: `resetState: false` preserves filter memory on slider drags
+
+### Coefficient Flow
+
+```
+[UI: Gain Slider Drag]
+        │
+        ▼
+BiquadMath.calculateCoefficients(type, freq, bandwidth, gain)
+        │ Returns Double-precision coefficients
+        ▼
+AudioRoutingCoordinator.stageBandCoefficients(index, config)
+        │ Determines channel target (.left/.right/.both)
+        ▼
+RenderPipeline.updateBandCoefficients(channel, bandIndex, coefficients, bypass)
+        │
+        ▼
+EQChain.stageBandUpdate(index, coefficients, bypass)
+        │ Writes to pendingCoefficients[index]
+        │ Sets hasPendingUpdate.store(true, .releasing)
+        ▼
+[Audio Thread: Next Render Cycle]
+        │
+        ▼
+EQChain.applyPendingUpdates()
+        │ Compares pending[i] != active[i] (Equatable)
+        │ Only rebuilds changed filters
+        ▼
+EQChain.process(buffer:)
 ```
 
 ## Audio Pipeline

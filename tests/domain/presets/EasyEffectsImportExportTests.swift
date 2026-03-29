@@ -1,4 +1,3 @@
-import AVFoundation
 import XCTest
 @testable import Equaliser
 
@@ -50,7 +49,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
 
     func testImport_filterTypeMapping() throws {
         // Test various filter type mappings
-        let filterTypeTests: [(String, AVAudioUnitEQFilterType)] = [
+        let filterTypeTests: [(String, FilterType)] = [
             ("Bell", .parametric),
             ("Peaking", .parametric),
             ("Lo-pass", .lowPass),
@@ -58,7 +57,7 @@ final class EasyEffectsImportExportTests: XCTestCase {
             ("Lo-shelf", .lowShelf),
             ("Hi-shelf", .highShelf),
             ("Band-pass", .bandPass),
-            ("Notch", .bandStop)
+            ("Notch", .notch)
         ]
 
         for (easyEffectsType, expectedType) in filterTypeTests {
@@ -253,14 +252,14 @@ final class EasyEffectsImportExportTests: XCTestCase {
     }
 
     func testExport_filterTypeMapping() throws {
-        let filterTypeMappings: [(AVAudioUnitEQFilterType, String)] = [
+        let filterTypeMappings: [(FilterType, String)] = [
             (.parametric, "Bell"),
             (.lowPass, "Lo-pass"),
             (.highPass, "Hi-pass"),
             (.lowShelf, "Lo-shelf"),
             (.highShelf, "Hi-shelf"),
             (.bandPass, "Band-pass"),
-            (.bandStop, "Notch")
+            (.notch, "Notch")
         ]
 
         for (filterType, expectedString) in filterTypeMappings {

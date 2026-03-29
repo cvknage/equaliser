@@ -1,5 +1,4 @@
 import AudioToolbox
-import AVFoundation
 import CoreAudio
 import os.log
 
@@ -17,7 +16,7 @@ struct LevelMeterSnapshot {
     )
 }
 
-/// Coordinates audio flow from HAL input through AVAudioEngine EQ to HAL output.
+/// Coordinates audio flow from HAL input through custom biquad EQ to HAL output.
 /// Uses two separate HAL audio units: one for input (capture) and one for output (playback).
 /// Audio flows through a ring buffer to decouple the two device clocks.
 ///
@@ -27,7 +26,7 @@ struct LevelMeterSnapshot {
 ///                                                    ↓
 /// [Output Callback] ← reads ← [Ring Buffer]
 ///        ↓
-/// [AVAudioEngine EQ]
+/// [Custom Biquad EQ] (per-channel, per-layer EQChain)
 ///        ↓
 /// [Output HAL] → [Speakers]
 /// ```
@@ -38,7 +37,7 @@ struct LevelMeterSnapshot {
 ///                                     ↓
 /// [Output Callback] ← reads ← [Ring Buffer]
 ///        ↓
-/// [AVAudioEngine EQ]
+/// [Custom Biquad EQ] (per-channel, per-layer EQChain)
 ///        ↓
 /// [Output HAL] → [Speakers]
 /// ```
@@ -66,8 +65,8 @@ final class RenderPipeline {
     private let eqConfiguration: EQConfiguration
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "RenderPipeline")
 
-    /// The manual rendering engine (created with the correct format in start()).
-    private var renderingEngine: ManualRenderingEngine?
+    /// Current sample rate for coefficient calculations.
+    private var currentSampleRate: Double = 48000.0
 
     /// Whether the render pipeline is currently running.
     /// Marked nonisolated(unsafe) for access from deinit.
@@ -287,31 +286,10 @@ final class RenderPipeline {
 
         logger.info("Processing format: \(streamFormat.mSampleRate) Hz, \(streamFormat.mChannelsPerFrame) ch")
 
-        // Create AVAudioFormat from the stream format
-        guard let avFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: streamFormat.mSampleRate,
-            channels: streamFormat.mChannelsPerFrame,
-            interleaved: false
-        ) else {
-            return .failure(.manualRenderingFailed("Could not create AVAudioFormat"))
-        }
+        // Store sample rate for coefficient calculations
+        currentSampleRate = streamFormat.mSampleRate
 
-        // Create the manual rendering engine with the correct format
-        let engine: ManualRenderingEngine
-        do {
-            engine = try ManualRenderingEngine(
-                format: avFormat,
-                maxFrameCount: AVAudioFrameCount(maxFrameCount),
-                eqConfiguration: eqConfiguration
-            )
-        } catch {
-            logger.error("Failed to create rendering engine: \(error)")
-            return .failure(.manualRenderingFailed(error.localizedDescription))
-        }
-        renderingEngine = engine
-
-        // Create the callback context with ring buffers
+        // Create the callback context with ring buffers and EQ chains
         // For shared memory mode, inputHALUnit is nil (no input callback)
         let inputHALUnit: AudioComponentInstance? = captureMode == .halInput
             ? inputHALManager?.unsafeAudioUnit
@@ -319,7 +297,6 @@ final class RenderPipeline {
 
         let context = RenderCallbackContext(
             inputHALUnit: inputHALUnit,
-            renderContext: engine.renderContext,
             channelCount: streamFormat.mChannelsPerFrame,
             maxFrameCount: maxFrameCount,
             ringBufferCapacity: ringBufferCapacity
@@ -353,8 +330,6 @@ final class RenderPipeline {
             ) {
                 logger.error("Failed to register input callback: \(error.localizedDescription)")
                 callbackContext = nil
-                renderingEngine?.shutdown()
-                renderingEngine = nil
                 return .failure(error)
             }
         }
@@ -369,8 +344,6 @@ final class RenderPipeline {
                 _ = inputHALManager?.clearInputCallback()
             }
             callbackContext = nil
-            renderingEngine?.shutdown()
-            renderingEngine = nil
             return .failure(error)
         }
 
@@ -385,8 +358,6 @@ final class RenderPipeline {
                 _ = inputManager.clearInputCallback()
                 _ = outputManager.clearOutputRenderCallback()
                 callbackContext = nil
-                renderingEngine?.shutdown()
-                renderingEngine = nil
                 return .failure(error)
             }
         }
@@ -399,8 +370,6 @@ final class RenderPipeline {
             }
             _ = outputManager.clearOutputRenderCallback()
             callbackContext = nil
-            renderingEngine?.shutdown()
-            renderingEngine = nil
             return .failure(error)
         }
 
@@ -417,8 +386,6 @@ final class RenderPipeline {
                 _ = inputManager.clearInputCallback()
                 _ = outputManager.clearOutputRenderCallback()
                 callbackContext = nil
-                renderingEngine?.shutdown()
-                renderingEngine = nil
                 return .failure(error)
             }
         }
@@ -435,8 +402,6 @@ final class RenderPipeline {
             }
             _ = outputManager.clearOutputRenderCallback()
             callbackContext = nil
-            renderingEngine?.shutdown()
-            renderingEngine = nil
             return .failure(error)
         }
 
@@ -455,8 +420,6 @@ final class RenderPipeline {
                     _ = inputHALManager?.clearInputCallback()
                 }
                 callbackContext = nil
-                renderingEngine?.shutdown()
-                renderingEngine = nil
                 return .failure(.unitNotAvailable)
             }
 
@@ -466,8 +429,6 @@ final class RenderPipeline {
                 _ = outputManager.clearOutputRenderCallback()
                 outputManager.uninitialize()
                 callbackContext = nil
-                renderingEngine?.shutdown()
-                renderingEngine = nil
                 return .failure(.unitNotAvailable)
             }
 
@@ -499,8 +460,6 @@ final class RenderPipeline {
                     _ = inputHALManager?.clearInputCallback()
                 }
                 callbackContext = nil
-                renderingEngine?.shutdown()
-                renderingEngine = nil
                 return .failure(.unitNotAvailable)
             }
         }
@@ -553,12 +512,7 @@ final class RenderPipeline {
         // Release the callback context
         callbackContext = nil
 
-        // Shutdown the rendering engine
-        renderingEngine?.shutdown()
-        renderingEngine = nil
-
         latestMeters = .silent
-        callbackContext = nil
 
         isRunning = false
         logger.info("Render pipeline stopped")
@@ -592,7 +546,7 @@ final class RenderPipeline {
 
     // MARK: - EQ Control
 
-    /// Updates the processing mode on the live engine and audio thread.
+    /// Updates the processing mode on the audio thread.
     func updateProcessingMode(systemEQOff: Bool, compareMode: CompareMode) {
         let mode: Int32
         if systemEQOff {
@@ -603,42 +557,125 @@ final class RenderPipeline {
             mode = 1
         }
         callbackContext?.processingMode = mode
-        renderingEngine?.updateBypass(systemEQOff: systemEQOff, compareMode: compareMode)
     }
 
-    /// Updates a band's gain on the live engine.
-    func updateBandGain(index: Int) {
-        renderingEngine?.updateBandGain(index: index)
+    // MARK: - EQ Coefficient Staging
+
+    /// Stages coefficients for a single band (called from main thread).
+    /// - Parameters:
+    ///   - channel: Which channel(s) to update.
+    ///   - layerIndex: Layer index (0 = user EQ).
+    ///   - bandIndex: Band index within the layer.
+    ///   - coefficients: New biquad coefficients.
+    ///   - bypass: Whether this band is bypassed.
+    func updateBandCoefficients(
+        channel: EQChannelTarget,
+        layerIndex: Int,
+        bandIndex: Int,
+        coefficients: BiquadCoefficients,
+        bypass: Bool
+    ) {
+        guard let context = callbackContext else { return }
+        guard layerIndex >= 0 && layerIndex < EQLayerConstants.maxLayerCount else { return }
+
+        switch channel {
+        case .left:
+            context.leftEQChains[layerIndex].stageBandUpdate(
+                index: bandIndex,
+                coefficients: coefficients,
+                bypass: bypass
+            )
+        case .right:
+            context.rightEQChains[layerIndex].stageBandUpdate(
+                index: bandIndex,
+                coefficients: coefficients,
+                bypass: bypass
+            )
+        case .both:
+            context.leftEQChains[layerIndex].stageBandUpdate(
+                index: bandIndex, coefficients: coefficients, bypass: bypass)
+            context.rightEQChains[layerIndex].stageBandUpdate(
+                index: bandIndex, coefficients: coefficients, bypass: bypass)
+        }
     }
 
-    /// Updates a band's bandwidth on the live engine.
-    func updateBandBandwidth(index: Int) {
-        renderingEngine?.updateBandBandwidth(index: index)
+    /// Stages full configuration (preset load, band count change).
+    /// - Parameters:
+    ///   - channel: Which channel(s) to update.
+    ///   - layerIndex: Layer index (0 = user EQ).
+    ///   - coefficients: All band coefficients.
+    ///   - bypassFlags: Per-band bypass flags.
+    ///   - activeBandCount: Number of active bands.
+    ///   - layerBypass: Whether the entire layer is bypassed.
+    func stageFullEQUpdate(
+        channel: EQChannelTarget,
+        layerIndex: Int,
+        coefficients: [BiquadCoefficients],
+        bypassFlags: [Bool],
+        activeBandCount: Int,
+        layerBypass: Bool
+    ) {
+        guard let context = callbackContext else { return }
+        guard layerIndex >= 0 && layerIndex < EQLayerConstants.maxLayerCount else { return }
+
+        switch channel {
+        case .left:
+            context.leftEQChains[layerIndex].stageFullUpdate(
+                coefficients: coefficients,
+                bypassFlags: bypassFlags,
+                activeBandCount: activeBandCount,
+                layerBypass: layerBypass
+            )
+        case .right:
+            context.rightEQChains[layerIndex].stageFullUpdate(
+                coefficients: coefficients,
+                bypassFlags: bypassFlags,
+                activeBandCount: activeBandCount,
+                layerBypass: layerBypass
+            )
+        case .both:
+            context.leftEQChains[layerIndex].stageFullUpdate(
+                coefficients: coefficients,
+                bypassFlags: bypassFlags,
+                activeBandCount: activeBandCount,
+                layerBypass: layerBypass
+            )
+            context.rightEQChains[layerIndex].stageFullUpdate(
+                coefficients: coefficients,
+                bypassFlags: bypassFlags,
+                activeBandCount: activeBandCount,
+                layerBypass: layerBypass
+            )
+        }
     }
 
-    /// Updates a band's frequency on the live engine.
-    func updateBandFrequency(index: Int) {
-        renderingEngine?.updateBandFrequency(index: index)
+    /// Stages layer bypass toggle.
+    /// - Parameters:
+    ///   - channel: Which channel(s) to update.
+    ///   - layerIndex: Layer index (0 = user EQ).
+    ///   - bypass: Whether to bypass the layer.
+    func stageEQLayerBypass(
+        channel: EQChannelTarget,
+        layerIndex: Int,
+        bypass: Bool
+    ) {
+        guard let context = callbackContext else { return }
+        guard layerIndex >= 0 && layerIndex < EQLayerConstants.maxLayerCount else { return }
+
+        switch channel {
+        case .left:
+            context.leftEQChains[layerIndex].stageLayerBypass(bypass)
+        case .right:
+            context.rightEQChains[layerIndex].stageLayerBypass(bypass)
+        case .both:
+            context.leftEQChains[layerIndex].stageLayerBypass(bypass)
+            context.rightEQChains[layerIndex].stageLayerBypass(bypass)
+        }
     }
 
-    /// Updates a band's filter type on the live engine.
-    func updateBandFilterType(index: Int) {
-        renderingEngine?.updateBandFilterType(index: index)
-    }
-
-    /// Updates a band's bypass state on the live engine.
-    func updateBandBypass(index: Int) {
-        renderingEngine?.updateBandBypass(index: index)
-    }
-
-    /// Returns the total band capacity of the EQ units.
-    var bandCapacity: Int {
-        renderingEngine?.bandCapacity ?? 0
-    }
-
-    /// Reapplies the entire configuration (e.g., after band count changes).
-    func reapplyConfiguration() {
-        renderingEngine?.reapplyConfiguration()
+    /// Returns the current sample rate (for coefficient recalculation).
+    var sampleRate: Double {
+        currentSampleRate
     }
 
     /// Returns the most recent meter snapshot from the audio thread.
@@ -754,12 +791,6 @@ final class RenderPipeline {
             .fromOpaque(inRefCon)
             .takeUnretainedValue()
 
-        guard let renderCtx = context.renderContext else {
-            // No render context - zero-fill output
-            RenderCallbackContext.zeroFill(ioData, frameCount: frameCount)
-            return noErr
-        }
-
         // 0. Poll driver capture (if in shared memory mode)
         // This is called synchronously from the audio thread, ensuring perfect synchronization
         _ = context.pollAndWriteToRingBuffers()
@@ -780,20 +811,28 @@ final class RenderPipeline {
             return noErr
         }
 
-        // 2. Set the input buffers on the render context for the source node to read
-        let inputBuffers = context.outputBufferPointers
-        renderCtx.setInputBuffers(inputBuffers, frameCount: Int(frameCount))
+        // 2. Process EQ on the output buffers in-place
+        // Processing mode: 0 = full bypass, 1 = normal (EQ + gains), 2 = gains only (compare flat)
+        if context.processingMode != 0 {
+            context.processEQ(frameCount: frameCount)
+        }
 
-        // 3. Render through the EQ chain
-        let renderStatus = renderCtx.render(
-            frameCount: AVAudioFrameCount(frameCount),
-            outputBuffer: ioData
-        )
+        // 3. Copy processed audio to output buffer list
+        let outputBuffers = context.outputBufferPointers
+        let abl = UnsafeMutableAudioBufferListPointer(ioData)
+        let framesToCopy = Int(frameCount)
 
-        // 4. Clear the input buffer reference
-        renderCtx.clearInputBuffer()
+        for (index, buffer) in abl.enumerated() {
+            if let destData = buffer.mData?.assumingMemoryBound(to: Float.self) {
+                if index < outputBuffers.count {
+                    memcpy(destData, outputBuffers[index], framesToCopy * MemoryLayout<Float>.size)
+                } else {
+                    memset(destData, 0, framesToCopy * MemoryLayout<Float>.size)
+                }
+            }
+        }
 
-        // 5. Apply output gain after EQ rendering (skip in full bypass mode)
+        // 4. Apply output gain after EQ processing (skip in full bypass mode)
         if context.processingMode != 0 {
             // Load target gain atomically (relaxed ordering is sufficient for audio)
             let targetOutputGain = context.getTargetOutputGain()
@@ -805,9 +844,9 @@ final class RenderPipeline {
             )
         }
 
-        // 6. Update output meters with rendered audio
+        // 5. Update output meters with rendered audio
         context.updateOutputMeters(from: ioData, frameCount: frameCount)
 
-        return renderStatus
+        return noErr
     }
 }

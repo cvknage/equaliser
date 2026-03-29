@@ -32,8 +32,11 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// The input callback uses AudioUnitRender on this unit to get captured samples.
     let inputHALUnit: AudioComponentInstance?
 
-    /// The render context for processing audio through the EQ chain.
-    let renderContext: AudioRenderContext?
+    /// Per-channel EQ chain arrays. Index = layer (0 = user EQ, 1+ = future layers).
+    /// Pre-allocated at init. Unused layers are passthrough (0 active bands).
+    /// Left channel chains for left speaker, right channel chains for right speaker.
+    let leftEQChains: [EQChain]
+    let rightEQChains: [EQChain]
 
     /// Number of audio channels.
     let channelCount: UInt32
@@ -172,23 +175,25 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Creates a new callback context with ring buffers and pre-allocated audio buffers.
     /// - Parameters:
     ///   - inputHALUnit: The INPUT HAL audio unit instance for capturing audio.
-    ///   - renderContext: The render context for EQ processing.
     ///   - channelCount: Number of audio channels.
     ///   - maxFrameCount: Maximum frames per callback (used for buffer sizing).
     ///   - ringBufferCapacity: Capacity of each ring buffer in samples (default from AudioConstants).
     init(
         inputHALUnit: AudioComponentInstance?,
-        renderContext: AudioRenderContext?,
         channelCount: UInt32,
         maxFrameCount: UInt32,
         ringBufferCapacity: Int = AudioConstants.ringBufferCapacity
     ) {
         self.inputHALUnit = inputHALUnit
-        self.renderContext = renderContext
         self.channelCount = channelCount
         self.maxFrameCount = maxFrameCount
         self.framesPerBuffer = Int(maxFrameCount)
         self.meterChannelCount = min(Int(channelCount), Self.maxMeterChannels)
+
+        // Create EQ chains (one per layer per channel)
+        let layerCount = EQLayerConstants.maxLayerCount
+        self.leftEQChains = (0..<layerCount).map { _ in EQChain(maxFrameCount: maxFrameCount) }
+        self.rightEQChains = (0..<layerCount).map { _ in EQChain(maxFrameCount: maxFrameCount) }
 
         // Create ring buffers (one per channel)
         var rings: [AudioRingBuffer] = []
@@ -451,6 +456,26 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// - Returns: Array of immutable pointers to the read buffers.
     var outputBufferPointers: [UnsafePointer<Float>] {
         outputReadBuffers.map { UnsafePointer($0) }
+    }
+
+    /// Processes all EQ layers on output read buffers in-place.
+    /// Called from audio thread after reading from ring buffer.
+    /// - Parameter frameCount: Number of frames to process.
+    @inline(__always)
+    func processEQ(frameCount: UInt32) {
+        // Process L channel through all layers in series
+        for chain in leftEQChains {
+            chain.applyPendingUpdates()
+            chain.process(buffer: outputReadBuffers[0], frameCount: frameCount)
+        }
+
+        // Process R channel through all layers in series (if stereo)
+        if channelCount > 1 {
+            for chain in rightEQChains {
+                chain.applyPendingUpdates()
+                chain.process(buffer: outputReadBuffers[1], frameCount: frameCount)
+            }
+        }
     }
 
     /// Returns the latest per-channel meter snapshots in dBFS.

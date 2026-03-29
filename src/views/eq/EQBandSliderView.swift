@@ -1,4 +1,3 @@
-import AVFoundation
 import SwiftUI
 
 /// A fully parametric EQ band column.
@@ -8,7 +7,7 @@ struct EQBandSliderView: View {
     @Binding var gain: Float
     let frequencyUpdate: (Float) -> Void
     let bandwidthUpdate: (Float) -> Void
-    let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
+    let filterTypeUpdate: (FilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
     @State private var isShowingDetail = false
@@ -142,13 +141,13 @@ struct EQBandDetailPopover: View {
     let gainUpdate: (Float) -> Void
     let frequencyUpdate: (Float) -> Void
     let bandwidthUpdate: (Float) -> Void
-    let filterTypeUpdate: (AVAudioUnitEQFilterType) -> Void
+    let filterTypeUpdate: (FilterType) -> Void
     let bypassUpdate: (Bool) -> Void
 
     @State private var gain: Float
     @State private var frequency: Float
     @State private var bandwidth: Float
-    @State private var filterType: AVAudioUnitEQFilterType
+    @State private var filterType: FilterType
     @State private var bypass: Bool
 
     @State private var gainText: String = ""
@@ -159,7 +158,7 @@ struct EQBandDetailPopover: View {
          gainUpdate: @escaping (Float) -> Void,
          frequencyUpdate: @escaping (Float) -> Void,
          bandwidthUpdate: @escaping (Float) -> Void,
-         filterTypeUpdate: @escaping (AVAudioUnitEQFilterType) -> Void,
+         filterTypeUpdate: @escaping (FilterType) -> Void,
          bypassUpdate: @escaping (Bool) -> Void) {
         _gain = State(initialValue: band.gain)
         _frequency = State(initialValue: band.frequency)
@@ -245,7 +244,7 @@ struct EQBandDetailPopover: View {
             Divider()
 
             Picker("Filter Type", selection: $filterType) {
-                ForEach(AVAudioUnitEQFilterType.allCasesInUIOrder, id: \.self) { type in
+                ForEach(FilterType.allCasesInUIOrder, id: \.self) { type in
                     Text(type.displayName)
                         .tag(type)
                 }

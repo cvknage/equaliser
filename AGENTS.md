@@ -231,6 +231,80 @@ The app supports two capture modes for the Equaliser driver:
 - Called synchronously from output audio thread
 - `DriverCapture.poll()` is `@inline(__always)` for performance
 
+### Custom DSP Implementation
+
+The app uses a **custom biquad DSP engine** instead of `AVAudioUnitEQ`. This provides low-latency, real-time safe EQ processing.
+
+**Architecture:**
+
+```
+[Main Thread]                              [Audio Thread]
+     │                                           │
+     ▼                                           │
+BiquadMath.calculateCoefficients()               │
+     │                                           │
+     ▼                                           │
+EQChain.stageBandUpdate()                        │
+     │                                           │
+     │    ┌──────────────────────────────────────┤
+     │    │         ManagedAtomic<Bool>          │
+     │    │      (hasPendingUpdate flag)         │
+     │    └──────────────────────────────────────┤
+     │                     │                     │
+     ▼                     │ release             │ acquire
+pendingCoefficients[i]     ▼                     ▼
+                     ┌─────────────────────────────────────┐
+                     │         EQChain.applyPendingUpdates │
+                     │    (called once per render cycle)   │
+                     └─────────────────────────────────────┘
+                                        │
+                                        ▼
+                            Only rebuild changed bands
+                            (dirty tracked via Equatable)
+```
+
+**Key files:**
+
+| File | Purpose |
+|------|---------|
+| `BiquadMath.swift` | Pure coefficient calculation (RBJ Cookbook), Double precision |
+| `BiquadCoefficients.swift` | Value type for b0/b1/b2/a1/a2, `Equatable`, `Sendable` |
+| `BiquadFilter.swift` | vDSP biquad wrapper, owns delay elements and setup |
+| `EQChain.swift` | Per-channel-per-layer chain of 64 biquads, lock-free coefficient updates |
+| `EQChannelTarget.swift` | `.left` / `.right` / `.both` for stereo routing |
+| `FilterType.swift` | 11 filter types with raw values matching AVAudioUnitEQFilterType |
+
+**Real-time safety:**
+
+1. **Dirty-tracking**: `EQChain.applyPendingUpdates()` only rebuilds filters whose coefficients actually changed (using `Equatable` comparison). A single-band slider drag rebuilds **1 filter** instead of 64.
+
+2. **No allocation on audio thread**: All biquad setups and delay elements are pre-allocated at init. vDSP setup objects are only destroyed and recreated when coefficients change.
+
+3. **Lock-free updates**: Main thread writes to `pendingCoefficients`, sets `hasPendingUpdate.store(true, .releasing)`. Audio thread calls `hasPendingUpdate.exchange(false, .acquiringAndReleasing)` and copies to `activeCoefficients`.
+
+4. **State preservation for slider drags**: `BiquadFilter.setCoefficients(_, resetState: false)` preserves delay elements during incremental coefficient changes (slider drags), avoiding audible clicks. `resetState: true` is only used for preset loads and sample rate changes.
+
+**Coefficient calculation:**
+
+```swift
+// Main thread (not real-time)
+let coeffs = BiquadMath.calculateCoefficients(
+    type: .parametric,      // FilterType enum
+    sampleRate: 48000.0,
+    frequency: 1000.0,
+    bandwidth: 1.0,
+    gain: 6.0               // dB
+)
+
+// Staged to audio thread
+chain.stageBandUpdate(index: 0, coefficients: coeffs, bypass: false)
+```
+
+**Do NOT:**
+- Call `BiquadMath.calculateCoefficients()` on the audio thread (it allocates)
+- Call `vDSP_biquad_CreateSetup` or `vDSP_biquad_DestroySetup` directly — use `BiquadFilter.setCoefficients()`
+- Allocate memory or acquire locks in `RenderCallbackContext.processEQ()`
+
 ### nonisolated CoreAudio Calls
 
 Volume forwarding uses a serial dispatch queue to isolate CoreAudio calls from the main thread:
@@ -289,6 +363,40 @@ func requestMicPermissionAndSwitchToHALCapture() async -> Bool {
 - User must explicitly opt in to HAL input capture
 - Permission check is sync (`recordPermission`), request is async
 - Error shown in UI if permission denied while attempting to start routing
+
+### Preset Backward Compatibility
+
+`PresetSettings` uses a custom `Decodable` implementation for backward compatibility with presets saved before the custom DSP migration:
+
+```swift
+init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    // ... required fields ...
+    // Legacy presets lack channelMode — default to "linked"
+    channelMode = try container.decodeIfPresent(String.self, forKey: .channelMode) ?? "linked"
+    rightBands = try container.decodeIfPresent([PresetBand].self, forKey: .rightBands)
+}
+```
+
+**Key points:**
+- `decodeIfPresent` for new fields (`channelMode`, `rightBands`) with sensible defaults
+- `FilterType` raw values match legacy `AVAudioUnitEQFilterType` values — no migration needed
+- `PresetBand.filterType` validates raw values and falls back to `.parametric`
+
+### Per-Channel EQ (Stereo Mode)
+
+EQ settings can be linked (both channels) or independent (stereo):
+
+| Mode | Behaviour |
+|------|-----------|
+| `.linked` | Both channels share the same EQ curve (default) |
+| `.stereo` | Left and right channels have independent EQ curves |
+
+**Implementation:**
+- `EQConfiguration.channelMode` determines linked vs stereo
+- `EQConfiguration.editingChannel` (`left` or `right`) determines which channel is being edited
+- `EQChain` is instantiated per-channel-per-layer in `RenderCallbackContext`
+- `EQChannelTarget` (`.left`, `.right`, `.both`) routes coefficient updates to the correct chain(s)
 
 ## Naming Conventions
 

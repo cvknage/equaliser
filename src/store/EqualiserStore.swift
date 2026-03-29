@@ -178,7 +178,25 @@ final class EqualiserStore: ObservableObject {
     
     var inputDevices: [AudioDevice] { deviceManager.inputDevices }
     var outputDevices: [AudioDevice] { deviceManager.outputDevices }
-    
+
+    // MARK: - Channel Mode
+
+    /// Channel processing mode - delegates to eqConfiguration.
+    var channelMode: ChannelMode {
+        get { eqConfiguration.channelMode }
+        set {
+            eqConfiguration.setChannelMode(newValue)
+            routingCoordinator.reapplyConfiguration()
+            presetManager.markAsModified()
+        }
+    }
+
+    /// Which channel is being edited in stereo mode.
+    var channelFocus: ChannelFocus {
+        get { eqConfiguration.editingChannel }
+        set { eqConfiguration.editingChannel = newValue }
+    }
+
     // MARK: - Components
     
     let deviceManager = DeviceManager()
@@ -202,14 +220,16 @@ final class EqualiserStore: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Snapshot
-    
+
     var currentSnapshot: AppStateSnapshot {
         AppStateSnapshot(
             globalBypass: eqConfiguration.globalBypass,
             inputGain: eqConfiguration.inputGain,
             outputGain: eqConfiguration.outputGain,
-            activeBandCount: eqConfiguration.activeBandCount,
-            bands: eqConfiguration.bands,
+            channelMode: eqConfiguration.channelMode,
+            channelFocus: eqConfiguration.editingChannel,
+            leftState: eqConfiguration.leftState,
+            rightState: eqConfiguration.rightState,
             inputDeviceID: manualModeEnabled ? routingCoordinator.selectedInputDeviceID : nil,
             outputDeviceID: routingCoordinator.selectedOutputDeviceID,
             bandwidthDisplayMode: bandwidthDisplayMode.rawValue,
@@ -528,7 +548,7 @@ final class EqualiserStore: ObservableObject {
     }
     
     /// Updates the filter type for a specific EQ band.
-    func updateBandFilterType(index: Int, filterType: AVAudioUnitEQFilterType) {
+    func updateBandFilterType(index: Int, filterType: FilterType) {
         eqConfiguration.updateBandFilterType(index: index, filterType: filterType)
         routingCoordinator.updateBandFilterType(index: index)
         presetManager.markAsModified()

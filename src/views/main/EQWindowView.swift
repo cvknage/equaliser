@@ -119,9 +119,9 @@ struct EQWindowView: View {
                 // Preset controls on left
                 PresetToolbar()
                     .frame(minWidth: 280, maxWidth: 280, alignment: .leading)
-                
+
                 Spacer()
-                
+
                 // Bands control centered
                 VStack(spacing: 4) {
                     Text("Bands")
@@ -129,9 +129,43 @@ struct EQWindowView: View {
                         .foregroundStyle(.secondary)
                     BandCountControl()
                 }
-                
+
                 Spacer()
-                
+
+                // Channel mode control (Linked/Stereo + L/R)
+                HStack(spacing: 12) {
+                    VStack(spacing: 4) {
+                        Text("Channel")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("", selection: $store.channelMode) {
+                            Text("Linked").tag(ChannelMode.linked)
+                            Text("Stereo").tag(ChannelMode.stereo)
+                        }
+                        .pickerStyle(.segmented)
+                        .controlSize(.small)
+                        .frame(width: 100)
+                    }
+
+                    // L/R toggle - only visible in stereo mode
+                    if store.channelMode == .stereo {
+                        VStack(spacing: 4) {
+                            Text("Edit")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Picker("", selection: $store.channelFocus) {
+                                Text("L").tag(ChannelFocus.left)
+                                Text("R").tag(ChannelFocus.right)
+                            }
+                            .pickerStyle(.segmented)
+                            .controlSize(.small)
+                            .frame(width: 60)
+                        }
+                    }
+                }
+
+                Spacer()
+
                 // Compare mode + Reset on right
                 HStack(spacing: 12) {
                     // Compare Mode segmented control
