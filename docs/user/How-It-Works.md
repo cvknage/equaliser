@@ -183,6 +183,17 @@ macOS shows an orange microphone icon in Control Center whenever an app has an o
 
 Equaliser uses a **custom biquad DSP engine** for audio processing. This provides native performance through Apple's vDSP framework, supporting up to 64 bands of parametric EQ with low latency and real-time safety.
 
+The engine is built on the industry-standard [RBJ Audio EQ Cookbook](https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt) and implements all 11 common filter types: parametric, low/high-pass, low/high shelf, band-pass, notch, and their resonant variants.
+
+**Key features:**
+
+- **Real-time safe** — No allocations or locks on the audio thread
+- **Native performance** — SIMD-optimised via Apple's Accelerate framework
+- **Independent stereo** — Left and right channels can have completely different EQ curves
+- **Up to 64 bands** — Far beyond typical 10-band equalisers
+
+For a detailed explanation of how the biquad engine works, see [The EQ Engine](./The-EQ-Engine.md).
+
 ### Parametric EQ
 
 Equaliser provides **up to 64 bands** of parametric equalisation. Each band gives you precise control over:
