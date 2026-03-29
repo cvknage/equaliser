@@ -64,14 +64,8 @@ extension AppStateSnapshot: Codable {
         case outputGain
         case channelMode
         case channelFocus
-        case editingChannel  // Legacy key for backward compatibility
         case leftState
         case rightState
-        // Legacy keys for backward compatibility
-        case activeBandCount
-        case bands
-        case rightBands
-        // App state keys
         case inputDeviceID
         case outputDeviceID
         case bandwidthDisplayMode
@@ -87,57 +81,10 @@ extension AppStateSnapshot: Codable {
         globalBypass = try container.decode(Bool.self, forKey: .globalBypass)
         inputGain = try container.decode(Float.self, forKey: .inputGain)
         outputGain = try container.decode(Float.self, forKey: .outputGain)
-
-        // Channel mode: try new enum, fall back to legacy string
-        if let mode = try container.decodeIfPresent(ChannelMode.self, forKey: .channelMode) {
-            channelMode = mode
-        } else if let modeString = try container.decodeIfPresent(String.self, forKey: .channelMode) {
-            channelMode = ChannelMode(rawValue: modeString) ?? .linked
-        } else {
-            channelMode = .linked
-        }
-
-        // Channel focus: defaults to left
-        // Try new key first, then fall back to legacy key for backward compatibility
-        if let channel = try container.decodeIfPresent(ChannelFocus.self, forKey: .channelFocus) {
-            channelFocus = channel
-        } else if let channel = try container.decodeIfPresent(ChannelFocus.self, forKey: .editingChannel) {
-            // Legacy key support
-            channelFocus = channel
-        } else {
-            channelFocus = .left
-        }
-
-        // Try new format first (leftState/rightState)
-        if let left = try container.decodeIfPresent(ChannelEQState.self, forKey: .leftState),
-           let right = try container.decodeIfPresent(ChannelEQState.self, forKey: .rightState) {
-            leftState = left
-            rightState = right
-        } else {
-            // Migrate from legacy format (bands/rightBands/activeBandCount)
-            let legacyBandCount = try container.decodeIfPresent(Int.self, forKey: .activeBandCount)
-                ?? EQConfiguration.defaultBandCount
-            let legacyBands = try container.decodeIfPresent([EQBandConfiguration].self, forKey: .bands)
-            let legacyRightBands = try container.decodeIfPresent([EQBandConfiguration].self, forKey: .rightBands)
-
-            // Build left state from legacy bands or default
-            if let bands = legacyBands, bands.count == EQConfiguration.maxBandCount {
-                var leftLayer = EQLayerState.userEQ(bandCount: legacyBandCount)
-                leftLayer.bands = bands
-                leftState = ChannelEQState(layers: [leftLayer])
-            } else {
-                leftState = .default(bandCount: legacyBandCount)
-            }
-
-            // Build right state from legacy rightBands or copy left
-            if let rightBands = legacyRightBands, rightBands.count == EQConfiguration.maxBandCount {
-                var rightLayer = EQLayerState.userEQ(bandCount: legacyBandCount)
-                rightLayer.bands = rightBands
-                rightState = ChannelEQState(layers: [rightLayer])
-            } else {
-                rightState = leftState
-            }
-        }
+        channelMode = try container.decodeIfPresent(ChannelMode.self, forKey: .channelMode) ?? .linked
+        channelFocus = try container.decodeIfPresent(ChannelFocus.self, forKey: .channelFocus) ?? .left
+        leftState = try container.decodeIfPresent(ChannelEQState.self, forKey: .leftState) ?? .default()
+        rightState = try container.decodeIfPresent(ChannelEQState.self, forKey: .rightState) ?? .default()
 
         // App state
         inputDeviceID = try container.decodeIfPresent(String.self, forKey: .inputDeviceID)
