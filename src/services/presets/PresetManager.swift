@@ -335,9 +335,6 @@ final class PresetManager: ObservableObject {
 
     /// Applies a preset to an EQ configuration.
     func applyPreset(_ preset: Preset, to config: EQConfiguration) {
-        // Apply global settings
-        config.globalBypass = preset.settings.globalBypass
-
         // Apply channel mode
         if let channelMode = ChannelMode(rawValue: preset.settings.channelMode) {
             config.setChannelMode(channelMode)
@@ -403,8 +400,7 @@ final class PresetManager: ObservableObject {
         activeBandCount: Int,
         bands: [EQBandConfiguration],
         inputGain: Float,
-        outputGain: Float,
-        globalBypass: Bool
+        outputGain: Float
     ) -> Bool {
         guard let presetName = selectedPresetName,
               let preset = preset(named: presetName) else {
@@ -415,8 +411,7 @@ final class PresetManager: ObservableObject {
 
         guard settings.activeBandCount == activeBandCount,
               settings.inputGain == inputGain,
-              settings.outputGain == outputGain,
-              settings.globalBypass == globalBypass else {
+              settings.outputGain == outputGain else {
             return false
         }
 

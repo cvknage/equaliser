@@ -458,8 +458,7 @@ final class EqualiserStore: ObservableObject {
                 activeBandCount: eqConfiguration.activeBandCount,
                 bands: eqConfiguration.bands,
                 inputGain: eqConfiguration.inputGain,
-                outputGain: eqConfiguration.outputGain,
-                globalBypass: eqConfiguration.globalBypass
+                outputGain: eqConfiguration.outputGain
             )
             if !matches {
                 presetManager.isModified = true
@@ -616,7 +615,6 @@ final class EqualiserStore: ObservableObject {
         // Apply input/output gains
         inputGain = preset.settings.inputGain
         outputGain = preset.settings.outputGain
-        isBypassed = preset.settings.globalBypass
 
         // Mark as selected (not modified since we just loaded it)
         presetManager.selectPreset(named: preset.metadata.name)

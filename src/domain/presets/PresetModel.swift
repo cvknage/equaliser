@@ -112,7 +112,7 @@ struct PresetSettings: Codable, Sendable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        globalBypass = try container.decode(Bool.self, forKey: .globalBypass)
+        globalBypass = try container.decodeIfPresent(Bool.self, forKey: .globalBypass) ?? false
         inputGain = try container.decode(Float.self, forKey: .inputGain)
         outputGain = try container.decode(Float.self, forKey: .outputGain)
 
@@ -163,7 +163,6 @@ struct PresetSettings: Codable, Sendable {
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(globalBypass, forKey: .globalBypass)
         try container.encode(inputGain, forKey: .inputGain)
         try container.encode(outputGain, forKey: .outputGain)
         // Note: activeBandCount not encoded for v2 - derived from leftBands.count
@@ -304,7 +303,6 @@ struct Preset: Codable, Sendable, Identifiable {
         let rightActiveCount = config.rightState.userEQ.activeBandCount
 
         self.settings = PresetSettings(
-            globalBypass: config.globalBypass,
             inputGain: inputGain,
             outputGain: outputGain,
             channelMode: config.channelMode.rawValue,

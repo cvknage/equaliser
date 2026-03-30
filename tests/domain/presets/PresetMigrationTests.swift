@@ -251,12 +251,11 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.activeBandCount, 1)
     }
 
-    /// All settings fields survive a full encode/decode round-trip.
+    /// All settings fields survive a full encode/decode round-trip (except globalBypass, which is not persisted in v2).
     func testCurrentPreset_allFieldsRoundTrip() throws {
         let original = Preset(
             metadata: PresetMetadata(name: "Full Round Trip", isFactoryPreset: false),
             settings: PresetSettings(
-                globalBypass: true,
                 inputGain: -6.0,
                 outputGain: 3.0,
                 channelMode: "linked",
@@ -274,7 +273,8 @@ final class PresetMigrationTests: XCTestCase {
         let data = try encoder.encode(original)
         let decoded = try decoder.decode(Preset.self, from: data)
 
-        XCTAssertEqual(decoded.settings.globalBypass, true)
+        // globalBypass is NOT persisted in v2 presets - always defaults to false
+        XCTAssertFalse(decoded.settings.globalBypass)
         XCTAssertEqual(decoded.settings.inputGain, -6.0)
         XCTAssertEqual(decoded.settings.outputGain, 3.0)
         // activeBandCount is derived from leftBands.count
@@ -287,5 +287,25 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.leftBands[1].gain, -4.0)
         XCTAssertEqual(decoded.settings.leftBands[1].filterType, .highShelf)
         XCTAssertTrue(decoded.settings.leftBands[1].bypass)
+    }
+
+    /// Verify that v2 presets do NOT include globalBypass in encoded JSON.
+    func testCurrentPreset_globalBypassNotEncoded() throws {
+        let preset = Preset(
+            metadata: PresetMetadata(name: "No Bypass Test"),
+            settings: PresetSettings(
+                inputGain: 0,
+                outputGain: 0,
+                channelMode: "linked",
+                leftBands: [],
+                rightBands: []
+            )
+        )
+
+        let data = try encoder.encode(preset)
+        let jsonString = String(data: data, encoding: .utf8)!
+
+        // globalBypass key should NOT appear in v2 preset JSON
+        XCTAssertFalse(jsonString.contains("globalBypass"), "v2 presets should not encode globalBypass")
     }
 }

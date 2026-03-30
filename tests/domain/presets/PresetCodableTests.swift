@@ -228,7 +228,6 @@ final class PresetCodableTests: XCTestCase {
         ]
 
         let original = PresetSettings(
-            globalBypass: true,
             inputGain: -3.0,
             outputGain: 1.5,
             leftBands: leftBands,
@@ -238,13 +237,35 @@ final class PresetCodableTests: XCTestCase {
         let data = try encoder.encode(original)
         let decoded = try decoder.decode(PresetSettings.self, from: data)
 
-        XCTAssertEqual(decoded.globalBypass, original.globalBypass)
+        // globalBypass is not encoded in v2 presets, defaults to false on decode
+        XCTAssertFalse(decoded.globalBypass)
         XCTAssertEqual(decoded.inputGain, original.inputGain)
         XCTAssertEqual(decoded.outputGain, original.outputGain)
         // activeBandCount is derived from leftBands.count
         XCTAssertEqual(decoded.activeBandCount, leftBands.count)
         XCTAssertEqual(decoded.leftBands.count, original.leftBands.count)
         XCTAssertEqual(decoded.rightBands.count, original.rightBands.count)
+    }
+
+    func testPresetSettings_globalBypassNotEncoded() throws {
+        // Verify that globalBypass is NOT included in encoded output
+        let settings = PresetSettings(
+            globalBypass: true,  // This should be ignored during encoding
+            inputGain: -3.0,
+            outputGain: 1.5,
+            leftBands: [],
+            rightBands: []
+        )
+
+        let data = try encoder.encode(settings)
+        let jsonString = String(data: data, encoding: .utf8)!
+
+        // globalBypass key should NOT appear in v2 preset JSON
+        XCTAssertFalse(jsonString.contains("globalBypass"), "v2 presets should not encode globalBypass")
+
+        // When decoded, globalBypass defaults to false
+        let decoded = try decoder.decode(PresetSettings.self, from: data)
+        XCTAssertFalse(decoded.globalBypass)
     }
 
     func testPresetSettings_defaultValues() {
@@ -272,7 +293,6 @@ final class PresetCodableTests: XCTestCase {
         ]
 
         let settings = PresetSettings(
-            globalBypass: false,
             inputGain: -2.0,
             outputGain: 1.0,
             leftBands: leftBands,
@@ -290,7 +310,8 @@ final class PresetCodableTests: XCTestCase {
 
         XCTAssertEqual(decoded.version, original.version)
         XCTAssertEqual(decoded.metadata.name, original.metadata.name)
-        XCTAssertEqual(decoded.settings.globalBypass, original.settings.globalBypass)
+        // globalBypass is not encoded in v2 presets, defaults to false on decode
+        XCTAssertFalse(decoded.settings.globalBypass)
         XCTAssertEqual(decoded.settings.inputGain, original.settings.inputGain)
         XCTAssertEqual(decoded.settings.outputGain, original.settings.outputGain)
         // activeBandCount is derived from leftBands.count

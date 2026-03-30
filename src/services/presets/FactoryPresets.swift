@@ -24,7 +24,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Flat", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: 0,
                 outputGain: 0,
                 leftBands: bands,
@@ -52,7 +51,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Bass Boost", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -8,
                 outputGain: 0,
                 leftBands: bands,
@@ -78,7 +76,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Treble Boost", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -6,
                 outputGain: 0,
                 leftBands: bands,
@@ -108,7 +105,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Vocal Presence", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -6,
                 outputGain: 0,
                 leftBands: bands,
@@ -134,7 +130,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Loudness", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -8,
                 outputGain: 0,
                 leftBands: bands,
@@ -161,7 +156,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Acoustic", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -3,
                 outputGain: 0,
                 leftBands: bands,
@@ -189,7 +183,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Rock", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -6,
                 outputGain: 0,
                 leftBands: bands,
@@ -218,7 +211,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Electronic", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -7,
                 outputGain: 0,
                 leftBands: bands,
@@ -244,7 +236,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Jazz", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -2,
                 outputGain: 0,
                 leftBands: bands,
@@ -272,7 +263,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Podcast", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -5,
                 outputGain: 0,
                 leftBands: bands,
@@ -297,7 +287,6 @@ enum FactoryPresets {
         return Preset(
             metadata: PresetMetadata(name: "Classical", isFactoryPreset: true),
             settings: PresetSettings(
-                globalBypass: false,
                 inputGain: -1,
                 outputGain: 0,
                 leftBands: bands,
