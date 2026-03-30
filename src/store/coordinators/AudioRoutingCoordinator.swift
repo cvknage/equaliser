@@ -125,16 +125,16 @@ final class AudioRoutingCoordinator: ObservableObject {
     func reconfigureRouting() {
         let modeStr = manualModeEnabled ? "manual" : "automatic"
         logger.debug("reconfigureRouting(mode=\(modeStr))")
-        
+
         // Prevent re-entrant calls
         guard !isReconfiguring else {
             logger.debug("reconfigureRouting: skipped (already reconfiguring)")
             return
         }
-        
+
         isReconfiguring = true
         defer { isReconfiguring = false }
-        
+
         // In manual mode, verify microphone permission before starting
         // (HAL input capture requires TCC permission)
         // Also check for automatic mode with HAL input capture preference
@@ -250,7 +250,19 @@ final class AudioRoutingCoordinator: ObservableObject {
             // Update selected devices to reflect current state
             selectedInputDeviceID = inputUID
             selectedOutputDeviceID = outputUID
-            
+
+            // Pre-sync driver volume BEFORE updateDriverName() to prevent macOS volume sync
+            // from overwriting the new output device's volume.
+            // When updateDriverName() calls restoreSystemDefaultOutput(), macOS syncs
+            // the driver's volume to the output device. We need the driver to have
+            // the correct volume (new device's) before this sync.
+            if let outputDeviceID = deviceManager.deviceID(forUID: outputUID),
+               let driverID = driverAccess.deviceID,
+               let volume = volumeService.getDeviceVolumeScalar(deviceID: outputDeviceID) {
+                _ = volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: volume)
+                logger.info("Pre-synced driver volume to: \(volume)")
+            }
+
             // Rename driver to match output device (sync - returns immediately, schedules UI refresh async)
             _ = updateDriverName()
             

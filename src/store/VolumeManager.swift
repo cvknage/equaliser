@@ -79,9 +79,12 @@ final class VolumeManager: ObservableObject {
     }
     
     // MARK: - Setup
-    
+
     /// Sets up volume and mute sync between driver and output device.
     /// Must be called after driver and output device are ready.
+    /// - Parameters:
+    ///   - driverID: The driver device ID
+    ///   - outputID: The output device ID
     func setupVolumeSync(driverID: AudioDeviceID, outputID: AudioDeviceID) {
         tearDown()
 
@@ -102,7 +105,7 @@ final class VolumeManager: ObservableObject {
             initialVolume = 0.01
             logger.warning("Could not get output volume, defaulting to 1%")
         }
-        
+
         gain = initialVolume
 
         // Initialize last forwarded volume to prevent first forward being skipped
@@ -119,7 +122,16 @@ final class VolumeManager: ObservableObject {
         } else {
             logger.warning("Failed to sync driver volume to \(initialVolume)")
         }
-        
+
+        // Forward initial volume to output device
+        // This ensures output device has correct volume immediately, not just when user touches slider
+        // (During device switch, macOS may have synced stale volume to output device)
+        if volumeService.setDeviceVolumeScalar(deviceID: outputID, volume: initialVolume) {
+            logger.debug("Forwarded initial volume to output device: \(initialVolume)")
+        } else {
+            logger.warning("Failed to forward initial volume to output device")
+        }
+
         // Sync mute state to driver (output is source of truth)
         if volumeService.setDeviceMute(deviceID: driverID, muted: initialMuted) {
             logger.debug("Synced driver mute to \(initialMuted)")
