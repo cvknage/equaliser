@@ -116,6 +116,9 @@ final class BiquadFilter {
         }
 
         // Process through vDSP biquad
-        vDSP_biquad(s, &delay, input, 1, output, 1, vDSP_Length(frameCount))
+        // Use withUnsafeMutableBufferPointer to avoid Swift's dynamic exclusivity checking
+        delay.withUnsafeMutableBufferPointer { delayPtr in
+            vDSP_biquad(s, delayPtr.baseAddress!, input, 1, output, 1, vDSP_Length(frameCount))
+        }
     }
 }
