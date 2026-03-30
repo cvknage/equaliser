@@ -59,17 +59,10 @@ final class EQChain {
     /// Read and cleared on the audio thread inside `applyPendingUpdates()`.
     private var pendingFullReset: Bool = false
 
-    // MARK: - Scratch Buffer
-
-    /// Scratch buffer for intermediate processing (pre-allocated).
-    /// Used for ping-pong between filter input/output.
-    private let scratchBuffer: UnsafeMutablePointer<Float>
-    private let scratchCapacity: Int
-
     // MARK: - Initialization
 
     /// Creates a new EQ chain with pre-allocated resources.
-    /// - Parameter maxFrameCount: Maximum frames per render call (used for buffer sizing).
+    /// - Parameter maxFrameCount: Maximum frames per render call (unused, kept for API compatibility).
     init(maxFrameCount: UInt32) {
         // Pre-allocate filters (always maxBandCount)
         filters = (0..<Self.maxBandCount).map { _ in BiquadFilter() }
@@ -81,16 +74,10 @@ final class EQChain {
         // Pre-allocate bypass flags
         bypassFlags = [Bool](repeating: false, count: Self.maxBandCount)
         pendingBypassFlags = [Bool](repeating: false, count: Self.maxBandCount)
-
-        // Pre-allocate scratch buffer
-        scratchCapacity = Int(maxFrameCount)
-        scratchBuffer = UnsafeMutablePointer<Float>.allocate(capacity: scratchCapacity)
-        scratchBuffer.initialize(repeating: 0, count: scratchCapacity)
     }
 
     deinit {
-        scratchBuffer.deinitialize(count: scratchCapacity)
-        scratchBuffer.deallocate()
+        // No resources to deallocate - filters are value types with managed setups
     }
 
     // MARK: - Main Thread API
@@ -210,23 +197,20 @@ final class EQChain {
             return
         }
 
-        // Process each active band
+        // Process each active band in-place
+        // BiquadFilter supports in-place processing (input == output)
         for i in 0..<activeBandCount {
             // Skip bypassed bands
             if bypassFlags[i] {
                 continue
             }
 
-            // Process through this band's biquad filter
-            // Use scratch buffer to avoid in-place issues with vDSP
+            // Process through this band's biquad filter in-place
             filters[i].process(
                 input: buffer,
-                output: scratchBuffer,
+                output: buffer,
                 frameCount: frameCount
             )
-
-            // Copy result back to main buffer
-            memcpy(buffer, scratchBuffer, Int(frameCount) * MemoryLayout<Float>.size)
         }
     }
 }

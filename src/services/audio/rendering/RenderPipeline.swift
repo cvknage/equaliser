@@ -555,6 +555,12 @@ final class RenderPipeline {
         callbackContext?.processingMode = mode
     }
 
+    /// Updates whether meters are enabled on the audio thread.
+    /// When disabled, meter calculations are skipped entirely for performance.
+    func setMetersEnabled(_ enabled: Bool) {
+        callbackContext?.setMetersEnabled(enabled)
+    }
+
     // MARK: - EQ Coefficient Staging
 
     /// Stages coefficients for a single band (called from main thread).

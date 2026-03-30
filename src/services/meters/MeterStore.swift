@@ -96,6 +96,8 @@ final class MeterStore: ObservableObject {
     
     func setRenderPipeline(_ pipeline: RenderPipeline?) {
         self.renderPipeline = pipeline
+        // Propagate initial meters enabled state to the pipeline
+        pipeline?.setMetersEnabled(metersEnabled)
     }
     
     func setEqualiserWindow(_ window: NSWindow?) {
@@ -135,19 +137,25 @@ final class MeterStore: ObservableObject {
     func startMeterUpdates() {
         guard meterTimer == nil else { return }
         guard metersEnabled else { return }
-        
+
         meterTimer = Timer.publish(every: Self.meterInterval, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 self?.refreshMeterSnapshot()
             }
+
+        // Enable audio thread meter calculations
+        renderPipeline?.setMetersEnabled(true)
     }
-    
+
     func stopMeterUpdates() {
         meterTimer?.cancel()
         meterTimer = nil
         metersAtRest = false
         notifyAllObserversSilent()
+
+        // Disable audio thread meter calculations
+        renderPipeline?.setMetersEnabled(false)
     }
     
     // MARK: - Window Lifecycle
@@ -156,7 +164,7 @@ final class MeterStore: ObservableObject {
         guard metersEnabled else { return }
         startMeterUpdates()
     }
-    
+
     func windowBecameHidden() {
         stopMeterUpdates()
     }

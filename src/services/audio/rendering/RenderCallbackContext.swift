@@ -85,6 +85,11 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Written by main thread, read by audio thread.
     private let targetBoostGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(1065353216) // Float 1.0 as Int32 bits (0x3F800000)
 
+    /// Meters enabled flag (stored as Int32 for atomic access).
+    /// Written by main thread, read by audio thread.
+    /// When false, meter calculations are skipped entirely.
+    private let metersEnabledAtomic: ManagedAtomic<Int32> = ManagedAtomic(0) // false
+
     // MARK: - Current Gains (Audio Thread Only)
     // Current gains are ONLY written by the audio thread during gain ramping.
     // They can be read for diagnostics, but should not be written from any other thread.
@@ -122,6 +127,12 @@ final class RenderCallbackContext: @unchecked Sendable {
         let clamped = max(1, linear)
         let bits = Int32(bitPattern: clamped.bitPattern)
         targetBoostGainAtomic.store(bits, ordering: .relaxed)
+    }
+
+    /// Updates the meters enabled state (called from main thread).
+    /// When disabled, meter calculations are skipped on the audio thread.
+    func setMetersEnabled(_ enabled: Bool) {
+        metersEnabledAtomic.store(enabled ? 1 : 0, ordering: .relaxed)
     }
 
     // MARK: - Gain Read API (Audio Thread or Diagnostics)
@@ -166,6 +177,15 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Reused in applyGain(to: UnsafeMutablePointer<AudioBufferList>...) and updateOutputMeters.
     private var gainBuffers: [UnsafeMutablePointer<Float>] = []
     private var meterChannelPointers: [UnsafePointer<Float>] = []
+
+    /// Pre-computed output buffer pointers (immutable, avoids array allocation on every callback).
+    private let outputBufferPointersPrecomputed: [UnsafePointer<Float>]
+
+    /// Pre-computed input buffer pointers (immutable, avoids array allocation in pollAndWriteToRingBuffers).
+    private let inputBufferPointers: [UnsafePointer<Float>]
+
+    /// Pre-computed input buffer mutable pointers (immutable, avoids array allocation in pollAndWriteToRingBuffers).
+    private let inputBufferMutablePointers: [UnsafeMutablePointer<Float>]
 
     // MARK: - Driver Capture
 
@@ -224,6 +244,13 @@ final class RenderCallbackContext: @unchecked Sendable {
             outputBufs.append(buffer)
         }
         self.outputReadBuffers = outputBufs
+
+        // Pre-compute output buffer pointers (avoid array allocation on every callback)
+        self.outputBufferPointersPrecomputed = outputBufs.map { UnsafePointer($0) }
+
+        // Pre-compute input buffer pointer arrays (avoid array allocation in pollAndWriteToRingBuffers)
+        self.inputBufferPointers = inputBufs.map { UnsafePointer($0) }
+        self.inputBufferMutablePointers = inputBufs
 
         self.inputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
         self.outputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
@@ -317,8 +344,7 @@ final class RenderCallbackContext: @unchecked Sendable {
         for (index, ringBuffer) in ringBuffers.enumerated() {
             _ = ringBuffer.write(inputBuffers[index], count: count)
         }
-        let channels = inputBuffers.map { UnsafePointer($0) }
-        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: inputBufferPointers, frameCount: count)
     }
 
     /// Writes interleaved audio samples to the ring buffers.
@@ -350,9 +376,8 @@ final class RenderCallbackContext: @unchecked Sendable {
             _ = ringBuffer.write(inputBuffers[index], count: count)
         }
 
-        // Update meters
-        let channels = inputBuffers.map { UnsafePointer($0) }
-        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
+        // Update meters using pre-computed pointers
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: inputBufferPointers, frameCount: count)
     }
 
     /// Polls driver capture and writes to ring buffers.
@@ -381,12 +406,8 @@ final class RenderCallbackContext: @unchecked Sendable {
         // from the driver at full volume regardless of macOS volume setting
         if processingMode != 0 {
             let targetInputGain = getTargetInputGain()
-            // Reuse pre-allocated array for gain buffers
-            gainBuffers.removeAll(keepingCapacity: true)
-            for buffer in inputBuffers {
-                gainBuffers.append(buffer)
-            }
-            applyGain(to: gainBuffers, frameCount: frameCount, currentGain: &inputGainLinear, targetGain: targetInputGain)
+            // Use pre-computed input buffer pointers
+            applyGain(to: inputBufferMutablePointers, frameCount: frameCount, currentGain: &inputGainLinear, targetGain: targetInputGain)
         }
 
         // Write to ring buffers
@@ -394,12 +415,8 @@ final class RenderCallbackContext: @unchecked Sendable {
             _ = ringBuffer.write(inputBuffers[index], count: count)
         }
 
-        // Update meters - reuse pre-allocated array
-        meterChannelPointers.removeAll(keepingCapacity: true)
-        for buffer in inputBuffers {
-            meterChannelPointers.append(UnsafePointer(buffer))
-        }
-        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: meterChannelPointers, frameCount: count)
+        // Update meters using pre-computed pointers
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: inputBufferPointers, frameCount: count)
 
         return frameCount
     }
@@ -459,9 +476,9 @@ final class RenderCallbackContext: @unchecked Sendable {
     }
 
     /// Returns pointers to the output read buffers (immutable, for passing to render context).
-    /// - Returns: Array of immutable pointers to the read buffers.
+    /// - Returns: Pre-computed array of immutable pointers to the read buffers.
     var outputBufferPointers: [UnsafePointer<Float>] {
-        outputReadBuffers.map { UnsafePointer($0) }
+        outputBufferPointersPrecomputed
     }
 
     /// Processes all EQ layers on output read buffers in-place.
@@ -541,6 +558,9 @@ final class RenderCallbackContext: @unchecked Sendable {
         with channels: [UnsafePointer<Float>],
         frameCount: Int
     ) {
+        // Skip all meter calculations when meters are disabled
+        guard metersEnabledAtomic.load(ordering: .relaxed) != 0 else { return }
+
         // Assert that frameCount doesn't exceed pre-allocated buffer capacity.
         // CoreAudio guarantees frameCount <= maxFrameCount, but we validate for safety.
         // This catches any edge cases during development/testing.
