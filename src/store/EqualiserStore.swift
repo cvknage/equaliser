@@ -83,7 +83,7 @@ final class EqualiserStore: ObservableObject {
     }
     
     /// User preference for displaying bandwidth as octaves or Q factor.
-    @Published var bandwidthDisplayMode: BandwidthDisplayMode = .octaves
+    @Published var bandwidthDisplayMode: BandwidthDisplayMode = .qFactor
 
     // MARK: - Forwarded Properties from RoutingCoordinator
     
@@ -300,7 +300,7 @@ final class EqualiserStore: ObservableObject {
         // Restore app-level state
         if let snapshot = snapshot {
             logger.debug("Loading from snapshot: outputDeviceID=\(snapshot.outputDeviceID ?? "nil"), manualMode=\(snapshot.manualModeEnabled)")
-            _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .octaves)
+            _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .qFactor)
 
             // Restore capture mode preference
             routingCoordinator.captureMode = CaptureMode(rawValue: snapshot.captureMode) ?? .sharedMemory

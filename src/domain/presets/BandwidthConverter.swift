@@ -2,8 +2,8 @@ import Foundation
 
 /// User preference for how to display bandwidth values.
 enum BandwidthDisplayMode: String, Codable, CaseIterable, Sendable {
-    case octaves = "octaves"
     case qFactor = "qFactor"
+    case octaves = "octaves"
 
     var displayName: String {
         switch self {

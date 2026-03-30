@@ -35,7 +35,7 @@ EQ (equalisation) lets you adjust the volume of different frequency ranges in yo
 **Parametric EQ** - The most versatile type. You choose:
 - **Frequency**: Which part of the spectrum to adjust
 - **Gain**: How much to boost or cut
-- **Bandwidth**: How wide or narrow the adjustment is
+- **Q Factor**: How wide or narrow the adjustment is (higher Q = narrower)
 
 **Shelf EQ** - Adjusts all frequencies above or below a point:
 - **Low Shelf**: Boosts or cuts bass frequencies gradually
@@ -49,7 +49,7 @@ EQ (equalisation) lets you adjust the volume of different frequency ranges in yo
 **Parametric EQ** provides surgical control with three parameters:
 - **Frequency (Hz)**: The centre point of the adjustment
 - **Gain (dB)**: The amount of boost (+) or cut (-)
-- **Bandwidth (octaves)**: The range of frequencies affected. Also expressed as Q factor, where Q = centre frequency / bandwidth. Higher Q = narrower bandwidth.
+- **Q Factor**: The sharpness of the adjustment. Higher Q = narrower, more surgical. Lower Q = wider, more musical. Q is the native parameter used by EQ filters.
 
 **Shelf EQ** creates gradual transitions:
 - **Low Shelf**: All frequencies below the shelf frequency are boosted/cut by the specified amount, with a gradual transition around the shelf frequency
@@ -63,35 +63,33 @@ EQ (equalisation) lets you adjust the volume of different frequency ranges in yo
 
 </details>
 
-### Bandwidth Explained
+### Q Factor Explained
 
-**Simple explanation**: Bandwidth controls how "focused" or "wide" an EQ adjustment is.
+**Simple explanation**: Q Factor controls how "focused" or "wide" an EQ adjustment is.
 
-- **Narrow bandwidth** (0.7-0.9): Precise, surgical adjustment. Affects only the target frequency and its immediate neighbors.
-- **Medium bandwidth** (1.0): Balanced adjustment. Affects a moderate range around the target.
-- **Wide bandwidth** (1.1-1.5): Musical, smooth adjustment. Affects a broad range, creating natural transitions.
+- **High Q** (1.85-1.66): Precise, surgical adjustment. Affects only the target frequency and its immediate neighbors.
+- **Medium Q** (1.4): Balanced adjustment. Affects a moderate range around the target.
+- **Low Q** (1.0-1.2): Musical, smooth adjustment. Affects a broad range, creating natural transitions.
 
 <details>
-<summary>⚙️ Technical Details: Bandwidth & Q Factor (click to expand)</summary>
+<summary>⚙️ Technical Details: Q Factor & Bandwidth (click to expand)</summary>
 
-**Bandwidth** is measured in octaves. One octave = doubling of frequency (e.g., 100 Hz to 200 Hz is one octave).
+**Q Factor** (Quality Factor) measures the sharpness of an EQ band:
+- Q is the native parameter used by EQ filters
+- Higher Q = Narrower, more surgical
+- Lower Q = Wider, more musical
 
-**Q Factor** (Quality Factor) is the inverse relationship:
-- Q = Centre Frequency / Bandwidth (in Hz)
-- Higher Q = Narrower bandwidth
-- Lower Q = Wider bandwidth
+**Bandwidth** is measured in octaves and relates to Q:
+- Q ≈ 2.0 corresponds to ~0.7 octaves (very narrow, surgical)
+- Q ≈ 1.4 corresponds to ~1.0 octaves (medium, balanced)
+- Q ≈ 1.0 corresponds to ~1.4 octaves (wide, musical)
 
-**Conversion examples:**
-- Bandwidth 0.7 octaves ≈ Q 2.0 (very narrow, surgical)
-- Bandwidth 1.0 octaves ≈ Q 1.4 (medium, balanced)
-- Bandwidth 1.4 octaves ≈ Q 1.0 (wide, musical)
-
-**When to use narrow bandwidth:**
+**When to use high Q:**
 - Correcting specific problem frequencies
 - Notching out resonance
 - Precise tonal shaping
 
-**When to use wide bandwidth:**
+**When to use low Q:**
 - Broad tonal adjustments
 - Musical, natural-sounding EQ
 - Gentle presence or warmth enhancement
@@ -201,13 +199,13 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1-10 | Standard distribution | 0 dB | 1.0 | Parametric | Neutral reference |
+| 1-10 | Standard distribution | 0 dB | 1.41 | Parametric | Neutral reference |
 
 **Why This Curve Works:**
 
-The Flat preset is intentionally neutral. All bands are set to 0 dB gain with standard parametric filters and medium bandwidth (1.0 octaves). This provides:
+The Flat preset is intentionally neutral. All bands are set to 0 dB gain with standard parametric filters and medium Q (1.41). This provides:
 
 1. **Accurate monitoring**: Hear the source material without colouration
 2. **Reference point**: Compare other presets against this baseline
@@ -278,30 +276,30 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 25 Hz | +4 dB | 1.2 | Low Shelf | Sub-bass foundation |
-| 2 | 40 Hz | +6 dB | 0.9 | Parametric | Deep bass |
-| 3 | 63 Hz | +8 dB | 0.8 | Parametric | **Bass punch (peak)** |
-| 4 | 100 Hz | +7 dB | 0.9 | Parametric | Bass body |
-| 5 | 160 Hz | +4 dB | 1.0 | Parametric | Upper bass |
-| 6 | 250 Hz | +1 dB | 1.1 | Parametric | Transition |
-| 7 | 400 Hz | -1 dB | 1.0 | Parametric | Reduce mud |
-| 8 | 630 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 9 | 1000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 10 | 2500 Hz | +1 dB | 1.0 | Parametric | Slight presence |
-| 11 | 6300 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 12 | 12000 Hz | 0 dB | 1.0 | Parametric | Neutral |
+| 1 | 25 Hz | +4 dB | 1.22 | Low Shelf | Sub-bass foundation |
+| 2 | 40 Hz | +6 dB | 1.53 | Parametric | Deep bass |
+| 3 | 63 Hz | +8 dB | 1.66 | Parametric | **Bass punch (peak)** |
+| 4 | 100 Hz | +7 dB | 1.53 | Parametric | Bass body |
+| 5 | 160 Hz | +4 dB | 1.41 | Parametric | Upper bass |
+| 6 | 250 Hz | +1 dB | 1.30 | Parametric | Transition |
+| 7 | 400 Hz | -1 dB | 1.41 | Parametric | Reduce mud |
+| 8 | 630 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 9 | 1000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 10 | 2500 Hz | +1 dB | 1.41 | Parametric | Slight presence |
+| 11 | 6300 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 12 | 12000 Hz | 0 dB | 1.41 | Parametric | Neutral |
 
 **Why This Curve Works:**
 
 1. **Peak at 63 Hz**: This is the sweet spot for bass punch—the frequency you feel in your chest rather than just hear. It's the main impact frequency for kick drums and bass guitars.
 
-2. **Low shelf at 25 Hz**: Adds sub-bass rumble (the "felt" bass below 30 Hz) without boosting problematic frequencies. The wide bandwidth (1.2) ensures a natural, gradual transition.
+2. **Low shelf at 25 Hz**: Adds sub-bass rumble (the "felt" bass below 30 Hz) without boosting problematic frequencies. The low Q (1.22) ensures a natural, gradual transition.
 
 3. **Surgical cuts at 400 Hz**: Bass boost naturally pushes energy into the low-mids, which can create "mud" (boomy, unclear sound). The -1 dB cut at 400 Hz prevents this buildup while maintaining warmth.
 
-4. **Narrow bandwidths (0.8-0.9)**: The peak frequencies use narrow bandwidths for focused, tight bass. This prevents the boost from bleeding into adjacent frequencies where it's not wanted.
+4. **High Q values (1.66-1.53)**: The peak frequencies use high Q for focused, tight bass. This prevents the boost from bleeding into adjacent frequencies where it's not wanted.
 
 5. **Gradual high-frequency rolloff**: The curve naturally returns to neutral above 1 kHz, preserving the original tonal balance of vocals and instruments.
 
@@ -310,7 +308,7 @@ xychart-beta
 **Audio Engineering Principles:**
 - **Complementary EQ**: The bass boost is balanced by mud reduction (400 Hz cut)
 - **Targeted boost**: Peak frequency chosen based on human perception (chest punch)
-- **Bandwidth control**: Narrow at peaks for focus, wide at shelves for natural sound
+- **Q control**: High Q at peaks for focus, low Q at shelves for natural sound
 - **Gain staging**: Input compensation prevents clipping
 
 </details>
@@ -377,30 +375,30 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 80 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 2 | 200 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 3 | 500 Hz | -1 dB | 1.0 | Parametric | Reduce boxiness |
-| 4 | 1000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 5 | 1600 Hz | +2 dB | 1.0 | Parametric | Presence start |
-| 6 | 2500 Hz | +4 dB | 0.9 | Parametric | Clarity |
-| 7 | 4000 Hz | +6 dB | 0.8 | Parametric | **Presence (peak)** |
-| 8 | 6300 Hz | +5 dB | 0.9 | Parametric | Brilliance |
-| 9 | 10000 Hz | +4 dB | 1.1 | Parametric | Air |
-| 10 | 16000 Hz | +3 dB | 1.3 | High Shelf | Sparkle |
+| 1 | 80 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 2 | 200 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 3 | 500 Hz | -1 dB | 1.41 | Parametric | Reduce boxiness |
+| 4 | 1000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 5 | 1600 Hz | +2 dB | 1.41 | Parametric | Presence start |
+| 6 | 2500 Hz | +4 dB | 1.53 | Parametric | Clarity |
+| 7 | 4000 Hz | +6 dB | 1.66 | Parametric | **Presence (peak)** |
+| 8 | 6300 Hz | +5 dB | 1.53 | Parametric | Brilliance |
+| 9 | 10000 Hz | +4 dB | 1.30 | Parametric | Air |
+| 10 | 16000 Hz | +3 dB | 1.16 | High Shelf | Sparkle |
 
 **Why This Curve Works:**
 
 1. **Peak at 4 kHz**: This is the primary presence frequency where clarity and definition live. It's high enough to add brightness but not so high as to cause harshness.
 
-2. **High shelf at 16 kHz**: Adds air and sparkle above the audible presence region. The wide bandwidth (1.3) creates a smooth, natural transition that sounds like "opening up" the sound rather than a harsh treble boost.
+2. **High shelf at 16 kHz**: Adds air and sparkle above the audible presence region. The low Q (1.16) creates a smooth, natural transition that sounds like "opening up" the sound rather than a harsh treble boost.
 
 3. **Gradual approach**: The boost starts gently at 1.6 kHz (+2 dB) and builds to the peak at 4 kHz. This prevents the treble from sounding disconnected or artificial.
 
 4. **Cut at 500 Hz**: A subtle -1 dB cut reduces boxiness and prevents the low-mids from competing with the boosted highs. This creates better separation and clarity.
 
-5. **Narrow bandwidths at peaks (0.8-0.9)**: The presence frequencies use narrow bandwidths for focused clarity without affecting adjacent frequencies.
+5. **High Q values at peaks (1.66-1.53)**: The presence frequencies use high Q for focused clarity without affecting adjacent frequencies.
 
 6. **Input gain -6 dB**: Compensation prevents clipping from the +6 dB peak at 4 kHz.
 
@@ -452,7 +450,7 @@ xychart-beta
 
 The Vocal Presence preset is designed to make speech and vocals clear, present, and easy to understand. It uses a high-pass filter to remove low-frequency rumble, surgical cuts in the low-mids to reduce boominess, and precise boosts in the presence frequencies (1-4 kHz) where vocal clarity lives.
 
-This is the most surgical of all presets, using 14 bands with narrow bandwidths to precisely shape the frequency response for optimal speech intelligibility.
+This is the most surgical of all presets, using 14 bands with high Q values to precisely shape the frequency response for optimal speech intelligibility.
 
 <details>
 <summary>⚙️ Technical Breakdown (click to expand)</summary>
@@ -475,32 +473,32 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 50 Hz | -8 dB | 1.5 | High Pass | Remove rumble |
-| 2 | 80 Hz | -6 dB | 1.0 | Parametric | Reduce boom |
-| 3 | 125 Hz | -4 dB | 1.0 | Parametric | Reduce mud |
-| 4 | 200 Hz | -2 dB | 0.9 | Parametric | Reduce boxiness |
-| 5 | 315 Hz | 0 dB | 1.0 | Parametric | Neutral (body) |
-| 6 | 500 Hz | +1 dB | 1.0 | Parametric | Warmth |
-| 7 | 800 Hz | +3 dB | 0.8 | Parametric | Presence start |
-| 8 | 1250 Hz | +5 dB | 0.7 | Parametric | Presence |
-| 9 | 2000 Hz | +6 dB | 0.7 | Parametric | **Clarity (peak)** |
-| 10 | 3150 Hz | +5 dB | 0.8 | Parametric | Definition |
-| 11 | 5000 Hz | +3 dB | 0.9 | Parametric | Cut-through |
-| 12 | 8000 Hz | +2 dB | 1.0 | Parametric | Air |
-| 13 | 12000 Hz | +1 dB | 1.1 | Parametric | Sparkle |
-| 14 | 16000 Hz | 0 dB | 1.0 | Parametric | Neutral |
+| 1 | 50 Hz | -8 dB | 1.04 | High Pass | Remove rumble |
+| 2 | 80 Hz | -6 dB | 1.41 | Parametric | Reduce boom |
+| 3 | 125 Hz | -4 dB | 1.41 | Parametric | Reduce mud |
+| 4 | 200 Hz | -2 dB | 1.53 | Parametric | Reduce boxiness |
+| 5 | 315 Hz | 0 dB | 1.41 | Parametric | Neutral (body) |
+| 6 | 500 Hz | +1 dB | 1.41 | Parametric | Warmth |
+| 7 | 800 Hz | +3 dB | 1.66 | Parametric | Presence start |
+| 8 | 1250 Hz | +5 dB | 1.85 | Parametric | Presence |
+| 9 | 2000 Hz | +6 dB | 1.85 | Parametric | **Clarity (peak)** |
+| 10 | 3150 Hz | +5 dB | 1.66 | Parametric | Definition |
+| 11 | 5000 Hz | +3 dB | 1.53 | Parametric | Cut-through |
+| 12 | 8000 Hz | +2 dB | 1.41 | Parametric | Air |
+| 13 | 12000 Hz | +1 dB | 1.30 | Parametric | Sparkle |
+| 14 | 16000 Hz | 0 dB | 1.41 | Parametric | Neutral |
 
 **Why This Curve Works:**
 
-1. **High-pass filter at 50 Hz**: Removes sub-bass rumble and handling noise that can make vocals sound muddy. The wide bandwidth (1.5) creates a gentle slope.
+1. **High-pass filter at 50 Hz**: Removes sub-bass rumble and handling noise that can make vocals sound muddy. The low Q (1.04) creates a gentle slope.
 
 2. **Surgical low-mid cuts (80-200 Hz)**: These frequencies cause "boom" and "mud" in vocals. The progressive cuts (-6, -4, -2 dB) create a natural high-pass shape without sounding thin.
 
 3. **Peak at 2 kHz**: This is the primary vocal presence frequency. It's where the human ear is most sensitive to speech, and where vocals "cut through" a mix.
 
-4. **Narrow bandwidths (0.7-0.8)**: The presence frequencies use very narrow bandwidths for surgical precision. This boosts exactly what's needed without affecting adjacent frequencies.
+4. **High Q values (1.85-1.66)**: The presence frequencies use very high Q for surgical precision. This boosts exactly what's needed without affecting adjacent frequencies.
 
 5. **Gentle high-frequency rolloff**: Above 5 kHz, the boost gradually decreases to avoid harshness and sibilance while still adding air and sparkle.
 
@@ -509,7 +507,7 @@ xychart-beta
 **Audio Engineering Principles:**
 - **High-pass filtering**: Essential for clean vocals
 - **Presence peak**: 2 kHz is the vocal clarity frequency
-- **Surgical EQ**: Narrow bandwidths for precise control
+- **Surgical EQ**: High Q values for precise control
 - **Balanced curve**: Cuts and boosts complement each other
 - **Sibilance control**: Gentle rolloff above 5 kHz
 
@@ -577,18 +575,18 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 32 Hz | +6 dB | 1.4 | Low Shelf | Deep bass |
-| 2 | 50 Hz | +8 dB | 1.0 | Parametric | **Bass (peak)** |
-| 3 | 80 Hz | +6 dB | 1.0 | Parametric | Upper bass |
-| 4 | 125 Hz | +3 dB | 1.2 | Parametric | Transition |
-| 5 | 200 Hz | +1 dB | 1.3 | Parametric | Gentle rolloff |
-| 6 | 500 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 7 | 1000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 8 | 2500 Hz | +2 dB | 1.1 | Parametric | Presence start |
-| 9 | 6300 Hz | +4 dB | 1.2 | Parametric | Brilliance |
-| 10 | 12000 Hz | +5 dB | 1.4 | High Shelf | **Air (peak)** |
+| 1 | 32 Hz | +6 dB | 1.10 | Low Shelf | Deep bass |
+| 2 | 50 Hz | +8 dB | 1.41 | Parametric | **Bass (peak)** |
+| 3 | 80 Hz | +6 dB | 1.41 | Parametric | Upper bass |
+| 4 | 125 Hz | +3 dB | 1.22 | Parametric | Transition |
+| 5 | 200 Hz | +1 dB | 1.16 | Parametric | Gentle rolloff |
+| 6 | 500 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 7 | 1000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 8 | 2500 Hz | +2 dB | 1.30 | Parametric | Presence start |
+| 9 | 6300 Hz | +4 dB | 1.22 | Parametric | Brilliance |
+| 10 | 12000 Hz | +5 dB | 1.10 | High Shelf | **Air (peak)** |
 
 **Why This Curve Works:**
 
@@ -596,9 +594,9 @@ xychart-beta
 
 2. **Bass peak at 50 Hz**: The primary bass boost targets the frequency where low-volume sensitivity loss is most pronounced. This restores the "weight" and "punch" that disappears at low volumes.
 
-3. **High shelf at 12 kHz**: Adds air and brilliance that's lost at low volumes. The wide bandwidth (1.4) creates a smooth, natural transition.
+3. **High shelf at 12 kHz**: Adds air and brilliance that's lost at low volumes. The low Q (1.10) creates a smooth, natural transition.
 
-4. **Wide bandwidths (1.2-1.4)**: The curve uses wide bandwidths for smooth, musical transitions. This sounds more natural than surgical boosts.
+4. **Low Q values (1.10-1.30)**: The curve uses low Q for smooth, musical transitions. This sounds more natural than surgical boosts.
 
 5. **Neutral mids**: The midrange (500-1000 Hz) is left untouched because human hearing is most sensitive in this range, even at low volumes.
 
@@ -608,7 +606,7 @@ xychart-beta
 - **Fletcher-Munson curve**: Based on 1933 research on human hearing sensitivity
 - **Equal-loudness contours**: The curve follows the natural shape of human hearing
 - **Smile curve**: Classic loudness EQ shape (boosted lows and highs)
-- **Wide bandwidths**: Musical, natural-sounding compensation
+- **Low Q values**: Musical, natural-sounding compensation
 
 </details>
 
@@ -651,7 +649,7 @@ xychart-beta
 
 The Acoustic preset creates a warm, natural tone that enhances the organic character of acoustic instruments. It adds warmth in the low-mids, a subtle scoop in the midrange for clarity, and gentle presence in the upper-mids for definition.
 
-The curve uses wide bandwidths and shelf filters to create smooth, musical transitions that sound natural rather than processed.
+The curve uses low Q values and shelf filters to create smooth, musical transitions that sound natural rather than processed.
 
 <details>
 <summary>⚙️ Technical Breakdown (click to expand)</summary>
@@ -674,37 +672,37 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 50 Hz | +3 dB | 1.3 | Low Shelf | Warmth/body |
-| 2 | 80 Hz | +2 dB | 1.1 | Parametric | Acoustic body |
-| 3 | 125 Hz | +1 dB | 1.0 | Parametric | Fullness |
-| 4 | 200 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 5 | 315 Hz | -1 dB | 1.0 | Parametric | Slight scoop |
-| 6 | 500 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 7 | 800 Hz | +1 dB | 1.0 | Parametric | Natural presence |
-| 8 | 1250 Hz | +2 dB | 0.9 | Parametric | Clarity |
-| 9 | 2000 Hz | +3 dB | 0.8 | Parametric | **Definition (peak)** |
-| 10 | 3150 Hz | +2 dB | 1.0 | Parametric | Sparkle |
-| 11 | 8000 Hz | +1 dB | 1.2 | High Shelf | Air |
+| 1 | 50 Hz | +3 dB | 1.16 | Low Shelf | Warmth/body |
+| 2 | 80 Hz | +2 dB | 1.30 | Parametric | Acoustic body |
+| 3 | 125 Hz | +1 dB | 1.41 | Parametric | Fullness |
+| 4 | 200 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 5 | 315 Hz | -1 dB | 1.41 | Parametric | Slight scoop |
+| 6 | 500 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 7 | 800 Hz | +1 dB | 1.41 | Parametric | Natural presence |
+| 8 | 1250 Hz | +2 dB | 1.53 | Parametric | Clarity |
+| 9 | 2000 Hz | +3 dB | 1.66 | Parametric | **Definition (peak)** |
+| 10 | 3150 Hz | +2 dB | 1.41 | Parametric | Sparkle |
+| 11 | 8000 Hz | +1 dB | 1.22 | High Shelf | Air |
 
 **Why This Curve Works:**
 
-1. **Low shelf at 50 Hz**: Adds warmth and body to acoustic instruments. The wide bandwidth (1.3) creates a natural, gradual transition.
+1. **Low shelf at 50 Hz**: Adds warmth and body to acoustic instruments. The low Q (1.16) creates a natural, gradual transition.
 
 2. **Mid scoop at 315 Hz**: A subtle -1 dB cut creates the characteristic "acoustic scoop" that gives clarity and separation. This prevents the low-mids from building up and sounding muddy.
 
 3. **Peak at 2 kHz**: This is the definition frequency for acoustic instruments—where the "pluck" of a guitar string or the "attack" of a piano key lives.
 
-4. **Wide bandwidths (1.0-1.3)**: The curve uses wide bandwidths for smooth, musical transitions. This sounds more natural than surgical EQ.
+4. **Low Q values (1.16-1.41)**: The curve uses low Q for smooth, musical transitions. This sounds more natural than surgical EQ.
 
-5. **High shelf at 8 kHz**: Adds gentle air and sparkle without harshness. The wide bandwidth creates a smooth, natural top end.
+5. **High shelf at 8 kHz**: Adds gentle air and sparkle without harshness. The low Q creates a smooth, natural top end.
 
 6. **Input gain -3 dB**: Compensation prevents clipping from the +3 dB warmth boost.
 
 **Audio Engineering Principles:**
 - **Warmth without mud**: Low shelf adds body, mid scoop prevents buildup
-- **Natural transitions**: Wide bandwidths for organic sound
+- **Natural transitions**: Low Q values for organic sound
 - **Presence peak**: 2 kHz for acoustic definition
 - **Gentle air**: High shelf for natural sparkle
 
@@ -772,20 +770,20 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 40 Hz | +4 dB | 1.1 | Low Shelf | Sub-bass |
-| 2 | 80 Hz | +6 dB | 0.9 | Parametric | **Punch** |
-| 3 | 125 Hz | +4 dB | 1.0 | Parametric | Body |
-| 4 | 250 Hz | +1 dB | 1.0 | Parametric | Transition |
-| 5 | 500 Hz | -2 dB | 1.0 | Parametric | Scoop start |
-| 6 | 1000 Hz | -4 dB | 0.9 | Parametric | **Mid scoop** |
-| 7 | 1600 Hz | -3 dB | 0.9 | Parametric | Scoop |
-| 8 | 2500 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 9 | 4000 Hz | +3 dB | 0.9 | Parametric | Aggression |
-| 10 | 6300 Hz | +5 dB | 0.9 | Parametric | **Bite** |
-| 11 | 10000 Hz | +4 dB | 1.0 | Parametric | Air |
-| 12 | 14000 Hz | +2 dB | 1.1 | High Shelf | Sparkle |
+| 1 | 40 Hz | +4 dB | 1.30 | Low Shelf | Sub-bass |
+| 2 | 80 Hz | +6 dB | 1.53 | Parametric | **Punch** |
+| 3 | 125 Hz | +4 dB | 1.41 | Parametric | Body |
+| 4 | 250 Hz | +1 dB | 1.41 | Parametric | Transition |
+| 5 | 500 Hz | -2 dB | 1.41 | Parametric | Scoop start |
+| 6 | 1000 Hz | -4 dB | 1.53 | Parametric | **Mid scoop** |
+| 7 | 1600 Hz | -3 dB | 1.53 | Parametric | Scoop |
+| 8 | 2500 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 9 | 4000 Hz | +3 dB | 1.53 | Parametric | Aggression |
+| 10 | 6300 Hz | +5 dB | 1.53 | Parametric | **Bite** |
+| 11 | 10000 Hz | +4 dB | 1.41 | Parametric | Air |
+| 12 | 14000 Hz | +2 dB | 1.30 | High Shelf | Sparkle |
 
 **Why This Curve Works:**
 
@@ -797,7 +795,7 @@ xychart-beta
 
 4. **High-frequency bite (6.3 kHz)**: The +5 dB boost adds the "bite" and "edge" that distorted guitars need to cut through the mix.
 
-5. **Narrow bandwidths (0.9)**: The scoop and peak frequencies use narrow bandwidths for focused, surgical control.
+5. **High Q values (1.53)**: The scoop and peak frequencies use high Q for focused, surgical control.
 
 6. **Input gain -6 dB**: Compensation prevents clipping from the +6 dB peaks at 80 Hz and 6.3 kHz.
 
@@ -846,7 +844,7 @@ xychart-beta
 
 ### What It Does
 
-The Electronic preset is designed for modern electronic music, with very tight, focused bass and bright, present highs. It uses surgical EQ with narrow bandwidths to create the precise, controlled sound that electronic music demands.
+The Electronic preset is designed for modern electronic music, with very tight, focused bass and bright, present highs. It uses surgical EQ with high Q values to create the precise, controlled sound that electronic music demands.
 
 The curve emphasizes the "drop" frequencies (50-80 Hz) for bass impact and the "presence" frequencies (3-5 kHz) for clarity and energy.
 
@@ -871,25 +869,25 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 30 Hz | +4 dB | 1.0 | Low Shelf | Sub-bass |
-| 2 | 50 Hz | +7 dB | 0.7 | Parametric | **Tight bass (peak)** |
-| 3 | 80 Hz | +5 dB | 0.8 | Parametric | Bass punch |
-| 4 | 125 Hz | +2 dB | 0.9 | Parametric | Body |
-| 5 | 200 Hz | -1 dB | 1.0 | Parametric | Reduce mud |
-| 6 | 400 Hz | -1 dB | 1.0 | Parametric | Reduce mud |
-| 7 | 800 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 8 | 1600 Hz | +1 dB | 1.0 | Parametric | Presence |
-| 9 | 3150 Hz | +3 dB | 0.8 | Parametric | Clarity |
-| 10 | 5000 Hz | +5 dB | 0.8 | Parametric | **Bright (peak)** |
-| 11 | 8000 Hz | +4 dB | 1.0 | Parametric | Air |
-| 12 | 12000 Hz | +3 dB | 1.1 | Parametric | Sparkle |
-| 13 | 16000 Hz | +2 dB | 1.2 | High Shelf | Top end |
+| 1 | 30 Hz | +4 dB | 1.41 | Low Shelf | Sub-bass |
+| 2 | 50 Hz | +7 dB | 1.85 | Parametric | **Tight bass (peak)** |
+| 3 | 80 Hz | +5 dB | 1.66 | Parametric | Bass punch |
+| 4 | 125 Hz | +2 dB | 1.53 | Parametric | Body |
+| 5 | 200 Hz | -1 dB | 1.41 | Parametric | Reduce mud |
+| 6 | 400 Hz | -1 dB | 1.41 | Parametric | Reduce mud |
+| 7 | 800 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 8 | 1600 Hz | +1 dB | 1.41 | Parametric | Presence |
+| 9 | 3150 Hz | +3 dB | 1.66 | Parametric | Clarity |
+| 10 | 5000 Hz | +5 dB | 1.66 | Parametric | **Bright (peak)** |
+| 11 | 8000 Hz | +4 dB | 1.41 | Parametric | Air |
+| 12 | 12000 Hz | +3 dB | 1.30 | Parametric | Sparkle |
+| 13 | 16000 Hz | +2 dB | 1.22 | High Shelf | Top end |
 
 **Why This Curve Works:**
 
-1. **Very tight bass (50 Hz)**: The +7 dB boost with narrow bandwidth (0.7) creates focused, punchy bass that's essential for electronic music. This is the "drop" frequency.
+1. **Very tight bass (50 Hz)**: The +7 dB boost with high Q (1.85) creates focused, punchy bass that's essential for electronic music. This is the "drop" frequency.
 
 2. **Sub-bass shelf (30 Hz)**: Adds the sub-bass rumble that you feel in your chest at clubs and festivals.
 
@@ -897,16 +895,16 @@ xychart-beta
 
 4. **Presence peak (5 kHz)**: The +5 dB boost adds the energy and brightness that electronic music needs to sound exciting and present.
 
-5. **Very narrow bandwidths (0.7-0.8)**: The peak frequencies use very narrow bandwidths for surgical precision. This is critical for electronic music where precision matters.
+5. **Very high Q values (1.85-1.66)**: The peak frequencies use very high Q for surgical precision. This is critical for electronic music where precision matters.
 
 6. **Input gain -7 dB**: Compensation prevents clipping from the +7 dB peak at 50 Hz.
 
 **Audio Engineering Principles:**
-- **Surgical bass**: Narrow bandwidth for tight, controlled low end
+- **Surgical bass**: High Q for tight, controlled low end
 - **Drop frequency**: 50 Hz is the EDM bass sweet spot
 - **Mud control**: Low-mid cuts keep bass focused
 - **Energy peak**: 5 kHz for electronic music brightness
-- **Precision EQ**: Narrow bandwidths for surgical control
+- **Precision EQ**: High Q values for surgical control
 
 </details>
 
@@ -929,7 +927,7 @@ xychart-beta
 - Want more bass? Increase band 2 to +9 dB
 - Too bright? Reduce band 10 to +3 dB
 - Need more sub? Increase band 1 to +6 dB
-- Bass too tight? Increase bandwidth at band 2 to 1.0
+- Bass too tight? Lower Q at band 2 to 1.4
 
 ---
 
@@ -949,7 +947,7 @@ xychart-beta
 
 The Jazz preset creates a warm, smooth tone that's perfect for jazz and related genres. It emphasizes the warm frequencies (125-500 Hz) while keeping the highs smooth and gentle rather than bright and harsh.
 
-The curve uses wide bandwidths and subtle adjustments to create a natural, organic sound that enhances the warmth and richness of jazz recordings.
+The curve uses low Q values and subtle adjustments to create a natural, organic sound that enhances the warmth and richness of jazz recordings.
 
 <details>
 <summary>⚙️ Technical Breakdown (click to expand)</summary>
@@ -972,18 +970,18 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 63 Hz | +2 dB | 1.2 | Low Shelf | Warmth |
-| 2 | 125 Hz | +2 dB | 1.1 | Parametric | Body |
-| 3 | 250 Hz | +1 dB | 1.0 | Parametric | Fullness |
-| 4 | 500 Hz | +2 dB | 1.0 | Parametric | **Warmth (peak)** |
-| 5 | 1000 Hz | +1 dB | 1.0 | Parametric | Presence |
-| 6 | 2000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 7 | 3150 Hz | +1 dB | 1.1 | Parametric | Smooth presence |
-| 8 | 5000 Hz | +1 dB | 1.1 | Parametric | Air |
-| 9 | 8000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 10 | 12000 Hz | -1 dB | 1.2 | High Shelf | Smooth top |
+| 1 | 63 Hz | +2 dB | 1.22 | Low Shelf | Warmth |
+| 2 | 125 Hz | +2 dB | 1.30 | Parametric | Body |
+| 3 | 250 Hz | +1 dB | 1.41 | Parametric | Fullness |
+| 4 | 500 Hz | +2 dB | 1.41 | Parametric | **Warmth (peak)** |
+| 5 | 1000 Hz | +1 dB | 1.41 | Parametric | Presence |
+| 6 | 2000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 7 | 3150 Hz | +1 dB | 1.30 | Parametric | Smooth presence |
+| 8 | 5000 Hz | +1 dB | 1.30 | Parametric | Air |
+| 9 | 8000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 10 | 12000 Hz | -1 dB | 1.22 | High Shelf | Smooth top |
 
 **Why This Curve Works:**
 
@@ -993,7 +991,7 @@ xychart-beta
 
 3. **Smooth highs**: The gentle -1 dB high shelf at 12 kHz rolls off the extreme highs for a smoother, less harsh sound. This is characteristic of vintage jazz recordings.
 
-4. **Wide bandwidths (1.0-1.2)**: The curve uses wide bandwidths for smooth, musical transitions. This sounds more natural and organic than surgical EQ.
+4. **Low Q values (1.22-1.41)**: The curve uses low Q for smooth, musical transitions. This sounds more natural and organic than surgical EQ.
 
 5. **Subtle adjustments**: All adjustments are small (±1-2 dB) to maintain the natural character of the music while enhancing warmth.
 
@@ -1002,7 +1000,7 @@ xychart-beta
 **Audio Engineering Principles:**
 - **Warmth emphasis**: Low-mid boost for jazz character
 - **Smooth highs**: Gentle rolloff for vintage sound
-- **Wide bandwidths**: Musical, natural transitions
+- **Low Q values**: Musical, natural transitions
 - **Subtle adjustments**: Enhance without changing character
 
 </details>
@@ -1069,24 +1067,24 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 60 Hz | -10 dB | 1.5 | High Pass | Remove rumble |
-| 2 | 100 Hz | -6 dB | 1.0 | Parametric | Reduce boom |
-| 3 | 180 Hz | -3 dB | 0.9 | Parametric | Reduce mud |
-| 4 | 300 Hz | 0 dB | 1.0 | Parametric | Neutral (body) |
-| 5 | 600 Hz | +1 dB | 1.0 | Parametric | Warmth |
-| 6 | 1000 Hz | +3 dB | 0.8 | Parametric | Presence |
-| 7 | 2000 Hz | +5 dB | 0.7 | Parametric | **Clarity (peak)** |
-| 8 | 4000 Hz | +4 dB | 0.8 | Parametric | Definition |
-| 9 | 6000 Hz | -1 dB | 1.0 | Parametric | Reduce sibilance |
-| 10 | 8000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 11 | 10000 Hz | +1 dB | 1.1 | Parametric | Air |
-| 12 | 14000 Hz | 0 dB | 1.0 | Parametric | Neutral |
+| 1 | 60 Hz | -10 dB | 1.04 | High Pass | Remove rumble |
+| 2 | 100 Hz | -6 dB | 1.41 | Parametric | Reduce boom |
+| 3 | 180 Hz | -3 dB | 1.53 | Parametric | Reduce mud |
+| 4 | 300 Hz | 0 dB | 1.41 | Parametric | Neutral (body) |
+| 5 | 600 Hz | +1 dB | 1.41 | Parametric | Warmth |
+| 6 | 1000 Hz | +3 dB | 1.66 | Parametric | Presence |
+| 7 | 2000 Hz | +5 dB | 1.85 | Parametric | **Clarity (peak)** |
+| 8 | 4000 Hz | +4 dB | 1.66 | Parametric | Definition |
+| 9 | 6000 Hz | -1 dB | 1.41 | Parametric | Reduce sibilance |
+| 10 | 8000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 11 | 10000 Hz | +1 dB | 1.30 | Parametric | Air |
+| 12 | 14000 Hz | 0 dB | 1.41 | Parametric | Neutral |
 
 **Why This Curve Works:**
 
-1. **Aggressive high-pass (60 Hz)**: The -10 dB cut with wide bandwidth (1.5) removes rumble, handling noise, and room tone that can make speech sound muddy and unprofessional.
+1. **Aggressive high-pass (60 Hz)**: The -10 dB cut with low Q (1.04) removes rumble, handling noise, and room tone that can make speech sound muddy and unprofessional.
 
 2. **Low-mid cuts (100-180 Hz)**: These frequencies cause "boom" in male voices. The progressive cuts create a natural high-pass shape.
 
@@ -1094,7 +1092,7 @@ xychart-beta
 
 4. **Sibilance reduction (6 kHz)**: The -1 dB cut reduces harsh "s" and "sh" sounds without making speech sound dull. This is critical for comfortable listening.
 
-5. **Narrow bandwidths (0.7-0.8)**: The presence frequencies use narrow bandwidths for surgical precision.
+5. **High Q values (1.85-1.66)**: The presence frequencies use high Q for surgical precision.
 
 6. **Input gain -5 dB**: Compensation prevents clipping from the +5 dB peak at 2 kHz.
 
@@ -1102,7 +1100,7 @@ xychart-beta
 - **High-pass filtering**: Essential for clean speech
 - **Presence boost**: 2 kHz for vocal clarity
 - **Sibilance control**: Cut at 6 kHz for comfort
-- **Surgical EQ**: Narrow bandwidths for precision
+- **Surgical EQ**: High Q values for precision
 - **Balanced curve**: Cuts and boosts complement each other
 
 </details>
@@ -1169,17 +1167,17 @@ xychart-beta
 
 **Band-by-Band Breakdown:**
 
-| Band | Freq | Gain | BW | Filter | Purpose |
+| Band | Freq | Gain | Q | Filter | Purpose |
 |------|------|------|----|----|---------|
-| 1 | 50 Hz | +1 dB | 1.3 | Low Shelf | Slight warmth |
-| 2 | 125 Hz | +1 dB | 1.1 | Parametric | Body |
-| 3 | 315 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 4 | 800 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 5 | 2000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 6 | 5000 Hz | +1 dB | 1.1 | Parametric | Slight presence |
-| 7 | 8000 Hz | +1 dB | 1.2 | Parametric | Air |
-| 8 | 12000 Hz | 0 dB | 1.0 | Parametric | Neutral |
-| 9 | 16000 Hz | -1 dB | 1.2 | High Shelf | Smooth top |
+| 1 | 50 Hz | +1 dB | 1.16 | Low Shelf | Slight warmth |
+| 2 | 125 Hz | +1 dB | 1.30 | Parametric | Body |
+| 3 | 315 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 4 | 800 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 5 | 2000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 6 | 5000 Hz | +1 dB | 1.30 | Parametric | Slight presence |
+| 7 | 8000 Hz | +1 dB | 1.22 | Parametric | Air |
+| 8 | 12000 Hz | 0 dB | 1.41 | Parametric | Neutral |
+| 9 | 16000 Hz | -1 dB | 1.22 | High Shelf | Smooth top |
 
 **Why This Curve Works:**
 
@@ -1193,7 +1191,7 @@ xychart-beta
 
 5. **Smooth top (16 kHz)**: The -1 dB high shelf rolls off the extreme highs for a smoother, more refined sound. This mimics the natural rolloff of acoustic instruments and concert halls.
 
-6. **Wide bandwidths (1.1-1.3)**: The curve uses wide bandwidths for smooth, natural transitions.
+6. **Low Q values (1.16-1.30)**: The curve uses low Q for smooth, natural transitions.
 
 7. **Input gain -1 dB**: Compensation prevents clipping from the +1 dB gentle boost.
 
@@ -1202,7 +1200,7 @@ xychart-beta
 - **Subtle warmth**: Enhance without colouring
 - **Neutral mids**: Don't alter fundamental frequencies
 - **Smooth highs**: Refined, not bright
-- **Wide bandwidths**: Natural transitions
+- **Low Q values**: Natural transitions
 
 </details>
 
@@ -1267,7 +1265,7 @@ xychart-beta
 
 ## Glossary of Audio Terms
 
-**Bandwidth**: The range of frequencies affected by an EQ band, measured in octaves. Narrow bandwidth (0.7-0.9) = precise, surgical control. Wide bandwidth (1.1-1.5) = smooth, musical sound.
+**Bandwidth**: The range of frequencies affected by an EQ band, measured in octaves. Related to Q factor: high Q (1.8-2.0) = narrow bandwidth = precise, surgical control. Low Q (1.0-1.2) = wide bandwidth = smooth, musical sound.
 
 **Boominess**: Excessive low-mid frequencies (200-400 Hz) that make sound muddy and unclear. Often caused by room acoustics or excessive bass boost.
 
@@ -1293,13 +1291,13 @@ xychart-beta
 
 **Nasal**: A honking, "nose-like" quality caused by excessive frequencies around 800-1500 Hz.
 
-**Octave**: A doubling of frequency. For example, 100 Hz to 200 Hz is one octave. Bandwidth is measured in octaves.
+**Octave**: A doubling of frequency. For example, 100 Hz to 200 Hz is one octave. Bandwidth is measured in octaves and relates inversely to Q.
 
-**Parametric EQ**: The most versatile EQ type, allowing control of frequency, gain, and bandwidth independently.
+**Parametric EQ**: The most versatile EQ type, allowing control of frequency, gain, and Q independently.
 
 **Presence**: The quality that makes sounds "cut through" a mix. Typically associated with frequencies around 2-4 kHz for vocals.
 
-**Q Factor**: Technical measure of bandwidth. Higher Q = narrower bandwidth. Q = centre frequency ÷ bandwidth (in Hz).
+**Q Factor**: The primary measure of EQ band sharpness. Higher Q (1.8-2.0) = narrower, more surgical. Lower Q (1.0-1.2) = wider, more musical. This is the native parameter used by EQ filters, with Q ≈ 1.4 representing a medium bandwidth of ~1 octave.
 
 **Resonance**: A peak in frequency response, often unwanted. Can cause harshness or "ringing" in audio.
 
@@ -1307,7 +1305,7 @@ xychart-beta
 
 **Shelf EQ**: EQ that creates gradual transitions above (high shelf) or below (low shelf) a frequency point. More natural-sounding than parametric for broad adjustments.
 
-**Surgical EQ**: Precise, narrow-bandwidth EQ used to target specific problem frequencies. Opposite of "broad" or "musical" EQ.
+**Surgical EQ**: Precise, high-Q EQ used to target specific problem frequencies. Opposite of "broad" or "musical" EQ.
 
 **Warmth**: A pleasant, full sound associated with boosted low-mids (100-300 Hz). Opposite of "thin" or "bright."
 
@@ -1329,12 +1327,12 @@ xychart-beta
 
 **"The sound is too muddy"**
 - Cut frequencies around 200-400 Hz by 2-4 dB
-- Use narrow bandwidth (0.8-0.9) for surgical control
+- Use high Q (1.6-1.8) for surgical control
 - Consider high-pass filter at 80-100 Hz
 
 **"The sound is too harsh"**
 - Cut frequencies around 4-6 kHz by 2-3 dB
-- Use narrow bandwidth (0.8) to target harshness
+- Use high Q (1.8) to target harshness
 - Check for sibilance at 5-8 kHz
 
 **"Vocals aren't clear enough"**
@@ -1345,7 +1343,7 @@ xychart-beta
 
 **"I want more warmth"**
 - Boost frequencies around 100-300 Hz by 2-3 dB
-- Use wide bandwidth (1.2-1.4) for natural sound
+- Use low Q (1.0-1.2) for natural sound
 - Start with Jazz or Acoustic preset
 
 ### When to Modify vs. Create New

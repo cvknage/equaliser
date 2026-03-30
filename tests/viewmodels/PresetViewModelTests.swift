@@ -61,11 +61,11 @@ final class PresetViewModelTests: XCTestCase {
     
     // MARK: - Bandwidth Display Mode Tests
     
-    func testBandwidthDisplayMode_default_isOctaves() {
+    func testBandwidthDisplayMode_default_isQFactor() {
         let store = EqualiserStore()
         let vm = PresetViewModel(store: store)
-        
-        XCTAssertEqual(vm.bandwidthDisplayMode, .octaves)
+
+        XCTAssertEqual(vm.bandwidthDisplayMode, .qFactor)
     }
     
     func testBandwidthDisplayMode_canBeSet() {

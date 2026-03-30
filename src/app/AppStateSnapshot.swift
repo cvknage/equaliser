@@ -47,7 +47,7 @@ struct AppStateSnapshot: Sendable {
             rightState: .default(),
             inputDeviceID: nil,
             outputDeviceID: nil,
-            bandwidthDisplayMode: BandwidthDisplayMode.octaves.rawValue,
+            bandwidthDisplayMode: BandwidthDisplayMode.qFactor.rawValue,
             manualModeEnabled: false,
             captureMode: CaptureMode.sharedMemory.rawValue,
             metersEnabled: true
@@ -90,7 +90,7 @@ extension AppStateSnapshot: Codable {
         inputDeviceID = try container.decodeIfPresent(String.self, forKey: .inputDeviceID)
         outputDeviceID = try container.decodeIfPresent(String.self, forKey: .outputDeviceID)
         bandwidthDisplayMode = try container.decodeIfPresent(String.self, forKey: .bandwidthDisplayMode)
-            ?? BandwidthDisplayMode.octaves.rawValue
+            ?? BandwidthDisplayMode.qFactor.rawValue
         manualModeEnabled = try container.decodeIfPresent(Bool.self, forKey: .manualModeEnabled) ?? false
         captureMode = try container.decodeIfPresent(Int.self, forKey: .captureMode)
             ?? CaptureMode.sharedMemory.rawValue

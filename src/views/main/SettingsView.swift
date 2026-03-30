@@ -131,18 +131,6 @@ struct DisplaySettingsTab: View {
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Octaves:")
-                            .font(.subheadline)
-                            .fontWeight(.medium)
-                        Text("Bandwidth as musical intervals")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Higher = wider frequency range")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    VStack(alignment: .leading, spacing: 4) {
                         Text("Q Factor:")
                             .font(.subheadline)
                             .fontWeight(.medium)
@@ -150,6 +138,18 @@ struct DisplaySettingsTab: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text("Higher = narrower, more surgical")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Octaves:")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        Text("Bandwidth as musical intervals")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Higher = wider frequency range")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
