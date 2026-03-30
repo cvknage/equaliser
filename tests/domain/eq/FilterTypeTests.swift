@@ -25,9 +25,13 @@ final class FilterTypeTests: XCTestCase {
         XCTAssertNotNil(FilterType(validatedRawValue: 5))
         XCTAssertNotNil(FilterType(validatedRawValue: 6))
 
+        // Legacy resonant types (7-10) are valid - they migrate to non-resonant equivalents
+        XCTAssertNotNil(FilterType(validatedRawValue: 7))
+        XCTAssertNotNil(FilterType(validatedRawValue: 10))
+
         // Invalid values
         XCTAssertNil(FilterType(validatedRawValue: -1))
-        XCTAssertNil(FilterType(validatedRawValue: 7))
+        XCTAssertNil(FilterType(validatedRawValue: 11))
         XCTAssertNil(FilterType(validatedRawValue: 100))
     }
 
