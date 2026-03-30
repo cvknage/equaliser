@@ -162,6 +162,11 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Storage for latest output RMS levels per channel (in dBFS).
     private let outputRmsStorage: UnsafeMutablePointer<Float>
 
+    /// Pre-allocated arrays for audio thread (avoid heap allocation in hot paths).
+    /// Reused in applyGain(to: UnsafeMutablePointer<AudioBufferList>...) and updateOutputMeters.
+    private var gainBuffers: [UnsafeMutablePointer<Float>] = []
+    private var meterChannelPointers: [UnsafePointer<Float>] = []
+
     // MARK: - Driver Capture
 
     /// Sets the driver capture instance for polling.
@@ -228,6 +233,10 @@ final class RenderCallbackContext: @unchecked Sendable {
         outputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
         inputRmsStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
         outputRmsStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
+
+        // Pre-allocate arrays for audio thread hot paths
+        gainBuffers.reserveCapacity(Int(channelCount))
+        meterChannelPointers.reserveCapacity(Int(channelCount))
 
         // Calculate size for AudioBufferList with `channelCount` buffers
         // AudioBufferList has 1 AudioBuffer inline, so we need space for (channelCount - 1) additional
@@ -351,13 +360,15 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// - Returns: Number of frames polled, or 0 if no data available
     @inline(__always)
     func pollAndWriteToRingBuffers() -> UInt32 {
-        guard let capture = driverCapture,
-              let data = capture.poll() else {
+        guard let capture = driverCapture else { return 0 }
+
+        // Use zero-allocation method that writes directly into inputBuffers
+        guard let (frameCount, _, channelCount) = capture.pollIntoBuffers(
+            destBuffers: inputBuffers,
+            maxFrames: UInt32(framesPerBuffer)
+        ) else {
             return 0
         }
-
-        let frameCount = data.frameCount
-        let channelCount = data.channelCount
 
         guard frameCount > 0, channelCount == self.channelCount else {
             return 0
@@ -365,25 +376,17 @@ final class RenderCallbackContext: @unchecked Sendable {
 
         let count = Int(frameCount)
 
-        // Deinterleave samples into inputBuffers
-        for frame in 0..<count {
-            for channel in 0..<Int(channelCount) {
-                let interleavedIndex = frame * Int(channelCount) + channel
-                inputBuffers[channel][frame] = data.samples[interleavedIndex]
-            }
-        }
-
         // Apply input gain before writing to ring buffers (skip in full bypass mode)
         // Note: Boost gain is NOT applied here - in shared memory mode, samples come
         // from the driver at full volume regardless of macOS volume setting
         if processingMode != 0 {
             let targetInputGain = getTargetInputGain()
-            applyGain(
-                to: inputBuffers.map { UnsafeMutablePointer($0) },
-                frameCount: frameCount,
-                currentGain: &inputGainLinear,
-                targetGain: targetInputGain
-            )
+            // Reuse pre-allocated array for gain buffers
+            gainBuffers.removeAll(keepingCapacity: true)
+            for buffer in inputBuffers {
+                gainBuffers.append(buffer)
+            }
+            applyGain(to: gainBuffers, frameCount: frameCount, currentGain: &inputGainLinear, targetGain: targetInputGain)
         }
 
         // Write to ring buffers
@@ -391,9 +394,12 @@ final class RenderCallbackContext: @unchecked Sendable {
             _ = ringBuffer.write(inputBuffers[index], count: count)
         }
 
-        // Update meters
-        let channels = inputBuffers.map { UnsafePointer($0) }
-        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: channels, frameCount: count)
+        // Update meters - reuse pre-allocated array
+        meterChannelPointers.removeAll(keepingCapacity: true)
+        for buffer in inputBuffers {
+            meterChannelPointers.append(UnsafePointer(buffer))
+        }
+        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: meterChannelPointers, frameCount: count)
 
         return frameCount
     }
@@ -494,16 +500,17 @@ final class RenderCallbackContext: @unchecked Sendable {
 
     func updateOutputMeters(from bufferList: UnsafeMutablePointer<AudioBufferList>, frameCount: UInt32) {
         let channels = UnsafeMutableAudioBufferListPointer(bufferList)
-        var channelPointers: [UnsafePointer<Float>] = []
+        // Reuse pre-allocated array to avoid heap allocation on audio thread
+        meterChannelPointers.removeAll(keepingCapacity: true)
         for buffer in channels {
             if let data = buffer.mData?.assumingMemoryBound(to: Float.self) {
-                channelPointers.append(UnsafePointer(data))
+                meterChannelPointers.append(UnsafePointer(data))
             }
         }
-        if channelPointers.isEmpty {
+        if meterChannelPointers.isEmpty {
             return
         }
-        updateMeterStorage(storage: outputMeterStorage, rmsStorage: outputRmsStorage, with: channelPointers, frameCount: Int(frameCount))
+        updateMeterStorage(storage: outputMeterStorage, rmsStorage: outputRmsStorage, with: meterChannelPointers, frameCount: Int(frameCount))
     }
 
     @inline(__always)
@@ -514,18 +521,18 @@ final class RenderCallbackContext: @unchecked Sendable {
         targetGain: Float
     ) {
         let channels = UnsafeMutableAudioBufferListPointer(bufferList)
-        var buffers: [UnsafeMutablePointer<Float>] = []
-        buffers.reserveCapacity(channels.count)
+        // Reuse pre-allocated array to avoid heap allocation on audio thread
+        gainBuffers.removeAll(keepingCapacity: true)
         for buffer in channels {
             if let data = buffer.mData?.assumingMemoryBound(to: Float.self) {
-                buffers.append(data)
+                gainBuffers.append(data)
             }
         }
-        if buffers.isEmpty {
+        if gainBuffers.isEmpty {
             currentGain = targetGain
             return
         }
-        applyGain(to: buffers, frameCount: frameCount, currentGain: &currentGain, targetGain: targetGain)
+        applyGain(to: gainBuffers, frameCount: frameCount, currentGain: &currentGain, targetGain: targetGain)
     }
 
     private func updateMeterStorage(

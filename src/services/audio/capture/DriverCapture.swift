@@ -18,7 +18,7 @@ import OSLog
 ///
 /// - Important: `init()` must be called from MainActor context
 ///   because it accesses `DriverDeviceRegistry` which is `@MainActor`.
-///   The `poll()` method can be called from any thread (including the audio thread).
+///   The `pollIntoBuffers()` method can be called from any thread (including the audio thread).
 final class DriverCapture: @unchecked Sendable {
 
     // MARK: - Properties
@@ -51,7 +51,7 @@ final class DriverCapture: @unchecked Sendable {
     // MARK: - Lifecycle
 
     /// Initializes capture by resolving the device and setting up shared memory.
-    /// Must be called before `poll()`.
+    /// Must be called before `pollIntoBuffers()`.
     /// - Parameter deviceID: The audio device ID for the driver
     /// - Throws: Error if shared memory setup fails
     @MainActor
@@ -126,20 +126,22 @@ final class DriverCapture: @unchecked Sendable {
         return true
     }
 
-    // MARK: - Polling (Audio Thread Safe)
+    // MARK: - Audio Thread Method
 
-    /// Polls the driver and returns audio samples.
-    /// Designed to be called from the audio output callback for perfect synchronization.
-    /// - Returns: Audio buffer data with interleaved samples, or nil if not available
-    /// - Note: This method is real-time safe and can be called from the audio thread.
+    /// Polls the driver and writes deinterleaved samples directly into destination buffers.
+    /// Zero-heap-allocation - avoids intermediate array allocation.
+    /// - Parameters:
+    ///   - destBuffers: Array of destination buffers (one per channel), each with capacity for maxFrames samples
+    ///   - maxFrames: Maximum frames to read
+    /// - Returns: Frame count read, sample rate, and channel count, or nil if not available
+    /// - Note: Real-time safe - no heap allocation.
     @inline(__always)
-    func poll() -> AudioBufferData? {
+    func pollIntoBuffers(
+        destBuffers: [UnsafeMutablePointer<Float>],
+        maxFrames: UInt32
+    ) -> (frameCount: UInt32, sampleRate: Float64, channelCount: UInt32)? {
         guard isInitialized, let capture = sharedMemoryCapture else { return nil }
-
-        if let data = capture.readFrames(), data.frameCount > 0 {
-            return data
-        }
-        return nil
+        return capture.readFramesIntoBuffers(destBuffers: destBuffers, maxFrames: maxFrames)
     }
 
     /// Stops capturing (resets initialization state).

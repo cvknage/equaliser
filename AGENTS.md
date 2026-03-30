@@ -223,13 +223,13 @@ The app supports two capture modes for the Equaliser driver:
 ```
 [Driver] ─→ WriteMix ─→ [Shared Memory Ring Buffer]
                                     ↓ (mmap, lock-free)
-[App Output Callback] ─→ poll() ─→ [DriverCapture] ─→ [Ring Buffer] ─→ [EQ] ─→ [Output]
+[App Output Callback] ─→ pollIntoBuffers() ─→ [DriverCapture] ─→ [Ring Buffer] ─→ [EQ] ─→ [Output]
 ```
 
 **Real-time safety:**
-- `SharedMemoryCapture.readFrames()` uses atomic reads, no locks
+- `SharedMemoryCapture.readFramesIntoBuffers()` uses atomic reads, no locks
 - Called synchronously from output audio thread
-- `DriverCapture.poll()` is `@inline(__always)` for performance
+- `DriverCapture.pollIntoBuffers()` is `@inline(__always)` for performance
 
 ### Custom DSP Implementation
 

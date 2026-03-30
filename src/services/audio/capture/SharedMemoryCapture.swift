@@ -30,17 +30,6 @@ struct SharedMemoryLayout {
     }
 }
 
-// MARK: - Data Types
-
-/// Audio buffer data returned from the driver.
-/// Contains interleaved L/R samples.
-struct AudioBufferData: Sendable {
-    let sampleRate: Float64
-    let frameCount: UInt32
-    let channelCount: UInt32
-    let samples: [Float]  // Interleaved: L0, R0, L1, R1, ...
-}
-
 // MARK: - Error Types
 
 /// Errors for shared memory capture
@@ -226,38 +215,35 @@ final class SharedMemoryCapture: @unchecked Sendable {
         readIndex = 0
     }
 
-    // MARK: - Polling (Audio Thread Safe)
+    // MARK: - Audio Thread Method
 
-    /// Reads available frames from shared memory.
-    /// Designed to be called from the audio output callback.
-    /// - Returns: AudioBufferData with interleaved samples, or nil if not available
-    /// - Note: Real-time safe - no allocations, no system calls, just memory reads
+    /// Reads available frames from shared memory and deinterleaves directly into destination buffers.
+    /// Called from the audio output callback - zero heap allocation.
+    /// - Parameters:
+    ///   - destBuffers: Array of destination buffers (one per channel), each with capacity for frameCount samples
+    ///   - maxFrames: Maximum frames to read (limited by ring buffer availability and destBuffers capacity)
+    /// - Returns: Frame count read, or 0 if no data available. Also returns sampleRate and channelCount.
+    /// - Note: Real-time safe - no system calls, just memory reads
     @inline(__always)
-    func readFrames() -> AudioBufferData? {
+    func readFramesIntoBuffers(
+        destBuffers: [UnsafeMutablePointer<Float>],
+        maxFrames: UInt32
+    ) -> (frameCount: UInt32, sampleRate: Float64, channelCount: UInt32)? {
         guard isConnected, let shmAddr = shmAddr else { return nil }
 
         // Read atomic values from shared memory header
-        // Using volatile reads which are sufficient for single-producer/single-consumer
         let writeIndex = shmAddr.loadAtomicUInt32(offset: SharedMemoryLayout.Header.writeIndexOffset)
         let frameCount = shmAddr.loadAtomicUInt32(offset: SharedMemoryLayout.Header.frameCountOffset)
         let channelCount = shmAddr.loadUInt32(offset: SharedMemoryLayout.Header.channelCountOffset)
         let sampleRate = shmAddr.loadFloat64(offset: SharedMemoryLayout.Header.sampleRateOffset)
 
         // On first poll, sync read position to write position
-        // This prevents stale data from reaching the app
         if firstPoll {
             firstPoll = false
             readIndex = writeIndex
-            // Return empty buffer on first poll
-            return AudioBufferData(
-                sampleRate: sampleRate,
-                frameCount: 0,
-                channelCount: channelCount,
-                samples: []
-            )
+            return (0, sampleRate, channelCount)
         }
 
-        // Check if we have frames
         guard frameCount > 0 else { return nil }
 
         // Calculate available frames in ring buffer
@@ -268,54 +254,58 @@ final class SharedMemoryCapture: @unchecked Sendable {
             availableFrames = SharedMemoryLayout.ringSize &- readIndex &+ writeIndex
         }
 
-        // Limit to what we can read
-        let framesToRead = min(availableFrames, frameCount)
+        // Limit to what we can read and what destBuffers can hold
+        let framesToRead = min(availableFrames, frameCount, maxFrames)
         guard framesToRead > 0 else { return nil }
 
-        // Get pointer to samples array
+        // Verify channel count matches
+        guard channelCount == UInt32(destBuffers.count) else { return nil }
+
+        // Get pointer to samples array in shared memory
         let samplesPtr = shmAddr.advanced(by: SharedMemoryLayout.Header.samplesOffset)
             .assumingMemoryBound(to: Float.self)
 
-        // Copy samples from ring buffer (deinterleaving is done by caller)
-        // We read directly from the ring buffer at readIndex position
-        let sampleCount = Int(framesToRead * channelCount)
-        var samples = [Float](repeating: 0, count: sampleCount)
+        // Deinterleave directly from ring buffer into destination buffers
+        let intChannelCount = Int(channelCount)
+        let intFramesToRead = Int(framesToRead)
 
-        // Handle ring buffer wrap-around
         if readIndex &+ framesToRead <= SharedMemoryLayout.ringSize {
-            // No wrap - single memcpy
+            // No wrap - single sequential read
             let srcPtr = samplesPtr.advanced(by: Int(readIndex * channelCount))
-            samples.withUnsafeMutableBufferPointer { dest in
-                _ = dest.initialize(from: UnsafeBufferPointer(start: srcPtr, count: sampleCount))
+            for frame in 0..<intFramesToRead {
+                for channel in 0..<intChannelCount {
+                    let interleavedIndex = frame * intChannelCount + channel
+                    destBuffers[channel][frame] = srcPtr[interleavedIndex]
+                }
             }
         } else {
-            // Wrap - two copies
+            // Wrap - two sequential reads
             let firstPart = SharedMemoryLayout.ringSize &- readIndex
-            let secondPart = framesToRead &- firstPart
+            let firstPartInt = Int(firstPart)
+            let secondPartInt = Int(framesToRead &- firstPart)
 
-            // First part
+            // First part (from readIndex to end of ring buffer)
             let srcPtr1 = samplesPtr.advanced(by: Int(readIndex * channelCount))
-            samples.withUnsafeMutableBufferPointer { dest in
-                dest.baseAddress?.initialize(from: srcPtr1, count: Int(firstPart * channelCount))
+            for frame in 0..<firstPartInt {
+                for channel in 0..<intChannelCount {
+                    let interleavedIndex = frame * intChannelCount + channel
+                    destBuffers[channel][frame] = srcPtr1[interleavedIndex]
+                }
             }
 
             // Second part (from start of ring buffer)
-            let destOffset = Int(firstPart * channelCount)
-            samples.withUnsafeMutableBufferPointer { dest in
-                dest.baseAddress?.advanced(by: destOffset)
-                    .initialize(from: samplesPtr, count: Int(secondPart * channelCount))
+            for frame in 0..<secondPartInt {
+                for channel in 0..<intChannelCount {
+                    let interleavedIndex = frame * intChannelCount + channel
+                    destBuffers[channel][firstPartInt + frame] = samplesPtr[interleavedIndex]
+                }
             }
         }
 
         // Update read position
         readIndex = (readIndex &+ framesToRead) % SharedMemoryLayout.ringSize
 
-        return AudioBufferData(
-            sampleRate: sampleRate,
-            frameCount: framesToRead,
-            channelCount: channelCount,
-            samples: samples
-        )
+        return (framesToRead, sampleRate, channelCount)
     }
 }
 

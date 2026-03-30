@@ -346,7 +346,7 @@ Uses lock-free shared memory. No TCC permission required.
                                     ▼ (mmap, lock-free)
                            ┌────────────────────┐
                            │ DriverCapture      │
-                           │ poll() from driver │
+                           │ pollIntoBuffers()  │
                            └────────────────────┘
                                     │
                                     ▼
