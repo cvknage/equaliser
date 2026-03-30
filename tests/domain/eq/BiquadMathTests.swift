@@ -214,63 +214,6 @@ final class BiquadMathTests: XCTestCase {
         XCTAssertEqual(coeffs.b1, coeffs.a1, accuracy: tolerance)
     }
 
-    // MARK: - Resonant Filter Tests
-
-    func testResonantLowPass() {
-        // Resonant low-pass uses bandwidth as Q directly
-        let coeffs = BiquadMath.calculateCoefficients(
-            type: .resonantLowPass,
-            sampleRate: sampleRate,
-            frequency: 1000.0,
-            q: 5.0, // High Q for resonance
-            gain: 0.0
-        )
-
-        // High Q should produce coefficients with resonance
-        // The b coefficients should be positive for low-pass
-        XCTAssertGreaterThan(coeffs.b0, 0.0)
-        XCTAssertFalse(coeffs.b0.isNaN)
-        XCTAssertFalse(coeffs.a1.isNaN)
-    }
-
-    func testResonantHighPass() {
-        let coeffs = BiquadMath.calculateCoefficients(
-            type: .resonantHighPass,
-            sampleRate: sampleRate,
-            frequency: 1000.0,
-            q: 5.0,
-            gain: 0.0
-        )
-
-        // Similar structure to high-pass but with resonant Q
-        XCTAssertEqual(coeffs.b0, coeffs.b2, accuracy: tolerance)
-        XCTAssertFalse(coeffs.b0.isNaN)
-        XCTAssertFalse(coeffs.a1.isNaN)
-    }
-
-    func testResonantShelfQ() {
-        // Resonant shelves accept Q parameter
-        let coeffsLowShelf = BiquadMath.calculateCoefficients(
-            type: .resonantLowShelf,
-            sampleRate: sampleRate,
-            frequency: 200.0,
-            q: 2.0, // Q = 2
-            gain: 6.0
-        )
-
-        let coeffsHighShelf = BiquadMath.calculateCoefficients(
-            type: .resonantHighShelf,
-            sampleRate: sampleRate,
-            frequency: 8000.0,
-            q: 2.0,
-            gain: 6.0
-        )
-
-        // Both should have valid coefficients
-        XCTAssertGreaterThan(coeffsLowShelf.b0, 0.0)
-        XCTAssertGreaterThan(coeffsHighShelf.b0, 0.0)
-    }
-
     // MARK: - Edge Cases
 
     func testLowFrequency() {

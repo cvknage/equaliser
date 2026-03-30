@@ -143,14 +143,6 @@ enum EasyEffectsExporter {
             return "Band-pass"
         case .notch:
             return "Notch"
-        case .resonantLowPass:
-            return "Lo-pass"
-        case .resonantHighPass:
-            return "Hi-pass"
-        case .resonantLowShelf:
-            return "Lo-shelf"
-        case .resonantHighShelf:
-            return "Hi-shelf"
         }
     }
 }

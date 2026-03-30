@@ -102,23 +102,19 @@ Each channel has completely independent (per layer):
 
 ## Filter Types
 
-The existing app supports 11 filter types via `AVAudioUnitEQFilterType`. The custom DSP must implement all of them.
+The app supports 7 filter types. All filter types use Q as a user-controlled parameter (industry standard approach).
 
-| AVAudioUnitEQ Type | Custom FilterType | RBJ Cookbook Formula | Notes |
-|---------------------|-------------------|---------------------|-------|
-| `.parametric` | `.parametric` | peakingEQ | Standard bell/peaking |
-| `.lowPass` | `.lowPass` | LPF | 2nd-order Butterworth |
-| `.highPass` | `.highPass` | HPF | 2nd-order Butterworth |
-| `.lowShelf` | `.lowShelf` | lowShelf | Standard shelf |
-| `.highShelf` | `.highShelf` | highShelf | Standard shelf |
-| `.bandPass` | `.bandPass` | BPF (constant 0 dB peak) | Bandwidth-controlled |
-| `.bandStop` | `.notch` | notch | Band reject |
-| `.resonantLowPass` | `.resonantLowPass` | LPF with Q | Q controls resonance peak |
-| `.resonantHighPass` | `.resonantHighPass` | HPF with Q | Q controls resonance peak |
-| `.resonantLowShelf` | `.resonantLowShelf` | lowShelf with Q | Q controls transition shape |
-| `.resonantHighShelf` | `.resonantHighShelf` | highShelf with Q | Q controls transition shape |
+| FilterType | RBJ Cookbook Formula | Notes |
+|------------|---------------------|-------|
+| `.parametric` | peakingEQ | Standard bell/peaking |
+| `.lowPass` | LPF | Q controls resonance at cutoff |
+| `.highPass` | HPF | Q controls resonance at cutoff |
+| `.lowShelf` | lowShelf | Q controls shelf slope |
+| `.highShelf` | highShelf | Q controls shelf slope |
+| `.bandPass` | BPF (constant 0 dB peak) | Bandwidth-controlled |
+| `.notch` | notch | Band reject |
 
-The resonant variants use the same RBJ formulas as their non-resonant counterparts but interpret the bandwidth parameter as Q directly (resonance peak) rather than bandwidth in octaves. The coefficient calculation function handles this distinction internally.
+Q = 0.707 (1/√2) produces Butterworth response (maximally flat). Higher Q values create resonance peaks at the cutoff frequency for LPF/HPF, or steeper shelf transitions for shelf filters.
 
 ---
 
@@ -196,23 +192,13 @@ Pure types with zero dependencies. Can be unit tested immediately.
 /// Custom filter type enum replacing AVAudioUnitEQFilterType.
 /// Lives in domain layer — no framework dependencies.
 enum FilterType: Int, Codable, Sendable, CaseIterable {
-    case parametric = 0       // Peaking EQ (bell)
-    case lowPass = 1          // 2nd-order low pass
-    case highPass = 2         // 2nd-order high pass
-    case lowShelf = 3         // Low shelf
-    case highShelf = 4        // High shelf
-    case bandPass = 5         // Band pass (constant 0 dB peak)
-    case notch = 6            // Band stop / notch
-    case resonantLowPass = 7  // Low pass with resonance
-    case resonantHighPass = 8 // High pass with resonance
-    case resonantLowShelf = 9 // Low shelf with Q control
-    case resonantHighShelf = 10 // High shelf with Q control
-
-    /// Converts from AVAudioUnitEQFilterType for backward compatibility.
-    init(from avType: AVAudioUnitEQFilterType) { ... }
-
-    /// Converts to AVAudioUnitEQFilterType for backward compatibility.
-    var avAudioUnitType: AVAudioUnitEQFilterType { ... }
+    case parametric = 0   // Peaking EQ (bell)
+    case lowPass = 1      // 2nd-order low pass (Q controls resonance)
+    case highPass = 2     // 2nd-order high pass (Q controls resonance)
+    case lowShelf = 3     // Low shelf (Q controls slope)
+    case highShelf = 4    // High shelf (Q controls slope)
+    case bandPass = 5     // Band pass (constant 0 dB peak)
+    case notch = 6        // Band stop / notch
 }
 ```
 
@@ -245,17 +231,16 @@ enum BiquadMath {
         type: FilterType,
         sampleRate: Double,
         frequency: Double,
-        bandwidth: Double,  // Octaves for standard types, Q for resonant types
+        q: Double,           // Q factor for all filter types
         gain: Double         // dB (only used by parametric and shelf types)
     ) -> BiquadCoefficients
 
     // Internal helpers per filter type:
     // - parametric: peakingEQ from RBJ cookbook
-    // - lowPass/highPass: standard 2nd-order Butterworth
-    // - lowShelf/highShelf: shelf formulas
+    // - lowPass/highPass: 2nd-order with Q controlling resonance
+    // - lowShelf/highShelf: shelf formulas with Q controlling slope
     // - bandPass: BPF (constant 0 dB peak gain)
     // - notch: band-reject
-    // - resonant*: same formulas but bandwidth interpreted as Q directly
 }
 ```
 
@@ -1052,14 +1037,13 @@ extension FilterType {
         switch self {
         case .parametric: return "Bell"
         case .lowPass: return "LP"
-        // ... all 11 types
+        // ... all 7 types
         }
     }
 
     static var allCasesInUIOrder: [FilterType] {
         [.parametric, .lowPass, .highPass, .lowShelf, .highShelf,
-         .bandPass, .notch, .resonantLowPass, .resonantHighPass,
-         .resonantLowShelf, .resonantHighShelf]
+         .bandPass, .notch]
     }
 }
 ```

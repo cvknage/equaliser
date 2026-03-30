@@ -76,16 +76,12 @@ Equaliser implements all Cookbook filter types:
 | Filter Type | Cookbook Formula | Use Case |
 |-------------|-----------------|----------|
 | Parametric (Peaking) | `peakingEQ` | Boost/cut at a specific frequency |
-| Low-Pass | `LPF` | Remove high frequencies |
-| High-Pass | `HPF` | Remove low frequencies |
-| Low Shelf | `lowShelf` | Boost/cut bass frequencies |
-| High Shelf | `highShelf` | Boost/cut treble frequencies |
+| Low-Pass | `LPF` | Remove high frequencies (Q controls resonance) |
+| High-Pass | `HPF` | Remove low frequencies (Q controls resonance) |
+| Low Shelf | `lowShelf` | Boost/cut bass frequencies (Q controls slope) |
+| High Shelf | `highShelf` | Boost/cut treble frequencies (Q controls slope) |
 | Band-Pass | `BPF` (constant 0 dB peak) | Isolate a frequency band |
 | Notch | `notch` | Remove a specific frequency |
-| Resonant Low-Pass | `LPF` with Q | Low-pass with resonant peak |
-| Resonant High-Pass | `HPF` with Q | High-pass with resonant peak |
-| Resonant Low Shelf | `lowShelf` with Q | Bass shelf with adjustable slope |
-| Resonant High Shelf | `highShelf` with Q | Treble shelf with adjustable slope |
 
 ---
 

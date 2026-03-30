@@ -5,7 +5,7 @@ final class FilterTypeTests: XCTestCase {
     // MARK: - Raw Value Tests
 
     func testRawValues() {
-        // Raw values must match AVAudioUnitEQFilterType for backward compatibility
+        // Raw values 0-6 for the 7 filter types
         XCTAssertEqual(FilterType.parametric.rawValue, 0)
         XCTAssertEqual(FilterType.lowPass.rawValue, 1)
         XCTAssertEqual(FilterType.highPass.rawValue, 2)
@@ -13,26 +13,30 @@ final class FilterTypeTests: XCTestCase {
         XCTAssertEqual(FilterType.highShelf.rawValue, 4)
         XCTAssertEqual(FilterType.bandPass.rawValue, 5)
         XCTAssertEqual(FilterType.notch.rawValue, 6)
-        XCTAssertEqual(FilterType.resonantLowPass.rawValue, 7)
-        XCTAssertEqual(FilterType.resonantHighPass.rawValue, 8)
-        XCTAssertEqual(FilterType.resonantLowShelf.rawValue, 9)
-        XCTAssertEqual(FilterType.resonantHighShelf.rawValue, 10)
     }
 
     func testAllCasesCount() {
-        XCTAssertEqual(FilterType.allCases.count, 11)
+        XCTAssertEqual(FilterType.allCases.count, 7)
     }
 
     func testValidatedRawValue() {
         // Valid values
         XCTAssertNotNil(FilterType(validatedRawValue: 0))
         XCTAssertNotNil(FilterType(validatedRawValue: 5))
-        XCTAssertNotNil(FilterType(validatedRawValue: 10))
+        XCTAssertNotNil(FilterType(validatedRawValue: 6))
 
         // Invalid values
         XCTAssertNil(FilterType(validatedRawValue: -1))
-        XCTAssertNil(FilterType(validatedRawValue: 11))
+        XCTAssertNil(FilterType(validatedRawValue: 7))
         XCTAssertNil(FilterType(validatedRawValue: 100))
+    }
+
+    func testValidatedRawValue_migratesLegacyResonantTypes() {
+        // Legacy resonant types should migrate to non-resonant equivalents
+        XCTAssertEqual(FilterType(validatedRawValue: 7), .lowPass)   // resonantLowPass → lowPass
+        XCTAssertEqual(FilterType(validatedRawValue: 8), .highPass)  // resonantHighPass → highPass
+        XCTAssertEqual(FilterType(validatedRawValue: 9), .lowShelf)   // resonantLowShelf → lowShelf
+        XCTAssertEqual(FilterType(validatedRawValue: 10), .highShelf) // resonantHighShelf → highShelf
     }
 
     // MARK: - Display Name Tests
@@ -45,10 +49,6 @@ final class FilterTypeTests: XCTestCase {
         XCTAssertEqual(FilterType.highShelf.displayName, "High Shelf")
         XCTAssertEqual(FilterType.bandPass.displayName, "Band Pass")
         XCTAssertEqual(FilterType.notch.displayName, "Notch")
-        XCTAssertEqual(FilterType.resonantLowPass.displayName, "Resonant Low Pass")
-        XCTAssertEqual(FilterType.resonantHighPass.displayName, "Resonant High Pass")
-        XCTAssertEqual(FilterType.resonantLowShelf.displayName, "Resonant Low Shelf")
-        XCTAssertEqual(FilterType.resonantHighShelf.displayName, "Resonant High Shelf")
     }
 
     // MARK: - Abbreviation Tests
@@ -61,16 +61,36 @@ final class FilterTypeTests: XCTestCase {
         XCTAssertEqual(FilterType.highShelf.abbreviation, "HS")
         XCTAssertEqual(FilterType.bandPass.abbreviation, "BP")
         XCTAssertEqual(FilterType.notch.abbreviation, "Notch")
-        XCTAssertEqual(FilterType.resonantLowPass.abbreviation, "RLP")
-        XCTAssertEqual(FilterType.resonantHighPass.abbreviation, "RHP")
-        XCTAssertEqual(FilterType.resonantLowShelf.abbreviation, "RLS")
-        XCTAssertEqual(FilterType.resonantHighShelf.abbreviation, "RHS")
+    }
+
+    // MARK: - Coding Key Migration Tests
+
+    func testFromCodingKey_migratesLegacyAbbreviations() {
+        // Legacy resonant abbreviations should migrate to non-resonant
+        XCTAssertEqual(FilterType(fromCodingKey: "RLP"), .lowPass)
+        XCTAssertEqual(FilterType(fromCodingKey: "RHP"), .highPass)
+        XCTAssertEqual(FilterType(fromCodingKey: "RLS"), .lowShelf)
+        XCTAssertEqual(FilterType(fromCodingKey: "RHS"), .highShelf)
+    }
+
+    func testFromCodingKey_standardAbbreviations() {
+        XCTAssertEqual(FilterType(fromCodingKey: "Bell"), .parametric)
+        XCTAssertEqual(FilterType(fromCodingKey: "LP"), .lowPass)
+        XCTAssertEqual(FilterType(fromCodingKey: "HP"), .highPass)
+        XCTAssertEqual(FilterType(fromCodingKey: "LS"), .lowShelf)
+        XCTAssertEqual(FilterType(fromCodingKey: "HS"), .highShelf)
+        XCTAssertEqual(FilterType(fromCodingKey: "BP"), .bandPass)
+        XCTAssertEqual(FilterType(fromCodingKey: "Notch"), .notch)
+    }
+
+    func testFromCodingKey_unknownKey_defaultsToParametric() {
+        XCTAssertEqual(FilterType(fromCodingKey: "Unknown"), .parametric)
     }
 
     // MARK: - UI Order Tests
 
     func testUIOrderCount() {
-        XCTAssertEqual(FilterType.allCasesInUIOrder.count, 11)
+        XCTAssertEqual(FilterType.allCasesInUIOrder.count, 7)
     }
 
     func testUIOrderContainsAllTypes() {
@@ -94,8 +114,8 @@ final class FilterTypeTests: XCTestCase {
     }
 
     func testDecodeFromRawValue() {
-        // Test that decoding from raw value integers works
-        for rawValue in 0...10 {
+        // Test that decoding from raw value integers works for valid values
+        for rawValue in 0...6 {
             // Encode as JSON number and decode
             let data = try! JSONEncoder().encode(rawValue)
             let decoded = try? JSONDecoder().decode(FilterType.self, from: data)

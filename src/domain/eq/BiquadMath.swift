@@ -77,32 +77,6 @@ enum BiquadMath {
                 frequency: frequency,
                 q: q
             )
-        case .resonantLowPass:
-            return lowPass(
-                sampleRate: sampleRate,
-                frequency: frequency,
-                q: q
-            )
-        case .resonantHighPass:
-            return highPass(
-                sampleRate: sampleRate,
-                frequency: frequency,
-                q: q
-            )
-        case .resonantLowShelf:
-            return lowShelf(
-                sampleRate: sampleRate,
-                frequency: frequency,
-                gain: gain,
-                q: q
-            )
-        case .resonantHighShelf:
-            return highShelf(
-                sampleRate: sampleRate,
-                frequency: frequency,
-                gain: gain,
-                q: q
-            )
         }
     }
 
@@ -205,7 +179,7 @@ enum BiquadMath {
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Shelf frequency in Hz
     ///   - gain: Gain in dB (positive = boost, negative = cut)
-    ///   - q: Q factor for shelf slope (default 0.707 for Butterworth/maximally-flat shelf)
+    ///   - q: Q factor for shelf slope
     ///
     /// Coefficients follow the RBJ Audio EQ Cookbook lowShelf formula using
     /// `alpha = sin(w0)/(2*Q)`, so `2*sqrt(A)*alpha = sqrt(A)*sin(w0)/Q`.
@@ -213,7 +187,7 @@ enum BiquadMath {
         sampleRate: Double,
         frequency: Double,
         gain: Double,
-        q: Double = 0.707
+        q: Double
     ) -> BiquadCoefficients {
         let A = pow(10.0, gain / 40.0) // Gain as amplitude ratio (squared)
         let omega = 2.0 * .pi * frequency / sampleRate
@@ -242,7 +216,7 @@ enum BiquadMath {
     ///   - sampleRate: Sample rate in Hz
     ///   - frequency: Shelf frequency in Hz
     ///   - gain: Gain in dB (positive = boost, negative = cut)
-    ///   - q: Q factor for shelf slope (default 0.707 for Butterworth/maximally-flat shelf)
+    ///   - q: Q factor for shelf slope
     ///
     /// Coefficients follow the RBJ Audio EQ Cookbook highShelf formula using
     /// `alpha = sin(w0)/(2*Q)`, so `2*sqrt(A)*alpha = sqrt(A)*sin(w0)/Q`.
@@ -250,7 +224,7 @@ enum BiquadMath {
         sampleRate: Double,
         frequency: Double,
         gain: Double,
-        q: Double = 0.707
+        q: Double
     ) -> BiquadCoefficients {
         let A = pow(10.0, gain / 40.0) // Gain as amplitude ratio (squared)
         let omega = 2.0 * .pi * frequency / sampleRate

@@ -1,24 +1,31 @@
 /// Custom filter type enum replacing AVAudioUnitEQFilterType.
 /// Lives in domain layer — no framework dependencies.
-/// Raw values 0-10 match AVAudioUnitEQFilterType raw values for backward compatibility.
+/// Raw values 0-6 cover all filter types. Q/resonance is controlled via parameter.
 enum FilterType: Int, Codable, Sendable, CaseIterable {
-    case parametric = 0       // Peaking EQ (bell)
-    case lowPass = 1          // 2nd-order low pass
-    case highPass = 2         // 2nd-order high pass
-    case lowShelf = 3         // Low shelf
-    case highShelf = 4        // High shelf
-    case bandPass = 5         // Band pass (constant 0 dB peak gain)
-    case notch = 6            // Band stop / notch
-    case resonantLowPass = 7  // Low pass with resonance
-    case resonantHighPass = 8 // High pass with resonance
-    case resonantLowShelf = 9 // Low shelf with Q control
-    case resonantHighShelf = 10 // High shelf with Q control
+    case parametric = 0   // Peaking EQ (bell)
+    case lowPass = 1      // 2nd-order low pass (Q controls resonance)
+    case highPass = 2     // 2nd-order high pass (Q controls resonance)
+    case lowShelf = 3     // Low shelf (Q controls slope)
+    case highShelf = 4    // High shelf (Q controls slope)
+    case bandPass = 5     // Band pass (constant 0 dB peak gain)
+    case notch = 6       // Band stop / notch
 
-    /// Creates a FilterType from an AVAudioUnitEQFilterType raw value.
+    /// Creates a FilterType from a raw value.
     /// Returns nil if the raw value is outside the valid range.
+    /// Migrates legacy resonant types (7-10) to their non-resonant equivalents.
     init?(validatedRawValue rawValue: Int) {
-        guard (0...10).contains(rawValue) else { return nil }
-        self.init(rawValue: rawValue)
+        // Migrate legacy resonant filter types
+        let migratedValue: Int
+        switch rawValue {
+        case 7: migratedValue = 1  // resonantLowPass → lowPass
+        case 8: migratedValue = 2  // resonantHighPass → highPass
+        case 9: migratedValue = 3  // resonantLowShelf → lowShelf
+        case 10: migratedValue = 4 // resonantHighShelf → highShelf
+        default: migratedValue = rawValue
+        }
+
+        guard (0...6).contains(migratedValue) else { return nil }
+        self.init(rawValue: migratedValue)
     }
 }
 
@@ -42,14 +49,6 @@ extension FilterType {
             return "Band Pass"
         case .notch:
             return "Notch"
-        case .resonantLowPass:
-            return "Resonant Low Pass"
-        case .resonantHighPass:
-            return "Resonant High Pass"
-        case .resonantLowShelf:
-            return "Resonant Low Shelf"
-        case .resonantHighShelf:
-            return "Resonant High Shelf"
         }
     }
 
@@ -70,24 +69,12 @@ extension FilterType {
             return "BP"
         case .notch:
             return "Notch"
-        case .resonantLowPass:
-            return "RLP"
-        case .resonantHighPass:
-            return "RHP"
-        case .resonantLowShelf:
-            return "RLS"
-        case .resonantHighShelf:
-            return "RHS"
         }
     }
 
     /// All filter types in UI display order.
     static var allCasesInUIOrder: [FilterType] {
-        [
-            .parametric, .lowPass, .highPass, .lowShelf, .highShelf,
-            .bandPass, .notch, .resonantLowPass, .resonantHighPass,
-            .resonantLowShelf, .resonantHighShelf
-        ]
+        [.parametric, .lowPass, .highPass, .lowShelf, .highShelf, .bandPass, .notch]
     }
 }
 
@@ -96,6 +83,7 @@ extension FilterType {
 extension FilterType {
     /// Creates FilterType from a coding key string (abbreviation).
     /// Returns .parametric for unknown strings.
+    /// Migrates legacy resonant abbreviations to non-resonant equivalents.
     init(fromCodingKey key: String) {
         switch key {
         case "Bell": self = .parametric
@@ -105,10 +93,11 @@ extension FilterType {
         case "HS": self = .highShelf
         case "BP": self = .bandPass
         case "Notch": self = .notch
-        case "RLP": self = .resonantLowPass
-        case "RHP": self = .resonantHighPass
-        case "RLS": self = .resonantLowShelf
-        case "RHS": self = .resonantHighShelf
+        // Legacy resonant abbreviations (migrated to non-resonant)
+        case "RLP": self = .lowPass
+        case "RHP": self = .highPass
+        case "RLS": self = .lowShelf
+        case "RHS": self = .highShelf
         default: self = .parametric
         }
     }

@@ -31,14 +31,10 @@ final class PresetCodableTests: XCTestCase {
             .parametric,
             .lowPass,
             .highPass,
-            .resonantLowPass,
-            .resonantHighPass,
-            .bandPass,
-            .notch,
             .lowShelf,
             .highShelf,
-            .resonantLowShelf,
-            .resonantHighShelf
+            .bandPass,
+            .notch
         ]
 
         for filterType in filterTypes {
