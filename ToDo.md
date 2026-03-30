@@ -74,7 +74,6 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] Add gain/frequency readouts for each band.
 - [x] Add "Flatten" button to reset all bands to 0 dB.
 - [x] Double-tap on any band slider to reset it to 0 dB.
-- [ ] Add fine-adjust increment buttons and keyboard nudging for focused bands (optional).
 - [x] Display real-time level meters or band activity indicators (optional stretch goal).
 
 ## 8. Presets & Profiles (Completed)
@@ -140,7 +139,7 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [ ] Document AirPlay limitations and latency considerations for users
 
 ## 17. Custom DSP Implementation (Completed)
-- [x] Create `FilterType` enum with 11 filter types matching AVAudioUnitEQFilterType raw values
+- [x] Create `FilterType` enum with 7 industry-standard filter types (parametric, low/high pass, low/high shelf, band pass, notch)
 - [x] Implement `BiquadMath` with RBJ Cookbook coefficient calculation (pure functions)
 - [x] Create `BiquadCoefficients` value type (Equatable, Sendable)
 - [x] Implement `BiquadFilter` using vDSP biquad with pre-allocated delay elements
@@ -162,3 +161,18 @@ A sequential plan so we can ship the menu-bar equalizer step by step.
 - [x] `EQChannelTarget` routes coefficient updates to correct chain(s)
 - [x] Per-channel band storage in preset model (`rightBands` optional field)
 - [x] Backward-compatible preset decoding for legacy presets without channel mode
+
+## 19. REW Filter Import (Completed)
+- [x] Create `REWImporter` enum-based parser for Room EQ Wizard filter files
+- [x] Support all REW filter type codes (PK, LS, HS, LP, HP, BP, NOTCH variants)
+- [x] Handle Q and BW/60 bandwidth formats with proper conversion
+- [x] Parse ON/OFF filter states (OFF maps to bypassed bands)
+- [x] Integrate with Presets menu (Import REW Preset...)
+- [x] Apply imported bands to current channel focus in stereo mode
+- [x] Add user documentation (docs/user/REW-Import.md)
+
+## 20. Keyboard Navigation (Completed)
+- [x] Global shortcuts: Cmd+B (toggle bypass), Cmd+S (save preset)
+- [x] Band-to-band navigation: Tab/Shift+Tab moves between adjacent bands
+- [x] Value adjustment: Arrow keys increment/decrement focused value
+- [x] Popover field navigation: Enter moves through gain → frequency → bandwidth
