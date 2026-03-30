@@ -232,6 +232,248 @@ struct SavePresetSheet: View {
     }
 }
 
+// MARK: - REW Import Sheet
+
+/// Unified sheet for importing REW presets with support for linked or stereo mode.
+/// Uses a segmented control to switch between modes.
+struct REWImportSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: EqualiserStore
+
+    @State private var importMode: ImportMode = .linked
+    @State private var linkedFileURL: URL?
+    @State private var leftFileURL: URL?
+    @State private var rightFileURL: URL?
+    @State private var presetName: String = ""
+    @State private var errorMessage: String?
+    @State private var importWarnings: [String] = []
+    @State private var showingImportWarnings = false
+    @FocusState private var nameFieldFocused: Bool
+
+    enum ImportMode: String, CaseIterable {
+        case linked = "Linked"
+        case stereo = "Stereo"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Import REW Preset")
+                .font(.headline)
+
+            // Container with background for segmented control + descriptions
+            VStack(alignment: .leading, spacing: 12) {
+                // Centered segmented control
+                HStack {
+                    Spacer()
+                    Picker("", selection: $importMode) {
+                        ForEach(ImportMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    Spacer()
+                }
+                .onChange(of: importMode) { _, _ in
+                    linkedFileURL = nil
+                    leftFileURL = nil
+                    rightFileURL = nil
+                }
+
+                // Linked mode description
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Linked mode:")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("Same EQ settings applied to both channels")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Stereo mode description
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Stereo mode:")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                    Text("Separate EQ settings for left and right channels")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.gray.opacity(0.1))
+            )
+
+            if importMode == .linked {
+                // Linked mode: single file picker
+                fileRow(
+                    label: "File:",
+                    fileURL: $linkedFileURL,
+                    placeholder: "Select File..."
+                )
+            } else {
+                // Stereo mode: two file pickers
+                fileRow(
+                    label: "Left:",
+                    fileURL: $leftFileURL,
+                    placeholder: "Select File..."
+                )
+                fileRow(
+                    label: "Right:",
+                    fileURL: $rightFileURL,
+                    placeholder: "Select File..."
+                )
+            }
+
+            // Preset name input
+            HStack {
+                Text("Preset Name:")
+                    .frame(width: 80, alignment: .leading)
+                TextField("Enter preset name", text: $presetName)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($nameFieldFocused)
+            }
+
+            // Error message
+            if let error = errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.escape, modifiers: [])
+
+                Button("Create Preset") {
+                    createPreset()
+                }
+                .keyboardShortcut(.return, modifiers: [])
+                .buttonStyle(.borderedProminent)
+                .disabled(!canCreatePreset)
+            }
+        }
+        .padding([.top, .bottom], 20)
+        .padding([.leading, .trailing], 40)
+        .frame(width: 450)
+        .onAppear {
+            nameFieldFocused = true
+        }
+        .alert("Import Warnings", isPresented: $showingImportWarnings) {
+            Button("OK") {
+                dismiss()
+            }
+        } message: {
+            Text(importWarnings.joined(separator: "\n"))
+        }
+    }
+
+    private var canCreatePreset: Bool {
+        let nameValid = !presetName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if importMode == .linked {
+            return nameValid && linkedFileURL != nil
+        } else {
+            return nameValid && leftFileURL != nil && rightFileURL != nil
+        }
+    }
+
+    @ViewBuilder
+    private func fileRow(label: String, fileURL: Binding<URL?>, placeholder: String) -> some View {
+        HStack {
+            Text(label)
+                .frame(width: 80, alignment: .leading)
+            Button(fileURL.wrappedValue?.lastPathComponent ?? placeholder) {
+                selectFile { url in
+                    fileURL.wrappedValue = url
+                    // Auto-fill preset name from first file selected
+                    if presetName.isEmpty {
+                        presetName = url.deletingPathExtension().lastPathComponent
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            if fileURL.wrappedValue != nil {
+                Button(action: { fileURL.wrappedValue = nil }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func selectFile(completion: @escaping (URL) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "txt")!]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Select a REW filter settings file"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            completion(url)
+        }
+    }
+
+    private func createPreset() {
+        let trimmedName = presetName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            errorMessage = "Please enter a preset name"
+            return
+        }
+
+        do {
+            let settings: PresetSettings
+
+            if importMode == .linked {
+                guard let fileURL = linkedFileURL else { return }
+                let result = try REWImporter.importBands(from: fileURL)
+
+                settings = PresetSettings(
+                    leftBands: result.bands,
+                    rightBands: result.bands
+                )
+
+                if !result.warnings.isEmpty {
+                    importWarnings = result.warnings
+                }
+            } else {
+                guard let leftURL = leftFileURL, let rightURL = rightFileURL else { return }
+                let leftResult = try REWImporter.importBands(from: leftURL)
+                let rightResult = try REWImporter.importBands(from: rightURL)
+
+                settings = PresetSettings(
+                    channelMode: "stereo",
+                    leftBands: leftResult.bands,
+                    rightBands: rightResult.bands
+                )
+
+                importWarnings = leftResult.warnings + rightResult.warnings
+            }
+
+            let preset = Preset(
+                metadata: PresetMetadata(name: trimmedName),
+                settings: settings
+            )
+
+            try store.presetManager.savePreset(preset)
+            store.loadPreset(preset)
+
+            if !importWarnings.isEmpty {
+                showingImportWarnings = true
+            } else {
+                dismiss()
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
 // MARK: - Preset Toolbar
 
 /// A toolbar with preset controls for the main EQ window.
@@ -241,6 +483,7 @@ struct PresetToolbar: View {
     @State private var showingDeleteConfirmation = false
     @State private var showingImportWarning = false
     @State private var showingEasyEffectsImportWarning = false
+    @State private var showingREWImport = false
     @State private var importWarnings: [String] = []
     @State private var presetToRename: PresetRenameItem?
 
@@ -305,6 +548,8 @@ struct PresetToolbar: View {
                     Button("Import REW Preset...") {
                         importREWPreset()
                     }
+
+                    Divider()
 
                     Button("Import EasyEffects Preset...") {
                         showingEasyEffectsImportWarning = true
@@ -392,6 +637,9 @@ struct PresetToolbar: View {
             .padding()
             .frame(width: 500)
         }
+        .sheet(isPresented: $showingREWImport) {
+            REWImportSheet()
+        }
     }
 
     // MARK: - Import/Export
@@ -465,59 +713,7 @@ struct PresetToolbar: View {
     }
 
     private func importREWPreset() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.init(filenameExtension: "txt")!]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.message = "Select a REW filter settings file (.txt)"
-
-        if panel.runModal() == .OK, let url = panel.url {
-            do {
-                let result = try REWImporter.importBands(from: url)
-
-                if store.channelMode == .linked {
-                    // Linked mode: Create preset with same bands for both channels
-                    let presetName = url.deletingPathExtension().lastPathComponent
-                    let settings = PresetSettings(
-                        leftBands: result.bands,
-                        rightBands: result.bands
-                    )
-                    let preset = Preset(
-                        metadata: PresetMetadata(name: presetName),
-                        settings: settings
-                    )
-
-                    try store.presetManager.savePreset(preset)
-                    store.loadPreset(preset)
-                } else {
-                    // Stereo mode: Apply to currently focused channel only
-                    let bandCount = result.bands.count
-                    store.eqConfiguration.setActiveBandCount(bandCount, channel: store.channelFocus)
-
-                    let channel: EQChannelTarget = store.channelFocus == .left ? .left : .right
-                    for (index, band) in result.bands.enumerated() {
-                        store.eqConfiguration.updateBandFrequency(index: index, frequency: band.frequency, channel: channel)
-                        store.eqConfiguration.updateBandQ(index: index, q: band.q, channel: channel)
-                        store.eqConfiguration.updateBandGain(index: index, gain: band.gain, channel: channel)
-                        store.eqConfiguration.updateBandFilterType(index: index, filterType: band.filterType, channel: channel)
-                        store.eqConfiguration.updateBandBypass(index: index, bypass: band.bypass, channel: channel)
-                    }
-
-                    store.presetManager.markAsModified()
-                }
-
-                if !result.warnings.isEmpty {
-                    importWarnings = result.warnings
-                    showingImportWarning = true
-                }
-            } catch {
-                let alert = NSAlert()
-                alert.messageText = "Import Failed"
-                alert.informativeText = error.localizedDescription
-                alert.alertStyle = .warning
-                alert.runModal()
-            }
-        }
+        showingREWImport = true
     }
 
     private func exportEasyEffectsPreset(_ preset: Preset) {

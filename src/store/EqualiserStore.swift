@@ -616,6 +616,9 @@ final class EqualiserStore: ObservableObject {
         inputGain = preset.settings.inputGain
         outputGain = preset.settings.outputGain
 
+        // Reapply to audio engine if active
+        routingCoordinator.reapplyConfiguration()
+
         // Mark as selected (not modified since we just loaded it)
         presetManager.selectPreset(named: preset.metadata.name)
     }
