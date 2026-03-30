@@ -14,6 +14,7 @@ struct EQBandSliderView: View {
     var startEditing: Bool = false
 
     @State private var isShowingDetail = false
+    @State private var dragStartGain: Float? = nil
 
     var body: some View {
         VStack(spacing: 8) {
@@ -120,20 +121,27 @@ struct EQBandSliderView: View {
                     .shadow(radius: 1)
                     .frame(width: 16, height: 16)
                     .offset(y: thumbOffset)
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                if dragStartGain == nil {
+                                    dragStartGain = gain
+                                }
+                                let translation = value.translation.height
+                                let gainRange = AudioConstants.maxGain - AudioConstants.minGain
+                                let gainDelta = Float(-translation / height * CGFloat(gainRange))
+                                let newGain = (dragStartGain ?? 0) + gainDelta
+                                gain = AudioConstants.clampGain(newGain)
+                            }
+                            .onEnded { _ in
+                                dragStartGain = nil
+                            }
+                    )
+                    .onTapGesture(count: 2) {
+                        gain = 0
+                    }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let fraction = 1 - (value.location.y / geo.size.height)
-                        let clamped = min(max(fraction, 0), 1)
-                        gain = Float(clamped) * (AudioConstants.maxGain - AudioConstants.minGain) + AudioConstants.minGain
-                    }
-            )
-            .onTapGesture(count: 2) {
-                gain = 0
-            }
         }
     }
 
