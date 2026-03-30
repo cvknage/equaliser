@@ -302,6 +302,10 @@ struct PresetToolbar: View {
 
                     Divider()
 
+                    Button("Import REW Preset...") {
+                        importREWPreset()
+                    }
+
                     Button("Import EasyEffects Preset...") {
                         showingEasyEffectsImportWarning = true
                     }
@@ -445,6 +449,62 @@ struct PresetToolbar: View {
                 let result = try EasyEffectsImporter.importPreset(from: url)
                 try store.presetManager.savePreset(result.preset)
                 store.loadPreset(result.preset)
+
+                if !result.warnings.isEmpty {
+                    importWarnings = result.warnings
+                    showingImportWarning = true
+                }
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "Import Failed"
+                alert.informativeText = error.localizedDescription
+                alert.alertStyle = .warning
+                alert.runModal()
+            }
+        }
+    }
+
+    private func importREWPreset() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.init(filenameExtension: "txt")!]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Select a REW filter settings file (.txt)"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            do {
+                let result = try REWImporter.importBands(from: url)
+
+                if store.channelMode == .linked {
+                    // Linked mode: Create preset with same bands for both channels
+                    let presetName = url.deletingPathExtension().lastPathComponent
+                    let settings = PresetSettings(
+                        leftBands: result.bands,
+                        rightBands: result.bands
+                    )
+                    let preset = Preset(
+                        metadata: PresetMetadata(name: presetName),
+                        settings: settings
+                    )
+
+                    try store.presetManager.savePreset(preset)
+                    store.loadPreset(preset)
+                } else {
+                    // Stereo mode: Apply to currently focused channel only
+                    let bandCount = result.bands.count
+                    store.eqConfiguration.setActiveBandCount(bandCount, channel: store.channelFocus)
+
+                    let channel: EQChannelTarget = store.channelFocus == .left ? .left : .right
+                    for (index, band) in result.bands.enumerated() {
+                        store.eqConfiguration.updateBandFrequency(index: index, frequency: band.frequency, channel: channel)
+                        store.eqConfiguration.updateBandQ(index: index, q: band.q, channel: channel)
+                        store.eqConfiguration.updateBandGain(index: index, gain: band.gain, channel: channel)
+                        store.eqConfiguration.updateBandFilterType(index: index, filterType: band.filterType, channel: channel)
+                        store.eqConfiguration.updateBandBypass(index: index, bypass: band.bypass, channel: channel)
+                    }
+
+                    store.presetManager.markAsModified()
+                }
 
                 if !result.warnings.isEmpty {
                     importWarnings = result.warnings

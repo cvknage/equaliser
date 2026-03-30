@@ -294,6 +294,7 @@ Custom presets are saved to:
 - **Export**: Share presets as `.eqpreset` files
 - **Import**: Load presets from `.eqpreset` files
 - **EasyEffects**: Import presets from Linux EasyEffects (compatible format)
+- **REW**: Import filter settings from Room EQ Wizard
 
 ---
 
