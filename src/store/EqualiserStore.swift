@@ -28,9 +28,11 @@ final class EqualiserStore: ObservableObject {
         }
     }
     
-    /// Band count - delegates to eqConfiguration.activeBandCount.
+    /// Band count - delegates to eqConfiguration.focusedChannelBandCount.
+    /// In linked mode, returns the band count for both channels.
+    /// In stereo mode, returns the band count for the currently focused channel.
     var bandCount: Int {
-        get { eqConfiguration.activeBandCount }
+        get { eqConfiguration.focusedChannelBandCount }
         set {
             eqConfiguration.setActiveBandCount(newValue)
 
@@ -193,8 +195,8 @@ final class EqualiserStore: ObservableObject {
 
     /// Which channel is being edited in stereo mode.
     var channelFocus: ChannelFocus {
-        get { eqConfiguration.editingChannel }
-        set { eqConfiguration.editingChannel = newValue }
+        get { eqConfiguration.channelFocus }
+        set { eqConfiguration.channelFocus = newValue }
     }
 
     // MARK: - Components
@@ -227,7 +229,7 @@ final class EqualiserStore: ObservableObject {
             inputGain: eqConfiguration.inputGain,
             outputGain: eqConfiguration.outputGain,
             channelMode: eqConfiguration.channelMode,
-            channelFocus: eqConfiguration.editingChannel,
+            channelFocus: eqConfiguration.channelFocus,
             leftState: eqConfiguration.leftState,
             rightState: eqConfiguration.rightState,
             inputDeviceID: manualModeEnabled ? routingCoordinator.selectedInputDeviceID : nil,
@@ -615,7 +617,6 @@ final class EqualiserStore: ObservableObject {
         inputGain = preset.settings.inputGain
         outputGain = preset.settings.outputGain
         isBypassed = preset.settings.globalBypass
-        bandCount = preset.settings.activeBandCount  // Uses smart setter
 
         // Mark as selected (not modified since we just loaded it)
         presetManager.selectPreset(named: preset.metadata.name)

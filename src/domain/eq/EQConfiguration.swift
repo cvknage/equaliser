@@ -92,10 +92,6 @@ final class EQConfiguration: ObservableObject {
     /// Default Q factor for EQ bands (~1 octave bandwidth, industry standard).
     nonisolated static let defaultQ: Float = 1.41
 
-    // MARK: - Private Properties
-
-    private static let logger = Logger(subsystem: "net.knage.equaliser", category: "EQConfiguration")
-
     // MARK: - Published Properties
 
     /// Global bypass for all EQ bands.
@@ -114,10 +110,26 @@ final class EQConfiguration: ObservableObject {
 
     /// Which channel is currently being edited in stereo mode.
     /// In linked mode, this is ignored.
-    @Published var editingChannel: ChannelFocus = .left
+    @Published var channelFocus: ChannelFocus = .left
 
     /// Current number of active bands exposed to the UI and audio engine.
+    /// In linked mode, this is the band count for both channels.
+    /// In stereo mode, this is the max of left and right band counts.
     @Published private(set) var activeBandCount: Int
+
+    /// Band count for the currently focused channel.
+    /// In linked mode, returns activeBandCount.
+    /// In stereo mode, returns the band count of the focused channel.
+    var focusedChannelBandCount: Int {
+        switch channelMode {
+        case .linked:
+            return activeBandCount
+        case .stereo:
+            return channelFocus == .left
+                ? leftState.userEQ.activeBandCount
+                : rightState.userEQ.activeBandCount
+        }
+    }
 
     /// Per-channel EQ state.
     /// Left channel state is used for linked mode.
@@ -133,7 +145,7 @@ final class EQConfiguration: ObservableObject {
         case .linked:
             return leftState.userEQ.bands
         case .stereo:
-            return editingChannel == .left
+            return channelFocus == .left
                 ? leftState.userEQ.bands
                 : rightState.userEQ.bands
         }
@@ -156,7 +168,7 @@ final class EQConfiguration: ObservableObject {
         inputGain = snapshot.inputGain
         outputGain = snapshot.outputGain
         channelMode = snapshot.channelMode
-        editingChannel = snapshot.channelFocus
+        channelFocus = snapshot.channelFocus
 
         // Restore channel states directly (migration handled in AppStateSnapshot.decode)
         leftState = snapshot.leftState
@@ -169,6 +181,7 @@ final class EQConfiguration: ObservableObject {
     // MARK: - Band Count Management
 
     /// Sets the number of active bands, clamping to the supported range.
+    /// In linked mode, sets both channels. In stereo mode, sets only the channel being edited.
     /// - Parameters:
     ///   - newValue: The desired number of bands.
     ///   - preserveConfiguredBands: If true and bands have been modified (non-zero gains),
@@ -177,58 +190,164 @@ final class EQConfiguration: ObservableObject {
     @discardableResult
     func setActiveBandCount(_ newValue: Int, preserveConfiguredBands: Bool = true) -> Int {
         let clamped = EQConfiguration.clampBandCount(newValue)
-        guard clamped != activeBandCount else { return clamped }
 
-        let oldCount = activeBandCount
+        switch channelMode {
+        case .linked:
+            // Linked mode: set both channels
+            let oldCount = activeBandCount
+            guard clamped != oldCount else { return clamped }
 
-        if preserveConfiguredBands && hasModifiedBands(upTo: min(oldCount, clamped)) {
-            // Bands have been configured - add/remove from right only
-            if clamped > oldCount {
-                // Adding bands: extend frequencies to the right
-                let lastFreq = bands[oldCount - 1].frequency
-                let maxFreq: Float = 26000
-                let newBandCount = clamped - oldCount
-                let ratio = pow(maxFreq / lastFreq, 1 / Float(newBandCount + 1))
+            if preserveConfiguredBands && hasModifiedBands(upTo: min(oldCount, clamped)) {
+                // Bands have been configured - add/remove from right only
+                if clamped > oldCount {
+                    // Adding bands: extend frequencies to the right
+                    let lastFreq = bands[oldCount - 1].frequency
+                    let maxFreq: Float = 26000
+                    let newBandCount = clamped - oldCount
+                    let ratio = pow(maxFreq / lastFreq, 1 / Float(newBandCount + 1))
 
-                // Update both channels
-                for i in oldCount..<clamped {
-                    let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
-                    leftState.userEQ.bands[i] = EQBandConfiguration.parametric(
-                        frequency: freq,
+                    // Update both channels
+                    for i in oldCount..<clamped {
+                        let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
+                        leftState.userEQ.bands[i] = EQBandConfiguration.parametric(
+                            frequency: freq,
+                            q: EQConfiguration.defaultQ
+                        )
+                        rightState.userEQ.bands[i] = EQBandConfiguration.parametric(
+                            frequency: freq,
+                            q: EQConfiguration.defaultQ
+                        )
+                    }
+                }
+                // Removing bands: just decrease count, existing bands preserved
+            } else {
+                // No modifications - respread all bands across full spectrum
+                let frequencies = EQConfiguration.frequenciesForBandCount(clamped)
+                for (index, frequency) in frequencies.enumerated() {
+                    let band = EQBandConfiguration.parametric(
+                        frequency: frequency,
                         q: EQConfiguration.defaultQ
                     )
-                    rightState.userEQ.bands[i] = EQBandConfiguration.parametric(
-                        frequency: freq,
-                        q: EQConfiguration.defaultQ
-                    )
+                    leftState.userEQ.bands[index] = band
+                    rightState.userEQ.bands[index] = band
                 }
             }
-            // Removing bands: just decrease count, existing bands preserved
-        } else {
-            // No modifications - respread all bands across full spectrum
-            let frequencies = EQConfiguration.frequenciesForBandCount(clamped)
-            for (index, frequency) in frequencies.enumerated() {
-                let band = EQBandConfiguration.parametric(
-                    frequency: frequency,
-                    q: EQConfiguration.defaultQ
-                )
-                leftState.userEQ.bands[index] = band
-                rightState.userEQ.bands[index] = band
+
+            // Update active band count in both channels
+            leftState.userEQ.activeBandCount = clamped
+            rightState.userEQ.activeBandCount = clamped
+            activeBandCount = clamped
+
+        case .stereo:
+            // Stereo mode: set only the channel being edited
+            if channelFocus == .left {
+                let oldCount = leftState.userEQ.activeBandCount
+                guard clamped != oldCount else { return clamped }
+
+                if preserveConfiguredBands && hasModifiedBands(upTo: min(oldCount, clamped), channel: .left) {
+                    if clamped > oldCount {
+                        let lastFreq = leftState.userEQ.bands[oldCount - 1].frequency
+                        let maxFreq: Float = 26000
+                        let newBandCount = clamped - oldCount
+                        let ratio = pow(maxFreq / lastFreq, 1 / Float(newBandCount + 1))
+
+                        for i in oldCount..<clamped {
+                            let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
+                            leftState.userEQ.bands[i] = EQBandConfiguration.parametric(
+                                frequency: freq,
+                                q: EQConfiguration.defaultQ
+                            )
+                        }
+                    }
+                } else {
+                    let frequencies = EQConfiguration.frequenciesForBandCount(clamped)
+                    for (index, frequency) in frequencies.enumerated() {
+                        leftState.userEQ.bands[index] = EQBandConfiguration.parametric(
+                            frequency: frequency,
+                            q: EQConfiguration.defaultQ
+                        )
+                    }
+                }
+                leftState.userEQ.activeBandCount = clamped
+            } else {
+                let oldCount = rightState.userEQ.activeBandCount
+                guard clamped != oldCount else { return clamped }
+
+                if preserveConfiguredBands && hasModifiedBands(upTo: min(oldCount, clamped), channel: .right) {
+                    if clamped > oldCount {
+                        let lastFreq = rightState.userEQ.bands[oldCount - 1].frequency
+                        let maxFreq: Float = 26000
+                        let newBandCount = clamped - oldCount
+                        let ratio = pow(maxFreq / lastFreq, 1 / Float(newBandCount + 1))
+
+                        for i in oldCount..<clamped {
+                            let freq = lastFreq * pow(ratio, Float(i - oldCount + 1))
+                            rightState.userEQ.bands[i] = EQBandConfiguration.parametric(
+                                frequency: freq,
+                                q: EQConfiguration.defaultQ
+                            )
+                        }
+                    }
+                } else {
+                    let frequencies = EQConfiguration.frequenciesForBandCount(clamped)
+                    for (index, frequency) in frequencies.enumerated() {
+                        rightState.userEQ.bands[index] = EQBandConfiguration.parametric(
+                            frequency: frequency,
+                            q: EQConfiguration.defaultQ
+                        )
+                    }
+                }
+                rightState.userEQ.activeBandCount = clamped
+            }
+
+            // Update published property to max of both
+            activeBandCount = max(leftState.userEQ.activeBandCount, rightState.userEQ.activeBandCount)
+        }
+
+        return clamped
+    }
+
+    /// Sets the number of active bands for a specific channel (used by preset loading).
+    /// In linked mode, this sets both channels. In stereo mode, sets only the specified channel.
+    func setActiveBandCount(_ newValue: Int, channel: ChannelFocus) {
+        let clamped = EQConfiguration.clampBandCount(newValue)
+
+        switch channelMode {
+        case .linked:
+            // Linked mode: set both channels
+            leftState.userEQ.activeBandCount = clamped
+            rightState.userEQ.activeBandCount = clamped
+        case .stereo:
+            // Stereo mode: set only the specified channel
+            switch channel {
+            case .left:
+                leftState.userEQ.activeBandCount = clamped
+            case .right:
+                rightState.userEQ.activeBandCount = clamped
             }
         }
 
-        // Update active band count in both channels
-        leftState.userEQ.activeBandCount = clamped
-        rightState.userEQ.activeBandCount = clamped
-
-        activeBandCount = clamped
-        return clamped
+        switch channelMode {
+        case .linked:
+            activeBandCount = leftState.userEQ.activeBandCount
+        case .stereo:
+            activeBandCount = max(leftState.userEQ.activeBandCount, rightState.userEQ.activeBandCount)
+        }
     }
 
     /// Checks if any bands up to the given count have been modified (non-zero gain).
     private func hasModifiedBands(upTo count: Int) -> Bool {
         for i in 0..<count {
             if bands[i].gain != 0 { return true }
+        }
+        return false
+    }
+
+    /// Checks if any bands up to the given count have been modified (non-zero gain) for a specific channel.
+    private func hasModifiedBands(upTo count: Int, channel: ChannelFocus) -> Bool {
+        let targetBands = channel == .left ? leftState.userEQ.bands : rightState.userEQ.bands
+        for i in 0..<count {
+            if targetBands[i].gain != 0 { return true }
         }
         return false
     }
@@ -291,52 +410,35 @@ final class EQConfiguration: ObservableObject {
 
     /// Sets the channel mode.
     /// When switching from linked to stereo, copies left channel state to right.
+    /// When switching from stereo to linked, copies left channel state to right ("L always wins").
     func setChannelMode(_ newMode: ChannelMode) {
         guard newMode != channelMode else { return }
 
         if newMode == .stereo && channelMode == .linked {
             // Copy left state to right when switching to stereo
             rightState = leftState
+        } else if newMode == .linked && channelMode == .stereo {
+            // Copy left state to right when switching to linked ("L always wins")
+            rightState = leftState
         }
 
         channelMode = newMode
-        objectWillChange.send()
-    }
 
-    // MARK: - Channel State Access
-
-    /// Returns the channel state for the specified editing context.
-    /// In linked mode, always returns left state.
-    /// In stereo mode, returns the state for the currently edited channel.
-    func channelState(for channel: EQChannelTarget) -> ChannelEQState {
-        switch (channelMode, channel) {
-        case (.linked, _):
-            return leftState
-        case (.stereo, .left), (.stereo, .both):
-            return leftState
-        case (.stereo, .right):
-            return rightState
+        // Update activeBandCount to reflect the mode change
+        switch channelMode {
+        case .linked:
+            activeBandCount = leftState.userEQ.activeBandCount
+        case .stereo:
+            activeBandCount = max(leftState.userEQ.activeBandCount, rightState.userEQ.activeBandCount)
         }
+
+        objectWillChange.send()
     }
 
     // MARK: - Band Updates
 
     private func isValidIndex(_ index: Int) -> Bool {
         index >= 0 && index < EQConfiguration.maxBandCount
-    }
-
-    /// Returns the bands for the currently edited channel.
-    /// In linked mode, returns left channel bands.
-    /// In stereo mode, returns bands for the editing channel.
-    private var currentEditingBands: [EQBandConfiguration] {
-        switch channelMode {
-        case .linked:
-            return leftState.userEQ.bands
-        case .stereo:
-            return editingChannel == .left
-                ? leftState.userEQ.bands
-                : rightState.userEQ.bands
-        }
     }
 
     /// Updates the gain for a specific band.
@@ -349,7 +451,7 @@ final class EQConfiguration: ObservableObject {
             leftState.userEQ.bands[index].gain = gain
             rightState.userEQ.bands[index].gain = gain
         } else {
-            if editingChannel == .left {
+            if channelFocus == .left {
                 leftState.userEQ.bands[index].gain = gain
             } else {
                 rightState.userEQ.bands[index].gain = gain
@@ -381,7 +483,7 @@ final class EQConfiguration: ObservableObject {
             leftState.userEQ.bands[index].q = q
             rightState.userEQ.bands[index].q = q
         } else {
-            if editingChannel == .left {
+            if channelFocus == .left {
                 leftState.userEQ.bands[index].q = q
             } else {
                 rightState.userEQ.bands[index].q = q
@@ -413,7 +515,7 @@ final class EQConfiguration: ObservableObject {
             leftState.userEQ.bands[index].frequency = frequency
             rightState.userEQ.bands[index].frequency = frequency
         } else {
-            if editingChannel == .left {
+            if channelFocus == .left {
                 leftState.userEQ.bands[index].frequency = frequency
             } else {
                 rightState.userEQ.bands[index].frequency = frequency
@@ -445,7 +547,7 @@ final class EQConfiguration: ObservableObject {
             leftState.userEQ.bands[index].bypass = bypass
             rightState.userEQ.bands[index].bypass = bypass
         } else {
-            if editingChannel == .left {
+            if channelFocus == .left {
                 leftState.userEQ.bands[index].bypass = bypass
             } else {
                 rightState.userEQ.bands[index].bypass = bypass
@@ -477,7 +579,7 @@ final class EQConfiguration: ObservableObject {
             leftState.userEQ.bands[index].filterType = filterType
             rightState.userEQ.bands[index].filterType = filterType
         } else {
-            if editingChannel == .left {
+            if channelFocus == .left {
                 leftState.userEQ.bands[index].filterType = filterType
             } else {
                 rightState.userEQ.bands[index].filterType = filterType

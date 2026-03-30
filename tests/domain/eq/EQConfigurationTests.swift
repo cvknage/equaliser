@@ -320,7 +320,7 @@ final class EQConfigurationTests: XCTestCase {
     func testChannelMode_stereoModeUpdatesOnlyEditedChannel() {
         let config = EQConfiguration(initialBandCount: 10)
         config.setChannelMode(.stereo)
-        config.editingChannel = .left
+        config.channelFocus = .left
 
         // Update gain on left channel
         config.updateBandGain(index: 0, gain: 6.0)
@@ -330,7 +330,7 @@ final class EQConfigurationTests: XCTestCase {
         XCTAssertEqual(config.rightState.userEQ.bands[0].gain, 0, accuracy: 0.001)
 
         // Switch to right channel and update
-        config.editingChannel = .right
+        config.channelFocus = .right
         config.updateBandGain(index: 0, gain: -3.0)
 
         // Only right should be updated
@@ -375,7 +375,7 @@ final class EQConfigurationTests: XCTestCase {
     @MainActor
     func testChannelFocus_defaultIsLeft() {
         let config = EQConfiguration()
-        XCTAssertEqual(config.editingChannel, .left)
+        XCTAssertEqual(config.channelFocus, .left)
     }
 
     // MARK: - Bands Property Tests
@@ -396,14 +396,14 @@ final class EQConfigurationTests: XCTestCase {
         config.setChannelMode(.stereo)
 
         // Edit left channel
-        config.editingChannel = .left
+        config.channelFocus = .left
         config.updateBandGain(index: 0, gain: 6.0)
 
         // bands should return left channel gains
         XCTAssertEqual(config.bands[0].gain, 6.0, accuracy: 0.001)
 
         // Switch to editing right channel
-        config.editingChannel = .right
+        config.channelFocus = .right
         config.updateBandGain(index: 0, gain: -3.0)
 
         // bands should now return right channel gains
@@ -424,9 +424,9 @@ final class EQConfigurationTests: XCTestCase {
         config.setChannelMode(.stereo)
 
         // Set different gains on each channel
-        config.editingChannel = .left
+        config.channelFocus = .left
         config.updateBandGain(index: 0, gain: 6.0)
-        config.editingChannel = .right
+        config.channelFocus = .right
         config.updateBandGain(index: 0, gain: -3.0)
 
         // Create snapshot
@@ -435,7 +435,7 @@ final class EQConfigurationTests: XCTestCase {
             inputGain: config.inputGain,
             outputGain: config.outputGain,
             channelMode: config.channelMode,
-            channelFocus: config.editingChannel,
+            channelFocus: config.channelFocus,
             leftState: config.leftState,
             rightState: config.rightState,
             inputDeviceID: nil,
@@ -454,7 +454,7 @@ final class EQConfigurationTests: XCTestCase {
         XCTAssertEqual(restored.inputGain, 3.5, accuracy: 0.001)
         XCTAssertEqual(restored.outputGain, -2.0, accuracy: 0.001)
         XCTAssertEqual(restored.channelMode, .stereo)
-        XCTAssertEqual(restored.editingChannel, .right)
+        XCTAssertEqual(restored.channelFocus, .right)
         XCTAssertEqual(restored.leftState.userEQ.bands[0].gain, 6.0, accuracy: 0.001)
         XCTAssertEqual(restored.rightState.userEQ.bands[0].gain, -3.0, accuracy: 0.001)
     }
@@ -465,9 +465,9 @@ final class EQConfigurationTests: XCTestCase {
         config.setChannelMode(.stereo)
 
         // Set different gains on each channel
-        config.editingChannel = .left
+        config.channelFocus = .left
         config.updateBandGain(index: 0, gain: 6.0)
-        config.editingChannel = .right
+        config.channelFocus = .right
         config.updateBandGain(index: 0, gain: -3.0)
 
         // Create snapshot
@@ -476,7 +476,7 @@ final class EQConfigurationTests: XCTestCase {
             inputGain: 0,
             outputGain: 0,
             channelMode: config.channelMode,
-            channelFocus: config.editingChannel,
+            channelFocus: config.channelFocus,
             leftState: config.leftState,
             rightState: config.rightState,
             inputDeviceID: nil,

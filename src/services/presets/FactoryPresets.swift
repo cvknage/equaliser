@@ -27,7 +27,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: 0,
                 outputGain: 0,
-                activeBandCount: 10,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -56,7 +55,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -8,
                 outputGain: 0,
-                activeBandCount: 12,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -83,7 +81,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -6,
                 outputGain: 0,
-                activeBandCount: 10,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -114,7 +111,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -6,
                 outputGain: 0,
-                activeBandCount: 14,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -141,7 +137,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -8,
                 outputGain: 0,
-                activeBandCount: 10,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -169,7 +164,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -3,
                 outputGain: 0,
-                activeBandCount: 11,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -198,7 +192,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -6,
                 outputGain: 0,
-                activeBandCount: 12,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -228,7 +221,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -7,
                 outputGain: 0,
-                activeBandCount: 13,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -255,7 +247,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -2,
                 outputGain: 0,
-                activeBandCount: 10,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -284,7 +275,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -5,
                 outputGain: 0,
-                activeBandCount: 12,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -310,7 +300,6 @@ enum FactoryPresets {
                 globalBypass: false,
                 inputGain: -1,
                 outputGain: 0,
-                activeBandCount: 9,
                 leftBands: bands,
                 rightBands: bands
             )
@@ -337,7 +326,7 @@ enum FactoryPresets {
 // MARK: - PresetManager Extension
 
 extension PresetManager {
-    private static let factoryPresetVersion = 9  // Bump when factory presets change
+    private static let factoryPresetVersion = 10  // Bump when factory presets change (v2 format)
     private static let factoryVersionKey = "equalizer.factoryPresetVersion"
 
     /// Installs factory presets if they don't exist or version changed.
@@ -367,7 +356,7 @@ extension PresetManager {
         if needsReinstall {
             UserDefaults.standard.set(Self.factoryPresetVersion, forKey: Self.factoryVersionKey)
         }
-        
+
         // Reload once after all factory presets are saved
         loadAllPresets()
     }

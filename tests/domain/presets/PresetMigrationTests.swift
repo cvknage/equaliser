@@ -196,7 +196,6 @@ final class PresetMigrationTests: XCTestCase {
                 globalBypass: false,
                 inputGain: -2.0,
                 outputGain: 1.0,
-                activeBandCount: 2,
                 channelMode: "stereo",
                 leftBands: [
                     PresetBand(frequency: 100.0, q: 1.0, gain: 4.0, filterType: .lowShelf),
@@ -222,6 +221,8 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.rightBands[1].filterType, .highPass)
         XCTAssertEqual(decoded.settings.inputGain, -2.0)
         XCTAssertEqual(decoded.settings.outputGain, 1.0)
+        // activeBandCount is derived from leftBands.count
+        XCTAssertEqual(decoded.settings.activeBandCount, 2)
     }
 
     /// Linked mode preset round-trips with both channels having identical bands.
@@ -229,7 +230,6 @@ final class PresetMigrationTests: XCTestCase {
         let original = Preset(
             metadata: PresetMetadata(name: "Linked Test", isFactoryPreset: true),
             settings: PresetSettings(
-                activeBandCount: 1,
                 channelMode: "linked",
                 leftBands: [
                     PresetBand(frequency: 1000.0, q: 1.41, gain: 3.0, filterType: .parametric),
@@ -247,6 +247,8 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.rightBands.count, 1)
         XCTAssertEqual(decoded.settings.leftBands[0].gain, 3.0)
         XCTAssertTrue(decoded.metadata.isFactoryPreset)
+        // activeBandCount is derived from leftBands.count
+        XCTAssertEqual(decoded.settings.activeBandCount, 1)
     }
 
     /// All settings fields survive a full encode/decode round-trip.
@@ -257,7 +259,6 @@ final class PresetMigrationTests: XCTestCase {
                 globalBypass: true,
                 inputGain: -6.0,
                 outputGain: 3.0,
-                activeBandCount: 2,
                 channelMode: "linked",
                 leftBands: [
                     PresetBand(frequency: 250.0, q: 0.83, gain: 8.0, filterType: .lowShelf, bypass: false),
@@ -276,6 +277,7 @@ final class PresetMigrationTests: XCTestCase {
         XCTAssertEqual(decoded.settings.globalBypass, true)
         XCTAssertEqual(decoded.settings.inputGain, -6.0)
         XCTAssertEqual(decoded.settings.outputGain, 3.0)
+        // activeBandCount is derived from leftBands.count
         XCTAssertEqual(decoded.settings.activeBandCount, 2)
         XCTAssertEqual(decoded.settings.leftBands[0].frequency, 250.0)
         XCTAssertEqual(decoded.settings.leftBands[0].q, 0.83)

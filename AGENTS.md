@@ -394,7 +394,7 @@ EQ settings can be linked (both channels) or independent (stereo):
 
 **Implementation:**
 - `EQConfiguration.channelMode` determines linked vs stereo
-- `EQConfiguration.editingChannel` (`left` or `right`) determines which channel is being edited
+- `EQConfiguration.channelFocus` (`left` or `right`) determines which channel is being edited
 - `EQChain` is instantiated per-channel-per-layer in `RenderCallbackContext`
 - `EQChannelTarget` (`.left`, `.right`, `.both`) routes coefficient updates to the correct chain(s)
 

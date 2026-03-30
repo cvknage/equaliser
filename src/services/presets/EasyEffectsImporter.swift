@@ -216,7 +216,6 @@ enum EasyEffectsImporter {
             globalBypass: false,
             inputGain: inputGain,
             outputGain: outputGain,
-            activeBandCount: leftBands.count,
             channelMode: channelMode,
             leftBands: leftBands,
             rightBands: rightBands

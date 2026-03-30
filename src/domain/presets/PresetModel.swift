@@ -76,7 +76,7 @@ struct PresetSettings: Codable, Sendable {
         case globalBypass
         case inputGain
         case outputGain
-        case activeBandCount
+        case activeBandCount  // v1 only: v2 derives from leftBands.count
         case leftBands
         case channelMode
         case rightBands
@@ -86,16 +86,16 @@ struct PresetSettings: Codable, Sendable {
     var globalBypass: Bool
     var inputGain: Float
     var outputGain: Float
-    var activeBandCount: Int
+    var activeBandCount: Int  // v1: stored explicitly; v2: derived from leftBands.count
     var channelMode: String
     var leftBands: [PresetBand]
     var rightBands: [PresetBand]
 
+    /// Creates PresetSettings with default values (empty bands).
     init(
         globalBypass: Bool = false,
         inputGain: Float = 0,
         outputGain: Float = 0,
-        activeBandCount: Int = EQConfiguration.defaultBandCount,
         channelMode: String = "linked",
         leftBands: [PresetBand] = [],
         rightBands: [PresetBand] = []
@@ -103,10 +103,11 @@ struct PresetSettings: Codable, Sendable {
         self.globalBypass = globalBypass
         self.inputGain = inputGain
         self.outputGain = outputGain
-        self.activeBandCount = activeBandCount
         self.channelMode = channelMode
         self.leftBands = leftBands
         self.rightBands = rightBands
+        // Derive activeBandCount from left bands (linked mode uses same count for both)
+        self.activeBandCount = leftBands.count
     }
 
     init(from decoder: Decoder) throws {
@@ -114,14 +115,14 @@ struct PresetSettings: Codable, Sendable {
         globalBypass = try container.decode(Bool.self, forKey: .globalBypass)
         inputGain = try container.decode(Float.self, forKey: .inputGain)
         outputGain = try container.decode(Float.self, forKey: .outputGain)
-        activeBandCount = try container.decode(Int.self, forKey: .activeBandCount)
 
         // Get version from userInfo (defaults to current version)
         let version = decoder.userInfo[PresetCodingKey.version] as? Int ?? Preset.currentVersion
 
         if version >= 2 {
-            // v2: channelMode, leftBands, rightBands all present
+            // v2: channelMode, leftBands, rightBands present; activeBandCount derived from bands
             channelMode = try container.decode(String.self, forKey: .channelMode)
+
             // Manually decode bands with version awareness
             var leftBandsArray: [PresetBand] = []
             var leftContainer = try container.nestedUnkeyedContainer(forKey: .leftBands)
@@ -138,9 +139,16 @@ struct PresetSettings: Codable, Sendable {
                 rightBandsArray.append(try PresetBand(from: bandContainer, version: version))
             }
             rightBands = rightBandsArray
+
+            // Derive activeBandCount from band arrays
+            // For linked mode: both arrays have same count
+            // For stereo mode: use left band count (UI shows max of both)
+            activeBandCount = leftBands.count
         } else {
-            // v1: bands only, no channelMode
+            // v1: activeBandCount stored explicitly, bands only, no channelMode
+            activeBandCount = try container.decode(Int.self, forKey: .activeBandCount)
             channelMode = "linked"
+
             // Manually decode bands with version awareness
             var bandsArray: [PresetBand] = []
             var bandsContainer = try container.nestedUnkeyedContainer(forKey: .bands)
@@ -158,7 +166,7 @@ struct PresetSettings: Codable, Sendable {
         try container.encode(globalBypass, forKey: .globalBypass)
         try container.encode(inputGain, forKey: .inputGain)
         try container.encode(outputGain, forKey: .outputGain)
-        try container.encode(activeBandCount, forKey: .activeBandCount)
+        // Note: activeBandCount not encoded for v2 - derived from leftBands.count
         try container.encode(channelMode, forKey: .channelMode)
         try container.encode(leftBands, forKey: .leftBands)
         try container.encode(rightBands, forKey: .rightBands)
@@ -290,14 +298,18 @@ struct Preset: Codable, Sendable, Identifiable {
     init(name: String, from config: EQConfiguration, inputGain: Float = 0, outputGain: Float = 0) {
         self.version = Preset.currentVersion
         self.metadata = PresetMetadata(name: name)
+
+        // Only store active bands (not the full 64-band array)
+        let leftActiveCount = config.leftState.userEQ.activeBandCount
+        let rightActiveCount = config.rightState.userEQ.activeBandCount
+
         self.settings = PresetSettings(
             globalBypass: config.globalBypass,
             inputGain: inputGain,
             outputGain: outputGain,
-            activeBandCount: config.activeBandCount,
             channelMode: config.channelMode.rawValue,
-            leftBands: config.leftState.userEQ.bands.map { PresetBand(from: $0) },
-            rightBands: config.rightState.userEQ.bands.map { PresetBand(from: $0) }
+            leftBands: config.leftState.userEQ.bands.prefix(leftActiveCount).map { PresetBand(from: $0) },
+            rightBands: config.rightState.userEQ.bands.prefix(rightActiveCount).map { PresetBand(from: $0) }
         )
     }
 

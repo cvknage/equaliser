@@ -235,7 +235,6 @@ final class PresetCodableTests: XCTestCase {
             globalBypass: true,
             inputGain: -3.0,
             outputGain: 1.5,
-            activeBandCount: 3,
             leftBands: leftBands,
             rightBands: leftBands
         )
@@ -246,7 +245,8 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.globalBypass, original.globalBypass)
         XCTAssertEqual(decoded.inputGain, original.inputGain)
         XCTAssertEqual(decoded.outputGain, original.outputGain)
-        XCTAssertEqual(decoded.activeBandCount, original.activeBandCount)
+        // activeBandCount is derived from leftBands.count
+        XCTAssertEqual(decoded.activeBandCount, leftBands.count)
         XCTAssertEqual(decoded.leftBands.count, original.leftBands.count)
         XCTAssertEqual(decoded.rightBands.count, original.rightBands.count)
     }
@@ -257,7 +257,8 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertFalse(settings.globalBypass)
         XCTAssertEqual(settings.inputGain, 0)
         XCTAssertEqual(settings.outputGain, 0)
-        XCTAssertEqual(settings.activeBandCount, EQConfiguration.defaultBandCount)
+        // activeBandCount is derived from leftBands.count (empty = 0)
+        XCTAssertEqual(settings.activeBandCount, 0)
         XCTAssertTrue(settings.leftBands.isEmpty)
         XCTAssertTrue(settings.rightBands.isEmpty)
         XCTAssertEqual(settings.channelMode, "linked")
@@ -278,7 +279,6 @@ final class PresetCodableTests: XCTestCase {
             globalBypass: false,
             inputGain: -2.0,
             outputGain: 1.0,
-            activeBandCount: 5,
             leftBands: leftBands,
             rightBands: leftBands
         )
@@ -297,7 +297,8 @@ final class PresetCodableTests: XCTestCase {
         XCTAssertEqual(decoded.settings.globalBypass, original.settings.globalBypass)
         XCTAssertEqual(decoded.settings.inputGain, original.settings.inputGain)
         XCTAssertEqual(decoded.settings.outputGain, original.settings.outputGain)
-        XCTAssertEqual(decoded.settings.activeBandCount, original.settings.activeBandCount)
+        // activeBandCount is derived from leftBands.count
+        XCTAssertEqual(decoded.settings.activeBandCount, leftBands.count)
         XCTAssertEqual(decoded.settings.leftBands.count, original.settings.leftBands.count)
         XCTAssertEqual(decoded.settings.rightBands.count, original.settings.rightBands.count)
         XCTAssertTrue(decoded.metadata.isFactoryPreset)

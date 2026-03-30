@@ -343,8 +343,18 @@ final class PresetManager: ObservableObject {
             config.setChannelMode(channelMode)
         }
 
-        // Apply band count
-        config.setActiveBandCount(preset.settings.activeBandCount)
+        // Derive band counts from band arrays
+        let leftBandCount = preset.settings.leftBands.count
+        let rightBandCount = preset.settings.rightBands.count
+
+        // Set band count based on channel mode
+        switch config.channelMode {
+        case .linked:
+            config.setActiveBandCount(leftBandCount)
+        case .stereo:
+            config.setActiveBandCount(leftBandCount, channel: .left)
+            config.setActiveBandCount(rightBandCount, channel: .right)
+        }
 
         // Apply left channel band settings
         for (index, band) in preset.settings.leftBands.enumerated() {

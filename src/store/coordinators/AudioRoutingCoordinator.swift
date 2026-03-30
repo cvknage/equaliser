@@ -630,7 +630,7 @@ final class AudioRoutingCoordinator: ObservableObject {
 
         // Use channel mode and editing channel from configuration
         let target: EQChannelTarget = eqConfiguration.channelMode == .linked ? .both :
-            (eqConfiguration.editingChannel == .left ? .left : .right)
+            (eqConfiguration.channelFocus == .left ? .left : .right)
 
         renderPipeline?.updateBandCoefficients(
             channel: target,

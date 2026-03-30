@@ -214,7 +214,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 globalBypass: false,
                 inputGain: 0,
                 outputGain: 0,
-                activeBandCount: 1,
                 leftBands: [PresetBand(frequency: 1000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false)],
                 rightBands: [PresetBand(frequency: 1000, q: 1.41, gain: 3.0, filterType: .parametric, bypass: false)]
             )
@@ -233,7 +232,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let preset = Preset(
             metadata: PresetMetadata(name: "Test"),
             settings: PresetSettings(
-                activeBandCount: 1,
                 leftBands: [PresetBand(frequency: 1000, q: 1.41, gain: 0, filterType: .parametric, bypass: false)],
                 rightBands: [PresetBand(frequency: 1000, q: 1.41, gain: 0, filterType: .parametric, bypass: false)]
             )
@@ -268,7 +266,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
             let preset = Preset(
                 metadata: PresetMetadata(name: "Test"),
                 settings: PresetSettings(
-                    activeBandCount: 1,
                     leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: filterType, bypass: false)],
                     rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: filterType, bypass: false)]
                 )
@@ -291,7 +288,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let preset = Preset(
             metadata: PresetMetadata(name: "Test"),
             settings: PresetSettings(
-                activeBandCount: 1,
                 leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: true)],
                 rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: true)]
             )
@@ -315,7 +311,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
             settings: PresetSettings(
                 inputGain: -2.0,
                 outputGain: 3.0,
-                activeBandCount: 1,
                 leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)],
                 rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)]
             )
@@ -350,7 +345,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 globalBypass: false,
                 inputGain: -1.5,
                 outputGain: 2.0,
-                activeBandCount: 5,
                 leftBands: originalBands,
                 rightBands: originalBands
             )
@@ -395,7 +389,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
             let preset = Preset(
                 metadata: PresetMetadata(name: "Q Test"),
                 settings: PresetSettings(
-                    activeBandCount: 1,
                     leftBands: [PresetBand(frequency: 1000, q: q, gain: 0, filterType: .parametric, bypass: false)],
                     rightBands: [PresetBand(frequency: 1000, q: q, gain: 0, filterType: .parametric, bypass: false)]
                 )
@@ -533,7 +526,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let preset = Preset(
             metadata: PresetMetadata(name: "Linked Test"),
             settings: PresetSettings(
-                activeBandCount: 1,
                 channelMode: "linked",
                 leftBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)],
                 rightBands: [PresetBand(frequency: 1000, q: 1.0, gain: 0, filterType: .parametric, bypass: false)]
@@ -554,7 +546,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
         let preset = Preset(
             metadata: PresetMetadata(name: "Stereo Test"),
             settings: PresetSettings(
-                activeBandCount: 1,
                 channelMode: "stereo",
                 leftBands: [PresetBand(frequency: 100, q: 1.0, gain: 4.0, filterType: .parametric, bypass: false)],
                 rightBands: [PresetBand(frequency: 200, q: 1.0, gain: -2.0, filterType: .parametric, bypass: false)]
@@ -590,7 +581,6 @@ final class EasyEffectsImportExportTests: XCTestCase {
                 globalBypass: false,
                 inputGain: -2.0,
                 outputGain: 1.0,
-                activeBandCount: 2,
                 channelMode: "stereo",
                 leftBands: [
                     PresetBand(frequency: 100, q: 1.0, gain: 4.0, filterType: .lowShelf, bypass: false),
