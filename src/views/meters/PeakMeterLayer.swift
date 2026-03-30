@@ -151,9 +151,6 @@ final class PeakMeterLayer: NSView, MeterObserver {
     // MARK: - MeterObserver Protocol
 
     func meterUpdated(value: Float, hold: Float, clipping: Bool) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-
         currentPeak = max(0, min(1, value))
         currentPeakHold = max(0, min(1, hold))
         isCurrentlyClipping = clipping
@@ -161,8 +158,6 @@ final class PeakMeterLayer: NSView, MeterObserver {
         updateFillTransform()
         updatePeakHoldPosition()
         updateClipIndicator()
-
-        CATransaction.commit()
     }
 
     // MARK: - Private Updates

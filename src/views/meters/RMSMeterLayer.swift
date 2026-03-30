@@ -111,13 +111,8 @@ final class RMSMeterLayer: NSView, MeterObserver {
     // MARK: - MeterObserver Protocol
 
     func meterUpdated(value: Float, hold: Float, clipping: Bool) {
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-
         currentRMS = max(0, min(1, value))
         updateFillTransform()
-
-        CATransaction.commit()
     }
 
     // MARK: - Private Updates

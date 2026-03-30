@@ -176,31 +176,35 @@ final class MeterStore: ObservableObject {
             notifyAllObserversSilent()
             return
         }
-        
+
         // Check window visibility
         if let window = equaliserWindow {
             guard window.isVisible else { return }
         } else if let keyWindow = NSApp.keyWindow {
             guard keyWindow.isVisible else { return }
         }
-        
+
         guard let pipeline = renderPipeline else { return }
-        
+
         let snapshot = pipeline.currentMeters()
-        
+
         // Check if at rest (all meters silent)
         if metersAtRest {
             let stillSilent = snapshot.inputDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold }) &&
                               snapshot.outputDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold }) &&
                               snapshot.inputRmsDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold }) &&
                               snapshot.outputRmsDB.allSatisfy({ $0 <= MeterConstants.silenceThreshold })
-            
+
             if stillSilent {
                 return
             }
             metersAtRest = false
         }
-        
+
+        // Batch all meter updates in a single CATransaction to reduce render server calls
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+
         // Process each meter type
         let interval = MeterConstants.meterInterval
         
@@ -277,10 +281,12 @@ final class MeterStore: ObservableObject {
         let outputHoldRight = lastMeterValues[.outputPeakRight]?.peakHold ?? Float(0)
         
         let allHolds: [Float] = [inputHoldLeft, inputHoldRight, outputHoldLeft, outputHoldRight]
-        
+
         let allValuesSilent = allValues.allSatisfy({ $0 < MeterConstants.atRestThreshold })
         let allHoldsSilent = allHolds.allSatisfy({ $0 < MeterConstants.atRestThreshold })
         metersAtRest = allValuesSilent && allHoldsSilent
+
+        CATransaction.commit()
     }
     
     private func updateMeter(type: MeterType, dbValue: Float, interval: TimeInterval) {
