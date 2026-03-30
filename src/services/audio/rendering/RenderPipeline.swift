@@ -247,10 +247,6 @@ final class RenderPipeline {
             }
         }
 
-        // Reset static counters
-        Self.inputCallCount = 0
-        Self.outputCallCount = 0
-
         logger.info("Starting render pipeline (\(self.captureMode.displayName) mode)...")
 
         // Get the format from the appropriate source
@@ -764,8 +760,6 @@ final class RenderPipeline {
         // Write captured audio to ring buffers
         context.writeToRingBuffers(frameCount: frameCount)
 
-        inputCallCount &+= 1
-
         return noErr
     }
 
@@ -798,14 +792,11 @@ final class RenderPipeline {
         // 1. Read audio from ring buffers
         let framesRead = context.readFromRingBuffers(frameCount: frameCount)
 
-        outputCallCount &+= 1
-
         // If we got no samples, output is already zero-filled by readFromRingBuffers
         if framesRead == 0 {
-            // Log underrun occasionally
-            if outputCallCount % 1000 == 1 {
-                staticLogger.warning("Output #\(outputCallCount): Ring buffer underrun")
-            }
+            // DEBUG: To troubleshoot idle state, uncomment:
+            // outputCallCount &+= 1
+            // if outputCallCount % 1000 == 1 { staticLogger.debug("Output #\(outputCallCount): No input audio (idle)") }
             RenderCallbackContext.zeroFill(ioData, frameCount: frameCount)
             context.updateOutputMeters(from: ioData, frameCount: frameCount)
             return noErr
