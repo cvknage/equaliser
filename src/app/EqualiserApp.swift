@@ -43,6 +43,20 @@ struct EqualiserMain: App {
         .defaultPosition(.center)
         .defaultSize(width: 1060, height: 530)
         .windowResizability(.contentMinSize)
+        .commands {
+            // Cmd+B: Toggle bypass
+            CommandGroup(replacing: .toolbar) {
+                Button("Toggle Bypass") {
+                    store.isBypassed.toggle()
+                }
+                .keyboardShortcut("b", modifiers: .command)
+
+                Button("Save Preset") {
+                    NotificationCenter.default.post(name: .savePresetShortcut, object: nil)
+                }
+                .keyboardShortcut("s", modifiers: .command)
+            }
+        }
 
         // Menu bar popover (always available)
         MenuBarExtra("Equaliser", systemImage: "slider.vertical.3") {
@@ -62,4 +76,10 @@ struct EqualiserMain: App {
                 .environmentObject(store)
         }
     }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let savePresetShortcut = Notification.Name("savePresetShortcut")
 }

@@ -9,6 +9,7 @@ struct EQWindowView: View {
     @State private var showCompareHelp = false
     @State private var metersEnabledUI = false
     @State private var showDriverSheet = true
+    @State private var showSaveSheet = false
 
     /// Whether the driver installation overlay should be shown.
     private var needsDriverInstallation: Bool {
@@ -272,6 +273,13 @@ struct EQWindowView: View {
             if needsDriverUpdate {
                 openSettings()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .savePresetShortcut)) { _ in
+            showSaveSheet = true
+        }
+        .sheet(isPresented: $showSaveSheet) {
+            SavePresetSheet()
+                .environmentObject(store)
         }
     }
 }

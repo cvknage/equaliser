@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Grid of EQ band sliders.
+/// Grid of EQ band sliders with keyboard navigation.
 struct EQBandGridView: View {
     @EnvironmentObject var store: EqualiserStore
+    @State private var editingBand: Int? = nil
 
     var body: some View {
         GeometryReader { proxy in
@@ -25,7 +26,14 @@ struct EQBandGridView: View {
                                 store.updateBandQ(index: index, q: clamped)
                             },
                             filterTypeUpdate: { store.updateBandFilterType(index: index, filterType: $0) },
-                            bypassUpdate: { store.updateBandBypass(index: index, bypass: $0) }
+                            bypassUpdate: { store.updateBandBypass(index: index, bypass: $0) },
+                            onNavigateLeft: {
+                                navigateToBand(index - 1)
+                            },
+                            onNavigateRight: {
+                                navigateToBand(index + 1)
+                            },
+                            startEditing: editingBand == index
                         )
                         .frame(width: 72)
                     }
@@ -33,5 +41,10 @@ struct EQBandGridView: View {
                 .frame(minWidth: max(0, proxy.size.width - 24), maxWidth: .infinity, alignment: .center)
             }
         }
+    }
+
+    private func navigateToBand(_ index: Int) {
+        guard index >= 0 && index < store.bandCount else { return }
+        editingBand = index
     }
 }

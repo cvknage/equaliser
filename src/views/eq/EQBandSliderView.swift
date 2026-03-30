@@ -9,6 +9,9 @@ struct EQBandSliderView: View {
     let qUpdate: (Float) -> Void
     let filterTypeUpdate: (FilterType) -> Void
     let bypassUpdate: (Bool) -> Void
+    var onNavigateLeft: (() -> Void)? = nil
+    var onNavigateRight: (() -> Void)? = nil
+    var startEditing: Bool = false
 
     @State private var isShowingDetail = false
 
@@ -25,7 +28,10 @@ struct EQBandSliderView: View {
                 alignment: .center,
                 onCommit: { newGain in
                     gain = AudioConstants.clampGain(newGain)
-                }
+                },
+                onNavigateLeft: onNavigateLeft,
+                onNavigateRight: onNavigateRight,
+                startEditing: startEditing
             )
             .font(.system(size: 10, weight: .bold, design: .monospaced))
         }
@@ -58,7 +64,8 @@ struct EQBandSliderView: View {
                     frequencyUpdate: frequencyUpdate,
                     qUpdate: qUpdate,
                     filterTypeUpdate: filterTypeUpdate,
-                    bypassUpdate: bypassUpdate
+                    bypassUpdate: bypassUpdate,
+                    onClose: { isShowingDetail = false }
                 )
                 .frame(width: 240)
             }
@@ -143,6 +150,7 @@ struct EQBandDetailPopover: View {
     let qUpdate: (Float) -> Void
     let filterTypeUpdate: (FilterType) -> Void
     let bypassUpdate: (Bool) -> Void
+    let onClose: () -> Void
 
     @State private var gain: Float
     @State private var frequency: Float
@@ -153,13 +161,19 @@ struct EQBandDetailPopover: View {
     @State private var gainText: String = ""
     @State private var frequencyText: String = ""
     @State private var bandwidthText: String = ""
+    @FocusState private var focusedField: Field?
+
+    enum Field: Hashable {
+        case gain, frequency, bandwidth
+    }
 
     init(band: EQBandConfiguration,
          gainUpdate: @escaping (Float) -> Void,
          frequencyUpdate: @escaping (Float) -> Void,
          qUpdate: @escaping (Float) -> Void,
          filterTypeUpdate: @escaping (FilterType) -> Void,
-         bypassUpdate: @escaping (Bool) -> Void) {
+         bypassUpdate: @escaping (Bool) -> Void,
+         onClose: @escaping () -> Void) {
         _gain = State(initialValue: band.gain)
         _frequency = State(initialValue: band.frequency)
         _q = State(initialValue: band.q)
@@ -174,6 +188,7 @@ struct EQBandDetailPopover: View {
         self.qUpdate = qUpdate
         self.filterTypeUpdate = filterTypeUpdate
         self.bypassUpdate = bypassUpdate
+        self.onClose = onClose
     }
 
     var body: some View {
@@ -189,6 +204,7 @@ struct EQBandDetailPopover: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
                     .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: .gain)
                     .onSubmit {
                         if let value = Float(gainText) {
                             let clamped = AudioConstants.clampGain(value)
@@ -196,6 +212,15 @@ struct EQBandDetailPopover: View {
                             gainText = String(format: "%.1f", clamped)
                             gainUpdate(clamped)
                         }
+                        focusedField = .frequency
+                    }
+                    .onKeyPress(.upArrow) {
+                        adjustGain(by: 0.1)
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        adjustGain(by: -0.1)
+                        return .handled
                     }
             }
 
@@ -207,6 +232,7 @@ struct EQBandDetailPopover: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
                     .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: .frequency)
                     .onSubmit {
                         if let value = Float(frequencyText) {
                             let clamped = AudioConstants.clampFrequency(value)
@@ -214,6 +240,15 @@ struct EQBandDetailPopover: View {
                             frequencyText = String(format: "%.0f", clamped)
                             frequencyUpdate(clamped)
                         }
+                        focusedField = .bandwidth
+                    }
+                    .onKeyPress(.upArrow) {
+                        adjustFrequency(by: 10)
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        adjustFrequency(by: -10)
+                        return .handled
                     }
             }
 
@@ -227,7 +262,8 @@ struct EQBandDetailPopover: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
                     .multilineTextAlignment(.trailing)
-                     .onSubmit {
+                    .focused($focusedField, equals: .bandwidth)
+                    .onSubmit {
                         // parseInput returns the raw value in the mode's unit:
                         // .octaves → bandwidth in octaves, .qFactor → Q factor
                         if let inputValue = BandwidthConverter.parseInput(bandwidthText, mode: store.bandwidthDisplayMode) {
@@ -243,6 +279,14 @@ struct EQBandDetailPopover: View {
                             bandwidthText = BandwidthConverter.formatForInput(q: qValue, mode: store.bandwidthDisplayMode)
                             qUpdate(qValue)
                         }
+                    }
+                    .onKeyPress(.upArrow) {
+                        adjustBandwidth(by: 0.01)
+                        return .handled
+                    }
+                    .onKeyPress(.downArrow) {
+                        adjustBandwidth(by: -0.01)
+                        return .handled
                     }
             }
             .onAppear {
@@ -273,6 +317,13 @@ struct EQBandDetailPopover: View {
             Spacer(minLength: 0)
         }
         .padding(16)
+        .onKeyPress(.escape) {
+            onClose()
+            return .handled
+        }
+        .onAppear {
+            focusedField = .gain
+        }
     }
 
     private var bandwidthLabel: String {
@@ -282,5 +333,39 @@ struct EQBandDetailPopover: View {
         case .qFactor:
             return "Q Factor"
         }
+    }
+
+    private func adjustGain(by delta: Float) {
+        let current = Float(gainText) ?? gain
+        let newGain = AudioConstants.clampGain(current + delta)
+        gain = newGain
+        gainText = String(format: "%.1f", newGain)
+        gainUpdate(newGain)
+    }
+
+    private func adjustFrequency(by delta: Float) {
+        let current = Float(frequencyText) ?? frequency
+        let newFreq = AudioConstants.clampFrequency(current + delta)
+        frequency = newFreq
+        frequencyText = String(format: "%.0f", newFreq)
+        frequencyUpdate(newFreq)
+    }
+
+    private func adjustBandwidth(by delta: Float) {
+        guard let current = BandwidthConverter.parseInput(bandwidthText, mode: store.bandwidthDisplayMode) else { return }
+        let newValue = current + delta
+
+        let qValue: Float
+        switch store.bandwidthDisplayMode {
+        case .octaves:
+            let clamped = BandwidthConverter.clampBandwidth(newValue)
+            qValue = BandwidthConverter.bandwidthToQ(clamped)
+        case .qFactor:
+            qValue = BandwidthConverter.clampQ(newValue)
+        }
+
+        q = qValue
+        bandwidthText = BandwidthConverter.formatForInput(q: qValue, mode: store.bandwidthDisplayMode)
+        qUpdate(qValue)
     }
 }
