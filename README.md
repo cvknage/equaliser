@@ -34,11 +34,13 @@ Level meters allow you to monitor both **input and output signals** in real time
 - **Up to 64 bands of parametric EQ** — precise frequency, gain, and bandwidth control.  
 - **System EQ toggle** — bypass EQ processing instantly.  
 - **Compare Mode** — quickly A/B your EQ curve against a flat response.  
+- **Independent L/R EQ** — separate left/right channel curves for channel-specific adjustments.  
 - **Presets** — 11 carefully crafted presets for music, movies, and more.  
 - **Native light and dark mode** — adapts automatically to your macOS system appearance.  
 - **Real-time level meters** — monitor input/output and avoid distortion.  
 - **Automatic Audio Routing** — automatically captures macOS selected output device.  
-- **EasyEffects import/export** — share presets with Linux users.
+- **EasyEffects import/export** — share presets with Linux users.  
+- **REW import** — import filter settings from Room EQ Wizard.  
 
 
 ## How It Works
