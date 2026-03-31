@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REW Import - Equaliser Documentation</title>
+    <meta name="description" content="Import filter settings from Room EQ Wizard. Learn the supported format and troubleshooting.">
+    <link rel="canonical" href="https://equaliser.knage.net/docs/rew-import.html">
+    <link rel="stylesheet" href="../style.css?2652b23">
+    <link rel="icon" href="../assets/AppIcon.svg?2652b23" type="image/svg+xml">
+</head>
+<body>
+    <nav class="site-nav">
+        <div class="nav-links">
+            <a href="../index.html">Equaliser</a>
+            <a href="../docs.html">Documentation</a>
+        </div>
+    </nav>
+
+    <main class="docs-content">
+<h1 id="importing-rew-filter-settings">Importing REW Filter Settings</h1>
+<p>Equaliser can import filter settings exported from <a href="https://www.roomeqwizard.com/">Room EQ Wizard (REW)</a>, allowing you to use REW's measurement and optimisation tools with Equaliser's real-time audio processing.</p>
+<h2 id="exporting-from-rew">Exporting from REW</h2>
+<ol type="1">
+<li>In REW, go to <strong>Equalizer</strong> → <strong>Export filter settings</strong></li>
+<li>Save the file as a <code>.txt</code> file</li>
+<li>In Equaliser, use <strong>Presets</strong> → <strong>Import REW Preset…</strong></li>
+<li>Select your exported <code>.txt</code> file</li>
+</ol>
+<h2 id="supported-file-format">Supported File Format</h2>
+<p>REW exports filter settings as plain text files with the following structure:</p>
+<pre><code>Filter Settings file
+Room EQ V5.31
+Dated: 15-Mar-2026 10:30:00
+Notes:Your measurement notes
+Equaliser: Generic
+Filter 1: ON  PK   Fc   1000Hz   Gain   6.0dB  Q  1.41
+Filter 2: ON  LS   Fc    200Hz   Gain   3.0dB  Q  0.707
+Filter 3: OFF PK   Fc   5000Hz   Gain  -2.0dB  Q  2.0</code></pre>
+<h3 id="format-details">Format Details</h3>
+<p>Each filter line follows this pattern:</p>
+<pre><code>Filter N: ON/OFF TYPE Fc FREQHz Gain VALUEdB [Q VALUE | BW/60 VALUE]</code></pre>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>N</code></td>
+<td>Filter number (1-20 typically)</td>
+</tr>
+<tr>
+<td><code>ON/OFF</code></td>
+<td>Whether the filter is active</td>
+</tr>
+<tr>
+<td><code>TYPE</code></td>
+<td>Filter type code (see below)</td>
+</tr>
+<tr>
+<td><code>Fc</code></td>
+<td>Frequency marker</td>
+</tr>
+<tr>
+<td><code>FREQ</code></td>
+<td>Centre frequency in Hz</td>
+</tr>
+<tr>
+<td><code>Gain</code></td>
+<td>Gain marker</td>
+</tr>
+<tr>
+<td><code>VALUE</code></td>
+<td>Gain in dB</td>
+</tr>
+<tr>
+<td><code>Q</code> or <code>BW/60</code></td>
+<td>Bandwidth specification</td>
+</tr>
+</tbody>
+</table>
+<h2 id="supported-filter-types">Supported Filter Types</h2>
+<p>Equaliser imports the following REW filter types:</p>
+<table>
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 36%" />
+<col style="width: 36%" />
+</colgroup>
+<thead>
+<tr>
+<th>REW Code</th>
+<th>Filter Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PK</code>, <code>PEQ</code>, <code>PA</code>, <code>PARAMETRIC</code></td>
+<td>Parametric</td>
+<td>Bell-shaped EQ curve</td>
+</tr>
+<tr>
+<td><code>LS</code>, <code>LOWSHELF</code>, <code>LOW-SHELF</code></td>
+<td>Low Shelf</td>
+<td>Boosts or cuts frequencies below the centre</td>
+</tr>
+<tr>
+<td><code>HS</code>, <code>HIGHSHELF</code>, <code>HIGH-SHELF</code></td>
+<td>High Shelf</td>
+<td>Boosts or cuts frequencies above the centre</td>
+</tr>
+<tr>
+<td><code>LP</code>, <code>LOWPASS</code>, <code>LOW-PASS</code></td>
+<td>Low Pass</td>
+<td>Attenuates frequencies above the cutoff</td>
+</tr>
+<tr>
+<td><code>HP</code>, <code>HIGHPASS</code>, <code>HIGH-PASS</code></td>
+<td>High Pass</td>
+<td>Attenuates frequencies below the cutoff</td>
+</tr>
+<tr>
+<td><code>BP</code>, <code>BANDPASS</code>, <code>BAND-PASS</code></td>
+<td>Band Pass</td>
+<td>Passes a band of frequencies</td>
+</tr>
+<tr>
+<td><code>NOTCH</code>, <code>BANDSTOP</code>, <code>BAND-STOP</code></td>
+<td>Notch</td>
+<td>Narrow band stop filter</td>
+</tr>
+</tbody>
+</table>
+<h3 id="unsupported-filters">Unsupported Filters</h3>
+<ul>
+<li><code>None</code> filters are skipped during import</li>
+<li>Any unknown filter types default to parametric</li>
+</ul>
+<h2 id="linked-vs-stereo-mode">Linked vs Stereo Mode</h2>
+<p>REW exports one file per channel. How you import depends on your channel mode:</p>
+<h3 id="linked-mode-default">Linked Mode (Default)</h3>
+<p>In linked mode, the imported filters apply to <strong>both left and right channels</strong>:</p>
+<ol type="1">
+<li>Export filter settings from REW</li>
+<li>Import the file in Equaliser</li>
+<li>A new preset is created with the same bands for both channels</li>
+</ol>
+<h3 id="stereo-mode">Stereo Mode</h3>
+<p>In stereo mode, you can import <strong>separate L and R files</strong>:</p>
+<ol type="1">
+<li>Set channel mode to <strong>Stereo</strong> in the EQ window</li>
+<li>Select <strong>Left</strong> channel focus</li>
+<li>Import your left channel REW file</li>
+<li>Select <strong>Right</strong> channel focus</li>
+<li>Import your right channel REW file</li>
+<li>Save the combined preset</li>
+</ol>
+<p>This allows independent EQ curves for each channel, useful for room correction where left and right speakers need different compensation.</p>
+<h2 id="limit-ranges">Limit Ranges</h2>
+<p>Equaliser applies these limits during import:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Range</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Frequency</td>
+<td>20 Hz – 20,000 Hz</td>
+<td>Clamped to range</td>
+</tr>
+<tr>
+<td>Gain</td>
+<td>-36 dB to +36 dB</td>
+<td>Clamped to range</td>
+</tr>
+<tr>
+<td>Q</td>
+<td>0.1 to 100.0</td>
+<td>Clamped to range</td>
+</tr>
+</tbody>
+</table>
+<p>If values are clamped, a warning is shown after import.</p>
+<h2 id="example-files">Example Files</h2>
+<h3 id="basic-room-correction">Basic Room Correction</h3>
+<pre><code>Filter Settings file
+Room EQ V5.31
+Dated: 15-Mar-2026 10:30:00
+Notes:Living room measurements
+Equaliser: Generic
+Filter  1: ON  PK   Fc     32Hz   Gain  -4.5dB  Q  1.41
+Filter  2: ON  PK   Fc    100Hz   Gain  -2.0dB  Q  2.0
+Filter  3: ON  PK   Fc    250Hz   Gain   3.0dB  Q  1.0
+Filter  4: ON  PK   Fc   1000Hz   Gain  -1.5dB  Q  1.41
+Filter  5: ON  PK   Fc   4000Hz   Gain   2.0dB  Q  2.0
+Filter  6: ON  HS   Fc  10000Hz   Gain  -3.0dB  Q  0.707
+Filter  7: ON  LS   Fc     80Hz   Gain   4.0dB  Q  0.707
+Filter  8: OFF PK   Fc   8000Hz   Gain   0.0dB  Q  1.41
+Filter  9: ON  None
+Filter 10: ON  HP   Fc     20Hz   Q  0.707</code></pre>
+<h3 id="headphone-correction">Headphone Correction</h3>
+<pre><code>Filter Settings file
+Room EQ V5.31
+Dated: 15-Mar-2026 14:22:00
+Notes:Sennheiser HD600 correction
+Equaliser: Generic
+Filter  1: ON  PK   Fc     28Hz   Gain  -5.2dB  Q  2.0
+Filter  2: ON  PK   Fc    120Hz   Gain   3.8dB  Q  1.0
+Filter  3: ON  PK   Fc    450Hz   Gain  -2.0dB  Q  2.5
+Filter  4: ON  PK   Fc   2100Hz   Gain   4.5dB  Q  1.41
+Filter  5: ON  PK   Fc   5800Hz   Gain  -3.2dB  Q  3.0
+Filter  6: ON  PK   Fc   8500Hz   Gain   2.0dB  Q  2.0
+Filter  7: ON  NOTCH Fc  12000Hz   Gain   0.0dB  Q  5.0</code></pre>
+<h3 id="bass-management-with-bw60">Bass Management with BW/60</h3>
+<pre><code>Filter Settings file
+Room EQ V5.20
+Dated: 20-Jan-2026 09:15:00
+Notes:Subwoofer integration
+Equaliser: DSP1124P
+Filter  1: ON  PK   Fc    25Hz   Gain   6.0dB  BW/60  2.0
+Filter  2: ON  PK   Fc    45Hz   Gain  -2.0dB  BW/60  3.0
+Filter  3: ON  LS   Fc    80Hz   Gain   0.0dB  Q  0.707
+Filter  4: ON  LP   Fc    80Hz   Q  0.707</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="no-filter-settings-found-in-file">"No filter settings found in file"</h3>
+<p>The file doesn't contain any valid filter lines. Ensure you exported <strong>filter settings</strong>, not measurement data.</p>
+<h3 id="values-clamped-warning">Values clamped warning</h3>
+<p>REW exported values outside Equaliser's supported range. The values have been adjusted automatically. Check the imported bands and adjust if needed.</p>
+<h3 id="filter-type-shows-as-parametric-instead-of-expected-type">Filter type shows as Parametric instead of expected type</h3>
+<p>REW may use a filter type abbreviation Equaliser doesn't recognise. Unknown types default to parametric. Check that your REW version uses standard abbreviations (PK, LS, HS, LP, HP, etc.).</p>
+<h3 id="wrong-number-of-bands">Wrong number of bands</h3>
+<p>Imported filters depend on their state:</p>
+<ul>
+<li><code>ON</code> filters are imported as active bands</li>
+<li><code>OFF</code> filters are imported as bypassed bands</li>
+<li><code>None</code> filters are skipped entirely</li>
+</ul>
+<h3 id="stereo-import-affects-both-channels">Stereo import affects both channels</h3>
+<p>You're in linked mode. Switch to stereo mode before importing to apply filters to only the focused channel.</p>
+    </main>
+
+    <footer>
+        <p>
+            <a href="../index.html">Equaliser</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser">GitHub Repository</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser/blob/main/LICENSE">GPL-3.0 License</a>
+        </p>
+    </footer>
+</body>
+</html>

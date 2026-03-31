@@ -6,8 +6,8 @@
     <title>How It Works - Equaliser Documentation</title>
     <meta name="description" content="A detailed explanation of how Equaliser processes audio on your Mac, including the virtual audio driver, capture methods, parametric EQ engine, and privacy considerations.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/how-it-works.html">
-    <link rel="stylesheet" href="../style.css?69c06d9">
-    <link rel="icon" href="../assets/AppIcon.svg?69c06d9" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?2652b23">
+    <link rel="icon" href="../assets/AppIcon.svg?2652b23" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -263,7 +263,16 @@
 </details>
 <hr />
 <h2 id="the-equaliser-engine">The Equaliser Engine</h2>
-<p>Equaliser uses <strong>Apple's AVAudioUnitEQ</strong> — the system's built-in N-Band Parametric Equalizer — for audio processing. This provides native performance and tight Core Audio integration, supporting up to 64 bands of parametric EQ.</p>
+<p>Equaliser uses a <strong>custom biquad DSP engine</strong> for audio processing. This provides native performance through Apple's vDSP framework, supporting up to 64 bands of parametric EQ with low latency and real-time safety.</p>
+<p>The engine is built on the industry-standard <a href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ Audio EQ Cookbook</a> and implements 7 filter types: parametric, low-pass, high-pass, low shelf, high shelf, band-pass, and notch. The Q parameter controls resonance for low/high-pass filters and slope for shelf filters.</p>
+<p><strong>Key features:</strong></p>
+<ul>
+<li><strong>Real-time safe</strong> — No allocations or locks on the audio thread</li>
+<li><strong>Native performance</strong> — SIMD-optimised via Apple's Accelerate framework</li>
+<li><strong>Independent stereo</strong> — Left and right channels can have completely different EQ curves</li>
+<li><strong>Up to 64 bands</strong> — Far beyond typical 10-band equalisers</li>
+</ul>
+<p>For a detailed explanation of how the biquad engine works, see <a href="the-eq-engine.html">The EQ Engine</a>.</p>
 <h3 id="parametric-eq">Parametric EQ</h3>
 <p>Equaliser provides <strong>up to 64 bands</strong> of parametric equalisation. Each band gives you precise control over:</p>
 <table>
@@ -502,6 +511,7 @@
 <li><strong>Export</strong>: Share presets as <code>.eqpreset</code> files</li>
 <li><strong>Import</strong>: Load presets from <code>.eqpreset</code> files</li>
 <li><strong>EasyEffects</strong>: Import presets from Linux EasyEffects (compatible format)</li>
+<li><strong>REW</strong>: Import filter settings from Room EQ Wizard</li>
 </ul>
 <hr />
 <h2 id="device-management">Device Management</h2>

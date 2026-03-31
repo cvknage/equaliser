@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The EQ Engine - Equaliser Documentation</title>
+    <meta name="description" content="A detailed look at the biquad DSP engine that powers Equaliser's audio processing. Learn about filter design, real-time safety, and stereo processing.">
+    <link rel="canonical" href="https://equaliser.knage.net/docs/the-eq-engine.html">
+    <link rel="stylesheet" href="../style.css?2652b23">
+    <link rel="icon" href="../assets/AppIcon.svg?2652b23" type="image/svg+xml">
+</head>
+<body>
+    <nav class="site-nav">
+        <div class="nav-links">
+            <a href="../index.html">Equaliser</a>
+            <a href="../docs.html">Documentation</a>
+        </div>
+    </nav>
+
+    <main class="docs-content">
+<h1 id="the-equaliser-engine">The Equaliser Engine</h1>
+<p>A detailed look at the custom biquad DSP engine that powers Equaliser's audio processing.</p>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>Equaliser processes audio using a <strong>custom biquad DSP engine</strong> built specifically for real-time, low-latency equalisation on macOS. This engine is written in Swift and leverages Apple's vDSP framework for native performance on Apple Silicon.</p>
+<p>Why custom? Most EQ apps use Apple's <code>AVAudioUnitEQ</code>, which limits control and doesn't support independent left/right channel processing. Equaliser's custom engine provides:</p>
+<ul>
+<li><strong>64 bands per channel</strong> (128 total in stereo mode)</li>
+<li><strong>Independent L/R channels</strong> for stereo mastering</li>
+<li><strong>Real-time safety</strong> — no allocations or locks on the audio thread</li>
+<li><strong>Native performance</strong> through Apple's Accelerate framework</li>
+</ul>
+<hr />
+<h2 id="what-is-a-biquad-filter">What Is a Biquad Filter?</h2>
+<p>A <strong>biquad</strong> (bi-quadratic) filter is a digital filter that can implement any second-order IIR (infinite impulse response) filter. The term comes from the transfer function being a ratio of two quadratic polynomials.</p>
+<p>Every parametric EQ band you adjust — whether it's a bell curve, low shelf, or high-pass — is implemented as a single biquad filter. When you have 10 bands of EQ, you're chaining 10 biquads in series:</p>
+<pre><code>[Audio In] → [Biquad 1] → [Biquad 2] → ... → [Biquad N] → [Audio Out]</code></pre>
+<p>Each biquad has five coefficients (a1, a2, b0, b1, b2) that define its frequency response. When you adjust a band's frequency, Q, or gain, Equaliser recalculates these coefficients and sends them to the audio thread.</p>
+<details>
+<summary>⚙️ Technical Details: The Transfer Function</summary>
+<p>A biquad filter is defined by its transfer function in the z-domain:</p>
+<pre><code>        b0 + b1·z⁻¹ + b2·z⁻²
+H(z) = ─────────────────────
+        1 + a1·z⁻¹ + a2·z⁻²</code></pre>
+<p>The five coefficients (b0, b1, b2, a1, a2) determine the filter's behaviour:</p>
+<ul>
+<li><strong>b0, b1, b2</strong>: Feedforward coefficients (numerator)</li>
+<li><strong>a1, a2</strong>: Feedback coefficients (denominator)</li>
+</ul>
+<p>Each sample y[n] is computed from the input x[n] and previous samples:</p>
+<pre><code>y[n] = b0·x[n] + b1·x[n-1] + b2·x[n-2] - a1·y[n-1] - a2·y[n-2]</code></pre>
+<p>The "delay elements" (x[n-1], y[n-1], etc.) give the filter its memory — this is why IIR filters can achieve steep slopes with few coefficients.</p>
+</details>
+<hr />
+<h2 id="the-rbj-audio-eq-cookbook">The RBJ Audio EQ Cookbook</h2>
+<p>Equaliser's coefficient calculations follow the <strong>RBJ Audio EQ Cookbook</strong>, an industry-standard reference by Robert Bristow-Johnson. Originally published on the music-dsp mailing list in the 1990s, the Cookbook provides closed-form equations for every common audio filter type.</p>
+<p><strong>Why the Cookbook?</strong></p>
+<ul>
+<li><strong>Proven correctness</strong> — Used by countless audio applications, DAWs, and plugins</li>
+<li><strong>Numerical stability</strong> — Formulas designed to work across the audible spectrum</li>
+<li><strong>Complete coverage</strong> — All 11 filter types Equaliser supports</li>
+</ul>
+<p><strong>The Cookbook reference:</strong></p>
+<ul>
+<li><a href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">Original Music-DSP post (archived)</a></li>
+<li><a href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.html">W3C Web Audio API version</a></li>
+</ul>
+<p>Equaliser implements all Cookbook filter types:</p>
+<table>
+<colgroup>
+<col style="width: 32%" />
+<col style="width: 42%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Filter Type</th>
+<th>Cookbook Formula</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parametric (Peaking)</td>
+<td><code>peakingEQ</code></td>
+<td>Boost/cut at a specific frequency</td>
+</tr>
+<tr>
+<td>Low-Pass</td>
+<td><code>LPF</code></td>
+<td>Remove high frequencies (Q controls resonance)</td>
+</tr>
+<tr>
+<td>High-Pass</td>
+<td><code>HPF</code></td>
+<td>Remove low frequencies (Q controls resonance)</td>
+</tr>
+<tr>
+<td>Low Shelf</td>
+<td><code>lowShelf</code></td>
+<td>Boost/cut bass frequencies (Q controls slope)</td>
+</tr>
+<tr>
+<td>High Shelf</td>
+<td><code>highShelf</code></td>
+<td>Boost/cut treble frequencies (Q controls slope)</td>
+</tr>
+<tr>
+<td>Band-Pass</td>
+<td><code>BPF</code> (constant 0 dB peak)</td>
+<td>Isolate a frequency band</td>
+</tr>
+<tr>
+<td>Notch</td>
+<td><code>notch</code></td>
+<td>Remove a specific frequency</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="why-swift-vdsp">Why Swift + vDSP?</h2>
+<p>Equaliser's engine is written in <strong>Swift</strong> and uses <strong>Apple's vDSP</strong> (part of the Accelerate framework) for the actual filtering operations. This combination delivers native performance with clean, maintainable code.</p>
+<h3 id="what-is-vdsp">What Is vDSP?</h3>
+<p>vDSP is Apple's vectorised Digital Signal Processing library, optimised for Apple Silicon:</p>
+<ul>
+<li><strong>SIMD operations</strong> — Process 4-8 samples per instruction</li>
+<li><strong>NEON acceleration</strong> — Native ARM64 vector instructions</li>
+<li><strong>Zero allocation</strong> — All operations work on pre-allocated buffers</li>
+</ul>
+<h3 id="why-not-avaudiouniteq">Why Not AVAudioUnitEQ?</h3>
+<p>Apple's <code>AVAudioUnitEQ</code> is convenient but limiting:</p>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>AVAudioUnitEQ</th>
+<th>Custom biquad (Equaliser)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Per-channel config</td>
+<td>No</td>
+<td>Yes (independent L/R)</td>
+</tr>
+<tr>
+<td>Coefficient access</td>
+<td>Limited</td>
+<td>Full control</td>
+</tr>
+<tr>
+<td>Real-time updates</td>
+<td>Apple-controlled</td>
+<td>Atomic, lock-free</td>
+</tr>
+<tr>
+<td>Debugging</td>
+<td>Black box</td>
+<td>Transparent</td>
+</tr>
+</tbody>
+</table>
+<details>
+<summary>⚙️ Technical Details: Double-Precision Coefficients</summary>
+<p>Equaliser calculates filter coefficients using <strong>Double</strong> (64-bit) precision, then converts to <strong>Float</strong> (32-bit) for the vDSP operations.</p>
+<p>Why Double for calculation?</p>
+<ul>
+<li><strong>Narrow filters</strong> — A Q of 20 at low frequencies produces very small alpha values. Float precision can introduce audible errors.</li>
+<li><strong>Low frequencies</strong> — Near DC, sin(ω) values become tiny. Double maintains precision.</li>
+<li><strong>Accurate shelf slopes</strong> — Shelf filters involve sqrt(A) terms that benefit from extra precision.</li>
+</ul>
+<p>The vDSP biquad function (<code>vDSP_biquad</code>) operates on Float arrays, which is fine for runtime — the audio samples are Float anyway. Only the coefficient calculation benefits from Double.</p>
+</details>
+<hr />
+<h2 id="real-time-safety">Real-Time Safety</h2>
+<p>Audio processing must happen in <strong>real-time</strong> — the next buffer of samples must be ready before the speaker needs them. If processing takes too long, you get <strong>dropouts</strong>: clicks, pops, or gaps in the audio.</p>
+<p>Equaliser's engine is designed from the ground up for real-time safety:</p>
+<table>
+<colgroup>
+<col style="width: 26%" />
+<col style="width: 17%" />
+<col style="width: 22%" />
+<col style="width: 35%" />
+</colgroup>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Thread</th>
+<th>Real-Time Safe?</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Calculate coefficients</td>
+<td>Main</td>
+<td>No</td>
+<td>Pure maths, may allocate</td>
+</tr>
+<tr>
+<td>Apply slider change</td>
+<td>Main</td>
+<td>No</td>
+<td>Writes to pending buffer</td>
+</tr>
+<tr>
+<td>Process audio</td>
+<td>Audio</td>
+<td><strong>Yes</strong></td>
+<td>Pre-allocated buffers, atomics only</td>
+</tr>
+<tr>
+<td>Update filter state</td>
+<td>Audio</td>
+<td><strong>Yes</strong></td>
+<td>Only if dirty, bounded copy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="lock-free-coefficient-updates">Lock-Free Coefficient Updates</h3>
+<p>When you drag a slider, the main thread calculates new coefficients. But the audio thread is already running — how do we update without blocking?</p>
+<p>Equaliser uses a <strong>lock-free double-buffer</strong> pattern:</p>
+<pre><code>[Main Thread]                              [Audio Thread]
+     │                                          │
+     ▼                                          │
+BiquadMath.calculateCoefficients()              │
+     │                                          │
+     ▼                                          │
+pendingCoefficients[index] = newCoeffs          │
+     │                                          │
+hasPendingUpdate.store(true, .releasing)        │
+     │                                          │
+     └─────── atomic flag ─────────────────────►│
+                                                │
+                                                ▼
+                                       flag.exchange(false)
+                                                │
+                                                ▼
+                                for each band where pending != active:
+                                    filter.setCoefficients(pending)
+                                    // vDSP setup recreated here
+                                                │
+                                                ▼
+                                    process audio with new coefficients</code></pre>
+<p>Key points:</p>
+<ol type="1">
+<li><strong>No locks</strong> — Atomic flag synchronises threads without blocking</li>
+<li><strong>Dirty tracking</strong> — Only changed bands trigger rebuild (<code>Equatable</code> comparison). A single-band slider drag rebuilds exactly 1 filter.</li>
+<li><strong>Bounded setup recreation</strong> — <code>vDSP_biquad_CreateSetup</code> is called on the audio thread, but only for dirty bands. The setup object doesn't allocate memory; it's a pre-sized data structure.</li>
+<li><strong>State preserved</strong> — Slider drags don't reset filter delay elements (no clicks). Only preset loads and sample rate changes reset state.</li>
+</ol>
+<h3 id="why-this-matters">Why This Matters</h3>
+<p>Without real-time safety:</p>
+<ul>
+<li><strong>Locks cause priority inversion</strong> — Audio thread waits for UI thread</li>
+<li><strong>Allocations cause VM faults</strong> — First access to new memory can take 100s of milliseconds</li>
+<li><strong>Unbounded work causes underruns</strong> — Processing might not finish in time</li>
+</ul>
+<p>Equaliser's engine guarantees: every filter operation completes in bounded time, every time.</p>
+<details>
+<summary>⚙️ Technical Details: vDSP Biquad Setup</summary>
+<p>Each biquad filter requires a <strong>setup object</strong> (<code>vDSP_biquad_Setup</code>) that holds internal state. Creating and destroying these objects is expensive.</p>
+<p>Equaliser's <code>BiquadFilter</code> manages this carefully:</p>
+<pre><code>// Init: create setup once
+let setup = vDSP_biquad_CreateSetup(&amp;coefficients, 1, .intersect)
+
+// Runtime: reuse setup, only update coefficients
+vDSP_biquad(setup, &amp;input, &amp;output, 1, frameCount)
+
+// Coefficients change: destroy old setup, create new one
+vDSP_biquad_DestroySetup(setup)
+let newSetup = vDSP_biquad_CreateSetup(&amp;newCoefficients, 1, .intersect)</code></pre>
+<p>The setup is only recreated when coefficients actually change, and the old setup is kept valid until the new one is ready. This prevents any gap in processing.</p>
+</details>
+<hr />
+<h2 id="independent-stereo-processing">Independent Stereo Processing</h2>
+<p>Equaliser supports <strong>independent EQ for left and right channels</strong> — each channel can have completely different curves.</p>
+<h3 id="architecture">Architecture</h3>
+<p>Each EQ layer has two separate filter chains:</p>
+<pre><code>┌──────────────────────────────────────────────────────┐
+│                       EQ Layer                       │
+│                                                      │
+│  ┌─────────────────┐           ┌─────────────────┐   │
+│  │  Left Channel   │           │  Right Channel  │   │
+│  │  EQChain        │           │  EQChain        │   │
+│  │  (64 bands)     │           │  (64 bands)     │   │
+│  └─────────────────┘           └─────────────────┘   │
+│                                                      │
+└──────────────────────────────────────────────────────┘</code></pre>
+<h3 id="linked-vs-stereo-mode">Linked vs Stereo Mode</h3>
+<table>
+<colgroup>
+<col style="width: 35%" />
+<col style="width: 64%" />
+</colgroup>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Linked</strong> (default)</td>
+<td>Both channels share the same EQ curve. Editing any band updates both left and right.</td>
+</tr>
+<tr>
+<td><strong>Stereo</strong></td>
+<td>Left and right channels have independent curves. Edit each channel separately.</td>
+</tr>
+</tbody>
+</table>
+<p>Use cases for stereo mode:</p>
+<ul>
+<li><strong>Driver variation compensation</strong> — Headphone drivers can have minor frequency response differences between left and right</li>
+<li><strong>Room correction</strong> — Room acoustics affect left and right speakers differently</li>
+<li><strong>Hearing compensation</strong> — Compensate for asymmetric hearing between left and right ears</li>
+</ul>
+<hr />
+<h2 id="further-reading">Further Reading</h2>
+<ul>
+<li><strong><a href="how-it-works.html">How It Works</a></strong> — Overview of the complete audio pipeline</li>
+<li><strong><a href="eq-presets-guide.html">EQ Presets Guide</a></strong> — Understanding factory presets</li>
+<li><strong><a href="https://webaudio.github.io/Audio-EQ-Cookbook/Audio-EQ-Cookbook.txt">RBJ Audio EQ Cookbook</a></strong> — The original reference</li>
+<li><strong><a href="https://developer.apple.com/documentation/accelerate/vdsp">Apple vDSP Documentation</a></strong> — Apple's DSP framework</li>
+</ul>
+    </main>
+
+    <footer>
+        <p>
+            <a href="../index.html">Equaliser</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser">GitHub Repository</a>
+            <span class="separator">·</span>
+            <a href="https://github.com/cvknage/equaliser/blob/main/LICENSE">GPL-3.0 License</a>
+        </p>
+    </footer>
+</body>
+</html>
