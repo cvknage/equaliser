@@ -5,6 +5,7 @@ import SwiftUI
 struct MenuBarContentView: View {
     @EnvironmentObject var store: EqualiserStore
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismiss) private var dismiss
     
     /// View model for routing status and device selection.
     private var routingViewModel: RoutingViewModel {
@@ -93,6 +94,7 @@ struct MenuBarContentView: View {
             Button {
                 openWindow(id: "equaliser")
                 NSApp.activate(ignoringOtherApps: true)
+                dismiss()
             } label: {
                 Text("Open Equaliser")
                     .frame(maxWidth: .infinity)
