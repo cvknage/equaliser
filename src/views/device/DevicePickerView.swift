@@ -71,13 +71,33 @@ struct InputDevicePickerView: View {
     }
 
     private var verticalLayout: some View {
-        MenuSection(title: "Input") {
-            Picker("Input", selection: binding(for: $store.selectedInputDeviceID)) {
-                ForEach(viewModel.inputDevices) { device in
-                    Text(device.displayName).tag(device.uid)
+        HStack {
+            Text("Input")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Menu {
+                Section {
+                    Text("Select Input")
                 }
+                Section {
+                    ForEach(viewModel.inputDevices) { device in
+                        Button {
+                            viewModel.selectInputDevice(device.uid)
+                        } label: {
+                            HStack {
+                                Text(device.displayName)
+                                if viewModel.selectedInputDeviceID == device.uid {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Text(viewModel.inputDeviceName)
             }
-            .labelsHidden()
         }
     }
 
@@ -129,13 +149,33 @@ struct OutputDevicePickerView: View {
     }
 
     private var verticalLayout: some View {
-        MenuSection(title: "Output") {
-            Picker("Output", selection: binding(for: $store.selectedOutputDeviceID)) {
-                ForEach(viewModel.outputDevices) { device in
-                    Text(device.displayName).tag(device.uid)
+        HStack {
+            Text("Output")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Menu {
+                Section {
+                    Text("Select Output")
                 }
+                Section {
+                    ForEach(viewModel.outputDevices) { device in
+                        Button {
+                            viewModel.selectOutputDevice(device.uid)
+                        } label: {
+                            HStack {
+                                Text(device.displayName)
+                                if viewModel.selectedOutputDeviceID == device.uid {
+                                    Spacer()
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                }
+            } label: {
+                Text(viewModel.outputDeviceName)
             }
-            .labelsHidden()
         }
     }
 

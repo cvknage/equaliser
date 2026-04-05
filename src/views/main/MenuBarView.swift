@@ -46,9 +46,9 @@ struct MenuBarContentView: View {
         VStack(spacing: 12) {
             statusRow
 
-            // Only show output picker in manual mode
+            // Show device pickers in manual mode
             if routingViewModel.manualModeEnabled {
-                outputPickerRow
+                DevicePickerView(layout: .vertical)
             }
 
             presetPickerRow
@@ -71,39 +71,6 @@ struct MenuBarContentView: View {
             SystemEQToggleView(style: SystemEQToggleView.Style.menuBar)
         }
         .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Output Picker Row
-
-    private var outputPickerRow: some View {
-        HStack {
-            Text("Output")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Menu {
-                Section {
-                    Text("Select Output")
-                }
-                Section {
-                    ForEach(routingViewModel.outputDevices) { device in
-                        Button {
-                            routingViewModel.selectOutputDevice(device.uid)
-                        } label: {
-                            HStack {
-                                Text(device.displayName)
-                                if routingViewModel.selectedOutputDeviceID == device.uid {
-                                    Spacer()
-                                    Image(systemName: "checkmark")
-                                }
-                            }
-                        }
-                    }
-                }
-            } label: {
-                Text(routingViewModel.outputDeviceName)
-            }
-        }
     }
 
     // MARK: - Preset Picker Row
