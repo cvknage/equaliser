@@ -18,8 +18,7 @@ struct EQBandGridView: View {
                                 set: { store.updateBandGain(index: index, gain: $0) }
                             ),
                             frequencyUpdate: { value in
-                                let clamped = min(max(value, 20), 20_000)
-                                store.updateBandFrequency(index: index, frequency: clamped)
+                                store.updateBandFrequency(index: index, frequency: AudioConstants.clampFrequency(value))
                             },
                             qUpdate: { value in
                                 let clamped = BandwidthConverter.clampQ(value)

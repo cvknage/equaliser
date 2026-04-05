@@ -13,6 +13,8 @@ struct InlineEditableValue: View {
     var onNavigateRight: (() -> Void)? = nil
     var startEditing: Bool = false
     var delta: Float = 0.1
+    /// Optional transform applied during arrow key adjustment to clamp before displaying.
+    var onAdjust: ((Float) -> Float)? = nil
 
     @State private var isEditing = false
     @State private var text: String = ""
@@ -112,7 +114,8 @@ struct InlineEditableValue: View {
     private func adjustValue(by delta: Float) {
         let currentValue = Float(text) ?? value
         let newValue = currentValue + delta
-        text = inputFormatter(newValue)
-        onCommit(newValue)
+        let adjustedValue = onAdjust?(newValue) ?? newValue
+        text = inputFormatter(adjustedValue)
+        onCommit(adjustedValue)
     }
 }

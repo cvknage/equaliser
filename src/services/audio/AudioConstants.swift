@@ -32,11 +32,11 @@ enum AudioConstants {
     
     // MARK: - EQ Band Limits
     
-    /// Minimum allowed EQ frequency in Hz (lower bound of human hearing).
-    static let minEQFrequency: Float = 20
-    
-    /// Maximum allowed EQ frequency in Hz (upper bound of human hearing).
-    static let maxEQFrequency: Float = 20000
+    /// Minimum allowed EQ frequency in Hz.
+    static let minEQFrequency: Float = 1
+
+    /// Maximum allowed EQ frequency in Hz (safely below Nyquist for 44.1 kHz sample rate).
+    static let maxEQFrequency: Float = 22000
     
     /// Minimum gain in dB for EQ bands.
     /// Matches the UI slider range in EqualiserStore.

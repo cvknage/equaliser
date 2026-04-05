@@ -32,7 +32,8 @@ struct EQBandSliderView: View {
                 },
                 onNavigateLeft: onNavigateLeft,
                 onNavigateRight: onNavigateRight,
-                startEditing: startEditing
+                startEditing: startEditing,
+                onAdjust: AudioConstants.clampGain
             )
             .font(.system(size: 10, weight: .bold, design: .monospaced))
         }
@@ -78,7 +79,8 @@ struct EQBandSliderView: View {
                 width: 56,
                 alignment: .center,
                 onCommit: frequencyUpdate,
-                delta: 10
+                delta: 10,
+                onAdjust: AudioConstants.clampFrequency
             )
         }
     }
