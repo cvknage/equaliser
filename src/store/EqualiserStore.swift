@@ -154,6 +154,8 @@ final class EqualiserStore: ObservableObject {
         }
 
         if granted {
+            // Enumerate input devices now that we have permission
+            deviceManager.enumerateInputDevices()
             captureMode = .halInput
             logger.info("Microphone permission granted, switched to HAL capture")
         } else {
@@ -180,6 +182,13 @@ final class EqualiserStore: ObservableObject {
     
     var inputDevices: [AudioDevice] { deviceManager.inputDevices }
     var outputDevices: [AudioDevice] { deviceManager.outputDevices }
+
+    /// Enumerates input devices.
+    /// May trigger TCC permission dialog for microphone access.
+    /// Should be called after microphone permission is granted or when switching to manual mode.
+    func enumerateInputDevices() {
+        deviceManager.enumerateInputDevices()
+    }
 
     // MARK: - Channel Mode
 
@@ -505,6 +514,8 @@ final class EqualiserStore: ObservableObject {
         }
 
         if granted {
+            // Enumerate input devices now that we have permission
+            deviceManager.enumerateInputDevices()
             routingCoordinator.switchToManualMode()
             logger.info("Microphone permission granted, switched to manual mode")
         } else {

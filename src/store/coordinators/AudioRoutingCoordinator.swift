@@ -142,10 +142,15 @@ final class AudioRoutingCoordinator: ObservableObject {
         if needsPermission {
             let permission = AVAudioApplication.shared.recordPermission
             guard permission == .granted else {
-                let modeDesc = manualModeEnabled ? "Manual mode" : "HAL Input capture"
-                routingStatus = .error("\(modeDesc) requires microphone permission. Open System Settings to enable it.")
-                logger.error("\(modeDesc) requires microphone permission (current: \(permission.rawValue))")
+                requestPermissionAndRetryRouting()
                 return
+            }
+
+            // Permission is granted, but input devices may not be enumerated yet
+            // (permission persists across sessions, but device enumeration doesn't)
+            if manualModeEnabled && deviceManager.inputDevices.isEmpty {
+                logger.info("Permission granted but input devices not enumerated - enumerating now")
+                deviceManager.enumerateInputDevices()
             }
         }
         
@@ -300,9 +305,24 @@ final class AudioRoutingCoordinator: ObservableObject {
             }
         }
 
-        guard let inputDeviceID = deviceManager.deviceID(forUID: inputUID),
-              let outputDeviceID = deviceManager.deviceID(forUID: outputUID),
-              let outputDevice = deviceManager.device(forUID: outputUID) else {
+        // Resolve device IDs with diagnostic logging
+        let inputDeviceID = deviceManager.deviceID(forUID: inputUID)
+        let outputDeviceID = deviceManager.deviceID(forUID: outputUID)
+        let outputDevice = deviceManager.device(forUID: outputUID)
+
+        if inputDeviceID == nil {
+            logger.error("Failed to resolve input device ID for UID: \(inputUID)")
+        }
+        if outputDeviceID == nil {
+            logger.error("Failed to resolve output device ID for UID: \(outputUID)")
+        }
+        if outputDevice == nil {
+            logger.error("Failed to resolve output device for UID: \(outputUID)")
+        }
+
+        guard let inputDeviceID = inputDeviceID,
+              let outputDeviceID = outputDeviceID,
+              let outputDevice = outputDevice else {
             routingStatus = .error("Failed to resolve device IDs")
             logger.error("Failed to resolve device IDs")
             return
@@ -466,6 +486,8 @@ final class AudioRoutingCoordinator: ObservableObject {
 
             if granted {
                 logger.info("Microphone permission granted")
+                // Enumerate input devices now that we have permission
+                deviceManager.enumerateInputDevices()
                 // Retry routing - permission now granted, HAL input will work
                 reconfigureRouting()
             } else {

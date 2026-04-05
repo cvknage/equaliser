@@ -349,17 +349,21 @@ All audio processing happens **locally on your Mac**. Equaliser has no network c
 
 ### Microphone Permission
 
-macOS may request microphone permission when Equaliser launches. Here's why:
+macOS requests microphone permission when Equaliser launches for audio routing.
 
-| Capture Mode | Permission Required? | Why |
-|--------------|----------------------|-----|
-| **Shared Memory (default)** | No | Audio read from memory, not microphone API |
-| **HAL Input** | Yes | Uses macOS audio input APIs |
-| **Manual Mode** | Yes | Always requires HAL input |
+**Why the permission dialog appears:**
 
-**The permission prompt appears at launch** because macOS detects the audio-input entitlement in the app, even though the default mode doesn't need it. This is macOS behaviour and cannot be controlled.
+Equaliser uses macOS's HAL (Hardware Abstraction Layer) audio system to route audio between devices. The audio component required for device routing (`HALOutput`) can be used for both input capture and output playback. macOS treats it as a potential microphone access point and requires permission — even when Equaliser is only using it for audio output.
 
-If you only use **Automatic Mode with Shared Memory capture**, you can deny the permission — the app will work correctly.
+| Mode | Permission Dialog? | Can Deny? | Effect if Denied |
+|------|---------------------|-----------|------------------|
+| **Automatic + Shared Memory** | Yes | Yes | App works correctly |
+| **Automatic + HAL Input** | Yes | No | Audio routing fails |
+| **Manual Mode** | Yes | No | Audio routing fails |
+
+**Technical explanation:** The audio pipeline creates a `HALOutput` AudioUnit for routing audio to your speakers or headphones. Because this component can also be used for input capture, macOS checks microphone permission when it's created — before knowing whether input will actually be used.
+
+**Best practice:** Grant permission for full functionality, or deny if you only use Automatic mode with Shared Memory capture.
 
 ---
 

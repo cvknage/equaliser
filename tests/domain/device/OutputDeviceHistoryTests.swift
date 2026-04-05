@@ -16,8 +16,6 @@ final class OutputDeviceHistoryTests: XCTestCase {
             id: 0,
             uid: uid,
             name: name,
-            isInput: false,
-            isOutput: true,
             transportType: isVirtual ? 1986549999 : 1650537695
         )
     }

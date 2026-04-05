@@ -60,6 +60,27 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | `src/services/device/DeviceEnumerationService.swift` | Device enumeration and change events |
 | `src/services/device/DeviceManager.swift` | Device model and selection logic |
 
+### TCC Permission Considerations
+
+The audio pipeline triggers macOS microphone permission due to the AudioUnit type used for output:
+
+| Component | AudioUnit Type | TCC Impact |
+|-----------|----------------|------------|
+| `HALIOManager` | `kAudioUnitSubType_HALOutput` | Triggers TCC at instantiation |
+| `DriverCapture` | None (shared memory) | No TCC impact |
+
+The `HALIOManager` uses `kAudioUnitSubType_HALOutput` because it supports device selection for both input and output. However, this AudioUnit type is flagged by macOS as potentially accessing audio input, triggering TCC permission when instantiated — even when only used for output.
+
+**Current architecture:**
+```
+RenderPipeline.configure()
+  → HALIOManager(outputOnly)
+    → AudioComponentInstanceNew(kAudioUnitSubType_HALOutput)
+      → TCC permission check triggered
+```
+
+**See** `docs/dev/TCC-Permission-Architecture.md` **for potential solutions under investigation.**
+
 ### Views Structure
 
 | Directory | Purpose |

@@ -8,8 +8,8 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_preservesValidSelection() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
         ]
 
         let result = OutputDeviceSelection.determine(
@@ -23,9 +23,9 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_preservesValidSelection_whenDriverIsMacDefault() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", isInput: false, isOutput: true, transportType: 0),
-            AudioDevice(id: 3, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", transportType: 0),
+            AudioDevice(id: 3, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
         ]
 
         // User has AirPods selected, driver is macOS default (from previous crash)
@@ -41,8 +41,8 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_usesMacDefault_whenNoValidSelection() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", isInput: false, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", transportType: 0),
         ]
 
         // No current selection, macOS default is AirPods
@@ -57,8 +57,8 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_usesMacDefault_whenCurrentIsDriver() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
         ]
 
         // Current selection is driver (invalid), macOS default is AirPods
@@ -73,7 +73,7 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_needsFallback_whenDriverIsMacDefault() {
         let devices = [
-            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
         ]
 
         // Current is driver, mac default is driver, no valid devices
@@ -88,8 +88,8 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_needsFallback_whenNoValidDevices() {
         let devices = [
-            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "BlackHole 2ch", name: "BlackHole 2ch", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
+            AudioDevice(id: 2, uid: "BlackHole 2ch", name: "BlackHole 2ch", transportType: 0),
         ]
 
         // All devices are virtual
@@ -104,7 +104,7 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_preservesValidDevice_notInAvailableList_usesMacDefault() {
         let devices = [
-            AudioDevice(id: 1, uid: "builtin", name: "Built-in Speakers", isInput: false, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "builtin", name: "Built-in Speakers", transportType: 0),
         ]
 
         // Current selection not in available list
@@ -119,8 +119,8 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_virtualDeviceSelected_usesMacDefault() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
         ]
 
         // Driver is virtual, should use mac default
@@ -135,8 +135,8 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_preservesCurrent_overMacDefault() {
         let devices = [
-            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", isInput: true, isOutput: true, transportType: 0),
-            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", isInput: false, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "airpods", name: "AirPods Pro", transportType: 0),
+            AudioDevice(id: 2, uid: "builtin", name: "Built-in Speakers", transportType: 0),
         ]
 
         // Valid current selection should take precedence over mac default
@@ -151,7 +151,7 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_noCurrent_noMacDefault_needsFallback() {
         let devices = [
-            AudioDevice(id: 1, uid: "builtin", name: "Built-in Speakers", isInput: false, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: "builtin", name: "Built-in Speakers", transportType: 0),
         ]
 
         // No current, no mac default
@@ -166,7 +166,7 @@ final class EqualiserStoreTests: XCTestCase {
 
     func testDetermineAutomaticOutputDevice_macDefaultNotInAvailableList_needsFallback() {
         let devices = [
-            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", isInput: true, isOutput: true, transportType: 0),
+            AudioDevice(id: 1, uid: DRIVER_DEVICE_UID, name: "Equaliser", transportType: 0),
         ]
 
         // Mac default is a disconnected device, no valid current

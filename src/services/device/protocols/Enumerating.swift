@@ -20,10 +20,7 @@ protocol Enumerating: ObservableObject {
     
     /// Refreshes the device lists from CoreAudio
     func refreshDevices()
-    
-    /// Finds a device by UID, even if hidden from enumeration
-    func findDeviceByUID(_ uid: String) -> AudioDevice?
-    
+
     /// Returns the device for a given UID
     func device(forUID uid: String) -> AudioDevice?
     
@@ -35,10 +32,7 @@ protocol Enumerating: ObservableObject {
     
     /// Returns the current system default output device (convenience)
     func currentSystemDefaultOutputDevice() -> AudioDevice?
-    
-    /// Finds the Equaliser driver device among input devices
-    func findEqualiserDriverDevice() -> AudioDevice?
-    
+
     /// Finds the built-in audio device among output devices.
     /// Used for headphone jack detection and data source discovery.
     func findBuiltInAudioDevice() -> AudioDevice?

@@ -82,7 +82,9 @@ Equaliser can import `.eqpreset` files, EasyEffects presets from Linux, and filt
 
 Click the gear icon in the top right to access settings.
 
-**Driver** lets you install or uninstall the Equaliser virtual audio driver, and switch between capture modes. Most users should leave this on **Shared Memory** (the default) — it works without microphone permission and doesn't trigger the orange menu bar indicator.
+**Driver** lets you install or uninstall the Equaliser virtual audio driver, and switch between capture modes. Most users should leave this on **Shared Memory** (the default) — it doesn't show the orange menu bar indicator.
+
+Note: macOS will request microphone permission regardless of capture mode. This is required for the audio routing pipeline. Grant permission for full functionality, or deny if you only use Automatic mode with Shared Memory capture.
 
 **Devices** controls how Equaliser selects your output. **Automatic** mode (recommended) handles this for you; **Manual** mode lets you pick a specific output device.
 

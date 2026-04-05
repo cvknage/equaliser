@@ -155,20 +155,11 @@ func updateDriverName() async -> Bool {
 }
 ```
 
-### CoreAudio Safety with Stale UIDs
+### Device Lookup Safety
 
-Never call `deviceManager.device(forUID:)` with potentially-stale UIDs from history. CoreAudio may have deallocated the device, causing use-after-free crashes.
+`device(forUID:)` and `deviceID(forUID:)` search cached device lists only - they don't call CoreAudio directly. This is safe to call with any UID.
 
-```swift
-// WRONG: Calls CoreAudio with stale UID
-if let device = deviceManager.device(forUID: uid) { ... }
-
-// CORRECT: Use cached device list
-let devices = deviceManager.outputDevices
-if let device = devices.first(where: { $0.uid == uid }) { ... }
-```
-
-`OutputDeviceHistory.findReplacementDevice()` uses the cached list to avoid this crash.
+For the driver special case, `driverAccess?.deviceID` provides direct CoreAudio lookup without requiring input device enumeration (TCC avoidance).
 
 ### Headphone Auto-Switch
 
@@ -487,6 +478,16 @@ DriverManager.shared.setDeviceName("My EQ")
 **Note:** 
 - App is not sandboxed (required for driver installation).
 - The `audio-input` entitlement is required for HAL input capture mode to work.
-- Shared memory capture (default) does NOT trigger the TCC microphone dialog on its own.
-- However, macOS proactively shows the microphone permission dialog at app launch when the entitlement + usage description are both present.
-- This means new installs will see the permission dialog before using the app, even in shared memory mode.
+
+### Known Limitations
+
+#### TCC Permission Dialog at Launch
+
+The app requests microphone permission at launch in **all capture modes** due to architectural constraints:
+
+1. The audio pipeline uses `kAudioUnitSubType_HALOutput` for device routing
+2. This AudioUnit type can be configured for input or output (dual-purpose)
+3. macOS checks microphone permission when the AudioUnit is instantiated, regardless of actual usage
+4. This affects even shared memory mode, which doesn't use microphone input
+
+**Technical details:** See `docs/dev/TCC-Permission-Architecture.md` for root cause analysis and potential solutions.

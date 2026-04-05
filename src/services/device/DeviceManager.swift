@@ -18,8 +18,6 @@ struct AudioDevice: Identifiable, Equatable {
     let id: AudioDeviceID
     let uid: String
     let name: String
-    let isInput: Bool
-    let isOutput: Bool
     let transportType: UInt32
 
     var displayName: String { name }
@@ -113,40 +111,43 @@ enum OutputDeviceSelection: Equatable {
 /// Maintains backward compatibility while delegating to specialised services.
 @MainActor
 final class DeviceManager: ObservableObject {
-    
+
     // MARK: - Services
-    
+
     /// Device enumeration service
     let enumerator: DeviceEnumerationService
-    
+
     /// Volume and mute control service
     let volume: VolumeControlling
-    
+
     /// Sample rate service
     let sampleRate: SampleRateObserving
-    
+
     // MARK: - Published Properties (forwarded from enumerator)
-    
+
     /// Currently available input devices
     @Published var inputDevices: [AudioDevice] = []
-    
+
     /// Currently available output devices
     @Published var outputDevices: [AudioDevice] = []
-    
+
     // MARK: - Private Properties
-    
+
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "DeviceManager")
     private var cancellables = Set<AnyCancellable>()
-    
+
     // MARK: - Initialization
-    
+
     init(
         enumerator: DeviceEnumerationService? = nil,
         volume: VolumeControlling? = nil,
-        sampleRate: SampleRateObserving? = nil
+        sampleRate: SampleRateObserving? = nil,
+        driverAccess: DriverAccessing? = nil
     ) {
         // Create default services if not provided
-        let newEnumerator = enumerator ?? DeviceEnumerationService()
+        // Pass driverAccess to enable driver device lookup without TCC permission
+        let resolvedDriverAccess = driverAccess ?? DriverManager.shared
+        let newEnumerator = enumerator ?? DeviceEnumerationService(driverAccess: resolvedDriverAccess)
         self.enumerator = newEnumerator
         self.volume = volume ?? DeviceVolumeService()
         self.sampleRate = sampleRate ?? DeviceSampleRateService()
@@ -169,19 +170,22 @@ final class DeviceManager: ObservableObject {
     }
     
     // MARK: - Device Enumeration (pass-through)
-    
+
     func refreshDevices() {
         enumerator.refreshDevices()
+    }
+
+    /// Enumerates input devices only.
+    /// May trigger TCC permission dialog for microphone access.
+    /// Should be called after microphone permission is granted or when switching to manual mode.
+    func enumerateInputDevices() {
+        enumerator.refreshInputDevices()
     }
     
     func shouldIncludeDevice(name: String) -> Bool {
         enumerator.shouldIncludeDevice(name: name)
     }
-    
-    func findDeviceByUID(_ uid: String) -> AudioDevice? {
-        enumerator.findDeviceByUID(uid)
-    }
-    
+
     func device(forUID uid: String) -> AudioDevice? {
         enumerator.device(forUID: uid)
     }
@@ -190,16 +194,8 @@ final class DeviceManager: ObservableObject {
         enumerator.deviceID(forUID: uid)
     }
     
-    func findEqualiserDriverDevice() -> AudioDevice? {
-        enumerator.findEqualiserDriverDevice()
-    }
-    
     func findBlackHoleDevice() -> AudioDevice? {
         enumerator.findBlackHoleDevice()
-    }
-    
-    func bestInputDeviceForEQ() -> AudioDevice? {
-        enumerator.bestInputDeviceForEQ()
     }
     
     func defaultOutputDevice() -> AudioDevice? {

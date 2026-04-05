@@ -19,30 +19,24 @@ final class DeviceChangeDetectorTests: XCTestCase {
             id: 1,
             uid: uid,
             name: name,
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBuiltIn
         )
     }
-    
+
     private func makeUSBDevice(uid: String, name: String = "USB Headphones") -> AudioDevice {
         AudioDevice(
             id: 2,
             uid: uid,
             name: name,
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeUSB
         )
     }
-    
+
     private func makeBluetoothDevice(uid: String, name: String = "AirPods") -> AudioDevice {
         AudioDevice(
             id: 3,
             uid: uid,
             name: name,
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBluetooth
         )
     }
@@ -202,8 +196,6 @@ final class DeviceChangeDetectorTests: XCTestCase {
             id: 1,
             uid: "usb-device",
             name: "USB Device",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeUSB
         )
         
@@ -256,30 +248,24 @@ final class HeadphoneSwitchPolicyTests: XCTestCase {
             id: 1,
             uid: uid,
             name: name,
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBuiltIn
         )
     }
-    
+
     private func makeUSBDevice(uid: String, name: String = "USB Device") -> AudioDevice {
         AudioDevice(
             id: 2,
             uid: uid,
             name: name,
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeUSB
         )
     }
-    
+
     private func makeBluetoothDevice(uid: String, name: String = "Bluetooth") -> AudioDevice {
         AudioDevice(
             id: 3,
             uid: uid,
             name: name,
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBluetooth
         )
     }
@@ -343,8 +329,6 @@ final class HeadphoneSwitchPolicyTests: XCTestCase {
             id: 4,
             uid: "hdmi-display",
             name: "HDMI Display",
-            isInput: false,
-            isOutput: true,
             transportType: 0x48444D49  // 'HDMI'
         )
         let new = makeBuiltInDevice(uid: "headphones")

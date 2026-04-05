@@ -11,6 +11,12 @@ import OSLog
 /// Emits change events when device enumeration changes in meaningful ways.
 @MainActor
 final class DeviceEnumerationService: ObservableObject, Enumerating {
+
+    // MARK: - Dependencies
+
+    /// Driver access for direct CoreAudio driver device lookup.
+    /// Used to resolve driver UID without requiring input device enumeration.
+    private let driverAccess: DriverAccessing?
     
     // MARK: - Published Properties
     
@@ -50,13 +56,18 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
     private let listenerBlockQueue = DispatchQueue(label: "net.knage.equaliser.DeviceEnumerationService.listener")
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "DeviceEnumerationService")
     
+    /// Whether input devices have been enumerated yet.
+    /// Input enumeration is deferred to avoid triggering TCC dialog on launch.
+    private var hasEnumeratedInputDevices = false
+
     // MARK: - Initialization
-    
-    init() {
-        refreshDevices()
-        setupDeviceChangeListener()
-        setupDefaultOutputListener()
-        setupDriverInstallNotification()
+
+    init(driverAccess: DriverAccessing? = nil) {
+        self.driverAccess = driverAccess
+        self.refreshOutputDevices()
+        self.setupDeviceChangeListener()
+        self.setupDefaultOutputListener()
+        self.setupDriverInstallNotification()
     }
     
     deinit {
@@ -179,7 +190,58 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
     
     // MARK: - Device Enumeration
 
+    /// Refreshes both input and output devices.
+    /// Note: Only enumerates input devices if they've been enumerated before,
+    /// to avoid triggering TCC permission dialog unexpectedly.
     func refreshDevices() {
+        refreshOutputDevices()
+        // Only refresh input devices if they've been enumerated before
+        // (permission was granted or user requested it)
+        if hasEnumeratedInputDevices {
+            refreshInputDevices()
+        }
+    }
+
+    /// Refreshes output devices only.
+    /// Safe to call during app initialization - does NOT trigger TCC dialog.
+    func refreshOutputDevices() {
+        var propertySize: UInt32 = 0
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &propertySize) == noErr else {
+            return
+        }
+
+        let deviceCount = Int(propertySize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
+
+        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &propertySize, &deviceIDs) == noErr else {
+            return
+        }
+
+        var outputs: [AudioDevice] = []
+
+        for deviceID in deviceIDs {
+            // Only check output streams - avoids TCC trigger
+            if let device = makeOutputDevice(from: deviceID) {
+                outputs.append(device)
+            }
+        }
+
+        outputDevices = outputs.sorted { $0.name < $1.name }
+
+        // Process device changes and emit events
+        processDeviceChanges()
+    }
+
+    /// Refreshes input devices only.
+    /// May trigger TCC permission dialog for microphone access.
+    /// Should only be called after microphone permission is granted or when needed.
+    func refreshInputDevices() {
         var propertySize: UInt32 = 0
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
@@ -199,21 +261,25 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
         }
 
         var inputs: [AudioDevice] = []
-        var outputs: [AudioDevice] = []
 
         for deviceID in deviceIDs {
-            if let device = makeDevice(from: deviceID) {
-                if device.isInput { inputs.append(device) }
-                // Exclude Equaliser driver from outputs (can't route to itself)
-                if device.isOutput && device.uid != DRIVER_DEVICE_UID { outputs.append(device) }
+            // Check input streams - may trigger TCC
+            if let device = makeInputDevice(from: deviceID) {
+                inputs.append(device)
             }
         }
 
         inputDevices = inputs.sorted { $0.name < $1.name }
-        outputDevices = outputs.sorted { $0.name < $1.name }
-        
-        // Process device changes and emit events
-        processDeviceChanges()
+        hasEnumeratedInputDevices = true
+
+        logger.info("Enumerated \(inputs.count) input device(s)")
+    }
+
+    /// Enumerates input devices on demand.
+    /// Call this when microphone permission is granted or when switching to manual mode.
+    /// May trigger TCC permission dialog for microphone access.
+    func enumerateInputDevices() {
+        refreshInputDevices()
     }
     
     /// Processes device enumeration changes and emits appropriate events.
@@ -300,7 +366,9 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
         lastReportedMissingSelectedUID = nil
     }
     
-    private func makeDevice(from id: AudioDeviceID) -> AudioDevice? {
+    /// Creates an AudioDevice checking ONLY output streams.
+    /// Safe to call during initialization - does NOT trigger TCC.
+    private func makeOutputDevice(from id: AudioDeviceID) -> AudioDevice? {
         guard let uid = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceUID),
               let name = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceNameCFString)
         else { return nil }
@@ -309,16 +377,44 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
             return nil
         }
 
-        let hasInput = hasStreams(id: id, scope: kAudioDevicePropertyScopeInput)
+        // Only check output streams - avoids TCC trigger
         let hasOutput = hasStreams(id: id, scope: kAudioDevicePropertyScopeOutput)
+        guard hasOutput else { return nil }
+
+        // Exclude Equaliser driver from outputs (can't route to itself)
+        guard uid != DRIVER_DEVICE_UID else { return nil }
+
         let transportType = fetchTransportType(id: id)
 
         return AudioDevice(
             id: id,
             uid: uid,
             name: name,
-            isInput: hasInput,
-            isOutput: hasOutput,
+            transportType: transportType
+        )
+    }
+
+    /// Creates an AudioDevice checking ONLY input streams.
+    /// May trigger TCC permission dialog.
+    private func makeInputDevice(from id: AudioDeviceID) -> AudioDevice? {
+        guard let uid = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceUID),
+              let name = fetchStringProperty(id: id, selector: kAudioDevicePropertyDeviceNameCFString)
+        else { return nil }
+
+        guard shouldIncludeDevice(name: name) else {
+            return nil
+        }
+
+        // Check input streams - may trigger TCC
+        let hasInput = hasStreams(id: id, scope: kAudioDevicePropertyScopeInput)
+        guard hasInput else { return nil }
+
+        let transportType = fetchTransportType(id: id)
+
+        return AudioDevice(
+            id: id,
+            uid: uid,
+            name: name,
             transportType: transportType
         )
     }
@@ -328,88 +424,38 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
     }
     
     // MARK: - Device Lookup
-    
-    func findDeviceByUID(_ uid: String) -> AudioDevice? {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain
-        )
 
-        var deviceID: AudioDeviceID = 0
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-
-        let cfUid: CFString = uid as CFString
-        let uidPtr = Unmanaged.passUnretained(cfUid).toOpaque()
-
-        let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &address,
-            UInt32(MemoryLayout<CFString>.size),
-            uidPtr,
-            &size,
-            &deviceID
-        )
-
-        guard status == noErr, deviceID != 0 else {
-            return nil
-        }
-
-        // If found in enumeration, return cached device
-        if let cached = inputDevices.first(where: { $0.uid == uid }) {
-            return cached
-        }
-        if let cached = outputDevices.first(where: { $0.uid == uid }) {
-            return cached
-        }
-
-        // Build device from ID for hidden devices
-        return makeDevice(from: deviceID)
-    }
-    
     func device(forUID uid: String) -> AudioDevice? {
-        if let device = inputDevices.first(where: { $0.uid == uid }) {
-            return device
+        // Special case: driver UID - use CoreAudio directly (driver may not be in cached list)
+        // This allows driver lookup in automatic mode without enumerating input devices (TCC avoidance)
+        if uid == DRIVER_DEVICE_UID, let driverID = driverAccess?.deviceID {
+            return AudioDevice(
+                id: driverID,
+                uid: DRIVER_DEVICE_UID,
+                name: DRIVER_DEFAULT_NAME,
+                transportType: kAudioDeviceTransportTypeVirtual
+            )
         }
+
+        // Check output devices first (most common lookup)
         if let device = outputDevices.first(where: { $0.uid == uid }) {
             return device
         }
-        // Fallback: try hidden device lookup via CoreAudio
-        return findDeviceByUID(uid)
-    }
-    
-    func deviceID(forUID uid: String) -> AudioDeviceID? {
-        // Check input devices first, then output devices
+        // Then check input devices
         if let device = inputDevices.first(where: { $0.uid == uid }) {
-            return device.id
+            return device
         }
-        if let device = outputDevices.first(where: { $0.uid == uid }) {
-            return device.id
-        }
-        // Fallback: try hidden device lookup via CoreAudio
-        if let device = findDeviceByUID(uid) {
-            return device.id
-        }
-        logger.warning("Device not found for UID: \(uid)")
+        // Device not found in cached lists - log for diagnostics
+        logger.warning("Device not found for UID: \(uid) - searched \(self.outputDevices.count) output devices, \(self.inputDevices.count) input devices")
         return nil
+    }
+
+    func deviceID(forUID uid: String) -> AudioDeviceID? {
+        device(forUID: uid)?.id
     }
     
     // MARK: - Special Device Discovery
-    
-    func findEqualiserDriverDevice() -> AudioDevice? {
-        // Try exact UID match first
-        if let device = inputDevices.first(where: { $0.uid == DRIVER_DEVICE_UID }) {
-            return device
-        }
-        // Fallback: match by name (handles UID format variations)
-        if let device = inputDevices.first(where: { $0.name == DRIVER_DEFAULT_NAME || $0.name == "Equaliser" }) {
-            return device
-        }
 
-        // Fallback: find hidden device via CoreAudio TranslateUIDToDevice
-        return findDeviceByUID(DRIVER_DEVICE_UID)
-    }
-    
     func findBuiltInAudioDevice() -> AudioDevice? {
         // Find built-in output device using transport type
         return outputDevices.first { $0.transportType == kAudioDeviceTransportTypeBuiltIn }
@@ -418,17 +464,7 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
     func findBlackHoleDevice() -> AudioDevice? {
         inputDevices.first { $0.name.contains("BlackHole") }
     }
-    
-    func bestInputDeviceForEQ() -> AudioDevice? {
-        if let driver = findEqualiserDriverDevice() {
-            return driver
-        }
-        if let blackHole = findBlackHoleDevice() {
-            return blackHole
-        }
-        return inputDevices.first
-    }
-    
+
     // MARK: - Default Device
     
     func defaultOutputDevice() -> AudioDevice? {

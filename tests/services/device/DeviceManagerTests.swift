@@ -51,8 +51,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "com.unknown.virtual",
             name: "Unknown Virtual Device",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeVirtual
         )
         XCTAssertTrue(device.isVirtual, "Device with virtual transport type should be virtual")
@@ -63,8 +61,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 2,
             uid: DRIVER_DEVICE_UID,
             name: "Equaliser",
-            isInput: true,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertTrue(device.isVirtual, "Driver UID should be virtual via fallback")
@@ -75,8 +71,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 3,
             uid: "Equaliser_UID_123",
             name: "Some Device",
-            isInput: true,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertTrue(device.isVirtual, "Driver UID prefix should be virtual via fallback")
@@ -87,8 +81,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 4,
             uid: "BlackHole 2ch",
             name: "BlackHole 2ch",
-            isInput: true,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertTrue(device.isVirtual, "BlackHole UID prefix should be virtual via fallback")
@@ -99,8 +91,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 5,
             uid: "com.apple.MacBookPro",
             name: "MacBook Pro Speakers",
-            isInput: false,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertFalse(device.isVirtual, "Physical device should not be virtual")
@@ -111,8 +101,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 6,
             uid: "com.focusrite.scarlett",
             name: "Focusrite Scarlett 2i2",
-            isInput: true,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertFalse(device.isVirtual, "External audio interface should not be virtual")
@@ -123,8 +111,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 7,
             uid: "com.apple.builtin",
             name: "Built-in Speakers",
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBuiltIn
         )
         XCTAssertFalse(device.isVirtual, "Built-in device should not be virtual")
@@ -135,8 +121,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 8,
             uid: "com.focusrite.usb",
             name: "USB Audio Device",
-            isInput: true,
-            isOutput: true,
             transportType: 0x75736220  // 'usb '
         )
         XCTAssertFalse(device.isVirtual, "USB device should not be virtual")
@@ -149,8 +133,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "com.apple.aggregate",
             name: "Combined Output",
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeAggregate
         )
         XCTAssertTrue(device.isAggregate, "Device with aggregate transport type should be aggregate")
@@ -161,8 +143,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 6,
             uid: "com.focusrite.scarlett",
             name: "Focusrite Scarlett 2i2",
-            isInput: true,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertFalse(device.isAggregate, "Regular device should not be aggregate")
@@ -173,8 +153,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 7,
             uid: "BuiltInSpeakerUID",
             name: "MacBook Pro Speakers",
-            isInput: false,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertFalse(device.isAggregate, "Built-in speakers should not be aggregate")
@@ -186,8 +164,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 8,
             uid: "some-uid",
             name: "My Aggregate Device",
-            isInput: false,
-            isOutput: true,
             transportType: 0
         )
         XCTAssertFalse(device.isAggregate, "Device without aggregate transport type should not be aggregate, regardless of name")
@@ -200,8 +176,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "Equaliser_UID_123",
             name: "Equaliser",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeVirtual
         )
         XCTAssertFalse(device.isRealDevice, "Driver should be excluded")
@@ -212,8 +186,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "BlackHole_2ch",
             name: "BlackHole 2ch",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeVirtual
         )
         XCTAssertFalse(device.isRealDevice, "Virtual devices should be excluded")
@@ -224,8 +196,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "agg1",
             name: "My Aggregate",
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeAggregate
         )
         XCTAssertFalse(device.isRealDevice, "Aggregates should be excluded")
@@ -236,8 +206,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "builtin-speakers",
             name: "Built-in Speakers",
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBuiltIn
         )
         XCTAssertTrue(device.isRealDevice, "Physical devices should be accepted")
@@ -249,8 +217,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "usb-headphones",
             name: "USB Headphones",
-            isInput: true,
-            isOutput: true,
             transportType: usbTransportType
         )
         XCTAssertTrue(device.isRealDevice, "USB devices should be accepted")
@@ -262,8 +228,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "bt-headphones",
             name: "Bluetooth Headphones",
-            isInput: true,
-            isOutput: true,
             transportType: btTransportType
         )
         XCTAssertTrue(device.isRealDevice, "Bluetooth devices should be accepted")
@@ -275,8 +239,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "Equaliser_driver",
             name: "Equaliser",
-            isInput: true,
-            isOutput: true,
             transportType: 0  // Unknown transport, but UID prefix should exclude
         )
         XCTAssertFalse(device.isRealDevice, "Driver should be excluded by UID prefix")
@@ -290,8 +252,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 1,
             uid: "Equaliser_UID",
             name: "Equaliser",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeVirtual
         )
         XCTAssertFalse(driverDevice.isValidForSelection, "Driver should be excluded from selection")
@@ -301,8 +261,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 2,
             uid: "BlackHole_2ch",
             name: "BlackHole",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeVirtual
         )
         XCTAssertTrue(blackholeDevice.isValidForSelection, "Virtual devices should be accepted for selection")
@@ -312,8 +270,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 3,
             uid: "my-aggregate",
             name: "My Aggregate",
-            isInput: false,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeAggregate
         )
         XCTAssertTrue(aggregateDevice.isValidForSelection, "Aggregates should be accepted for selection")
@@ -323,8 +279,6 @@ final class DeviceManagerTests: XCTestCase {
             id: 4,
             uid: "headphones",
             name: "Headphones",
-            isInput: true,
-            isOutput: true,
             transportType: kAudioDeviceTransportTypeBuiltIn
         )
         XCTAssertTrue(physicalDevice.isValidForSelection, "Physical devices should be accepted for selection")
