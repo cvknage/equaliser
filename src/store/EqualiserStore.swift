@@ -121,8 +121,9 @@ final class EqualiserStore: ObservableObject {
         get { routingCoordinator.captureMode }
         set {
             routingCoordinator.captureMode = newValue
-            // Reconfigure routing if active and in automatic mode
-            if !routingCoordinator.manualModeEnabled && routingCoordinator.routingStatus.isActive {
+            // Reconfigure routing in automatic mode if not idle
+            // This covers: active, starting, error states (e.g., permission denied then retry)
+            if !routingCoordinator.manualModeEnabled && routingCoordinator.routingStatus != .idle {
                 routingCoordinator.reconfigureRouting()
             }
         }
