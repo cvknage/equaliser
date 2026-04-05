@@ -12,6 +12,7 @@ struct InlineEditableValue: View {
     var onNavigateLeft: (() -> Void)? = nil
     var onNavigateRight: (() -> Void)? = nil
     var startEditing: Bool = false
+    var delta: Float = 0.1
 
     @State private var isEditing = false
     @State private var text: String = ""
@@ -45,11 +46,6 @@ struct InlineEditableValue: View {
                         }
                     }
                     .onSubmit(commit)
-                    .onChange(of: text) { _, newText in
-                        if isEditing, let newValue = Float(newText) {
-                            onCommit(newValue)
-                        }
-                    }
                     .onChange(of: isFocused) { _, focused in
                         if !focused {
                             commit()
@@ -65,11 +61,11 @@ struct InlineEditableValue: View {
                         return .ignored
                     }
                     .onKeyPress(.upArrow) {
-                        adjustValue(by: 0.1)
+                        adjustValue(by: delta)
                         return .handled
                     }
                     .onKeyPress(.downArrow) {
-                        adjustValue(by: -0.1)
+                        adjustValue(by: -delta)
                         return .handled
                     }
                     .onKeyPress(.escape) {
@@ -117,5 +113,6 @@ struct InlineEditableValue: View {
         let currentValue = Float(text) ?? value
         let newValue = currentValue + delta
         text = inputFormatter(newValue)
+        onCommit(newValue)
     }
 }

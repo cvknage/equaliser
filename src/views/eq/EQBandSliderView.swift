@@ -77,7 +77,8 @@ struct EQBandSliderView: View {
                 inputFormatter: { String(format: "%.0f", $0) },
                 width: 56,
                 alignment: .center,
-                onCommit: frequencyUpdate
+                onCommit: frequencyUpdate,
+                delta: 10
             )
         }
     }
