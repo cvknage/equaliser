@@ -115,14 +115,23 @@ Equaliser:
 
 ## Alternatives
 
-Some other macOS system audio tools you might consider:
+I searched for a long time for an EQ app that supported the features I wanted and worked the way I wanted — and came up empty. So I built my own.  
+If Equaliser suits you, great. If you prefer something else, that's perfectly fine too. I hope this list makes your search a little easier.  
 
+Some other macOS system audio tools you might consider:  
+(this list is not meant to be exhaustive)  
+
+**I have tried these:**  
+* **[CamillaDSP](https://henquist.github.io/)** — Free, Open Source, Gratis
+* **[FineTune](https://github.com/ronitsingh10/FineTune)** — Free, Open Source, Gratis
 * **[Radioform](https://www.radioform.app/)** — Free, Open Source, Gratis
 * **[SoundMax](https://snap-sites.github.io/SoundMax/)** — Free, Open Source, Gratis
 * **[eqMac (older version without Pro Features)](https://github.com/bitgapp/eqMac)** — Free, Open Source, Gratis
 * **[Vizzdom Analyzer with EQ](https://www.krisdigital.com/en/blog/2018/08/23/vizzdom-mac-system-audio-spectrum-level-analyzer/)** — Proprietary, Gratis
 * **[Hosting AU](https://ju-x.com/hostingau.html)** — Proprietary, Gratis
 * **[AU Lab](https://www.apple.com/apple-music/apple-digital-masters/)** — Proprietary, Gratis
+
+**I have not tried these, but they are kinda staples in the space:**  
 * **[eqMac (latest version)](https://eqmac.app/)** — Proprietary, Paid
 * **[Sound Control 3](https://staticz.com/soundcontrol/)** — Proprietary, Paid
 * **[SoundSource](https://rogueamoeba.com/soundsource/)** — Proprietary, Paid
