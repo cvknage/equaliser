@@ -215,15 +215,15 @@ final class DeviceManager: ObservableObject {
     func selectFallbackOutputDevice(excluding excludeUID: String? = nil) -> AudioDevice? {
         // First: built-in speakers (most common fallback)
         let builtIn = outputDevices.first { device in
-            device.isBuiltIn && device.isRealDevice && device.uid != excludeUID
+            device.isBuiltIn && device.isValidForSelection && device.uid != excludeUID
         }
         if let builtIn = builtIn {
             return builtIn
         }
-        
-        // Last resort: any real device
+
+        // Then: any valid device (includes virtual/aggregate)
         return outputDevices.first { device in
-            device.isRealDevice && device.uid != excludeUID
+            device.isValidForSelection && device.uid != excludeUID
         }
     }
     

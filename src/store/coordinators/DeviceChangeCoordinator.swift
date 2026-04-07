@@ -97,9 +97,9 @@ final class DeviceChangeCoordinator: ObservableObject {
                 return device
             }
         }
-        
-        // Fall back to first real device
-        return deviceEnumerator.outputDevices.first { $0.isRealDevice }
+
+        // Fall back to first valid device (excludes driver only)
+        return deviceEnumerator.outputDevices.first { $0.isValidForSelection }
     }
     
     /// Adds a device to history.

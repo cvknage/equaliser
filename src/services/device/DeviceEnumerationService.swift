@@ -483,14 +483,14 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
             return nil
         }
 
-        // Get the system default but exclude virtual devices (Equaliser driver, BlackHole)
+        // Get the system default but exclude the Equaliser driver
         let systemDefault = outputDevices.first { $0.id == deviceID }
-        if let device = systemDefault, !device.isVirtual {
+        if let device = systemDefault, device.isValidForSelection {
             return device
         }
 
-        // Fall back to first non-virtual output device
-        return outputDevices.first(where: { !$0.isVirtual })
+        // Fall back to first valid output device (excludes driver only)
+        return outputDevices.first(where: { $0.isValidForSelection })
     }
     
     func currentSystemDefaultOutputDevice() -> AudioDevice? {
