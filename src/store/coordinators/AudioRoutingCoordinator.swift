@@ -46,6 +46,9 @@ final class AudioRoutingCoordinator: ObservableObject {
         static let driftCheckDelays: [TimeInterval] = [0.1, 0.3, 0.5]
         /// Minimum volume difference to consider as drift.
         static let driftThreshold: Float = 0.01
+        /// Delay after syncing driver sample rate before creating HAL input unit.
+        /// Allows CoreAudio to propagate the rate change.
+        static let sampleRatePropagationDelay: TimeInterval = 0.1
     }
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
@@ -348,6 +351,66 @@ final class AudioRoutingCoordinator: ObservableObject {
         // Set up listener for output device sample rate changes
         setupSampleRateListener(for: outputDeviceID)
 
+        // Determine capture mode early - needed to decide if we need rate sync delay
+        let capturePreference: CaptureMode = manualModeEnabled ? .halInput : self.captureMode
+        let supportsSharedMemory = driverAccess.hasSharedMemoryCapability()
+        let captureDecision = CaptureModePolicy.determineMode(
+            preference: capturePreference,
+            isManualMode: manualModeEnabled,
+            supportsSharedMemory: supportsSharedMemory
+        )
+        let resolvedCaptureMode: CaptureMode
+        switch captureDecision {
+        case .useMode(let mode):
+            resolvedCaptureMode = mode
+        case .fallbackToHALInput:
+            resolvedCaptureMode = .halInput
+        }
+
+        // For HAL input mode in automatic mode, add delay after sample rate sync
+        // to allow CoreAudio to propagate the rate change before creating input HAL unit.
+        // In shared memory mode, no input HAL unit is created, so no delay needed.
+        let needsRateSyncDelay = !manualModeEnabled && resolvedCaptureMode == .halInput
+
+        if needsRateSyncDelay {
+            // Delay to allow CoreAudio to propagate sample rate change
+            logger.debug("Waiting for driver sample rate propagation before HAL input configuration")
+            DispatchQueue.main.asyncAfter(deadline: .now() + Constants.sampleRatePropagationDelay) { [weak self] in
+                self?.continueRoutingConfiguration(
+                    inputDeviceID: inputDeviceID,
+                    outputDeviceID: outputDeviceID,
+                    outputDevice: outputDevice,
+                    inputUID: inputUID,
+                    outputUID: outputUID,
+                    resolvedCaptureMode: resolvedCaptureMode,
+                    captureDecision: captureDecision
+                )
+            }
+        } else {
+            continueRoutingConfiguration(
+                inputDeviceID: inputDeviceID,
+                outputDeviceID: outputDeviceID,
+                outputDevice: outputDevice,
+                inputUID: inputUID,
+                outputUID: outputUID,
+                resolvedCaptureMode: resolvedCaptureMode,
+                captureDecision: captureDecision
+            )
+        }
+    }
+
+    /// Continues routing configuration after optional rate sync delay.
+    /// Separated to allow async delay for HAL input mode.
+    private func continueRoutingConfiguration(
+        inputDeviceID: AudioDeviceID,
+        outputDeviceID: AudioDeviceID,
+        outputDevice: AudioDevice,
+        inputUID: String,
+        outputUID: String,
+        resolvedCaptureMode: CaptureMode,
+        captureDecision: CaptureModeDecision
+    ) {
+
         // Set up jack connection listener on built-in device (Intel Macs: headphone jack detection)
         // Note: Apple Silicon uses device count change detection in DeviceEnumerationService instead
         if !manualModeEnabled {
@@ -381,23 +444,9 @@ final class AudioRoutingCoordinator: ObservableObject {
         routingStatus = .starting
         logger.info("Starting routing: \(inputName) → \(outputName)")
 
-        // Determine capture mode using policy
-        let preference: CaptureMode = manualModeEnabled ? .halInput : self.captureMode
-        let supportsSharedMemory = driverAccess.hasSharedMemoryCapability()
-        let decision = CaptureModePolicy.determineMode(
-            preference: preference,
-            isManualMode: manualModeEnabled,
-            supportsSharedMemory: supportsSharedMemory
-        )
-
-        let resolvedCaptureMode: CaptureMode
-        switch decision {
-        case .useMode(let mode):
-            resolvedCaptureMode = mode
-        case .fallbackToHALInput:
+        // Handle capture mode decision (already determined in reconfigureRouting)
+        if case .fallbackToHALInput = captureDecision {
             logger.info("Driver does not support shared memory, falling back to HAL input")
-            resolvedCaptureMode = .halInput
-            // Signal to UI that driver needs updating
             showDriverUpdateRequired = true
         }
 
