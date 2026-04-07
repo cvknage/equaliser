@@ -31,12 +31,22 @@ final class AudioRoutingCoordinator: ObservableObject {
     @Published var captureMode: CaptureMode = .sharedMemory
     
     // MARK: - Dependencies
-    
+
     let deviceManager: DeviceManager
     let deviceChangeCoordinator: DeviceChangeCoordinator
     private let eqConfiguration: EQConfiguration
     private let meterStore: MeterStore
     private let volumeService: VolumeControlling
+
+    // MARK: - Constants
+
+    private enum Constants {
+        /// Delays for drift checks after volume setup.
+        /// macOS may have multiple async operations that restore volume.
+        static let driftCheckDelays: [TimeInterval] = [0.1, 0.3, 0.5]
+        /// Minimum volume difference to consider as drift.
+        static let driftThreshold: Float = 0.01
+    }
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
     private let driverAccess: DriverAccessing
@@ -118,7 +128,7 @@ final class AudioRoutingCoordinator: ObservableObject {
     }
     
     // MARK: - Public Methods
-    
+
     /// Reconfigures the audio routing pipeline.
     /// In automatic mode: derives devices from macOS default output.
     /// In manual mode: uses user-selected devices.
@@ -464,6 +474,9 @@ final class AudioRoutingCoordinator: ObservableObject {
                     }
                 }
                 volumeManager?.setupVolumeSync(driverID: driverID, outputID: outputDeviceID)
+
+                // Schedule drift checks to catch macOS async volume restorations
+                scheduleDriftChecks(outputUID: outputUID)
             }
 
         case .failure(let error):
@@ -818,33 +831,40 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.debug("handleSystemDefaultChanged: Manual mode - ignoring")
             return
         }
-        
+
         logger.info("handleSystemDefaultChanged: macOS default output changed to '\(device.name)' (uid=\(device.uid))")
         logger.debug("handleSystemDefaultChanged: Current selected output: \(self.selectedOutputDeviceID ?? "nil")")
-        
-        // Check if same as currently selected output
+
+        // IMMEDIATE check for same device - no debounce delay
+        // When user clicks the same device in System Settings, just restore the driver as default
         if device.uid == selectedOutputDeviceID {
-            logger.info("handleSystemDefaultChanged: Same device already selected - reconfiguring")
-            reconfigureRouting()
+            if routingStatus.isActive {
+                logger.info("handleSystemDefaultChanged: Same device already selected - restoring driver as default")
+                systemDefaultObserver.setDriverAsDefault(shortTimeout: true)
+            } else {
+                logger.info("handleSystemDefaultChanged: Same device selected but routing inactive - reconfiguring")
+                reconfigureRouting()
+            }
             return
         }
-        
-        // Save current output to history before switching (automatic mode only)
+
+        // Different device - reconfigure immediately (no debounce)
+        // Save current output to history before switching
         if let current = selectedOutputDeviceID,
            current != DRIVER_DEVICE_UID,
            current != device.uid {
             deviceChangeCoordinator.addToHistory(current)
             logger.debug("handleSystemDefaultChanged: Saved previous output to history")
         }
-        
+
         // Update output device
         selectedOutputDeviceID = device.uid
         logger.info("handleSystemDefaultChanged: Switching to '\(device.name)'")
 
-        // Reconfigure routing (this will rename the driver)
+        // Reconfigure routing immediately
         reconfigureRouting()
     }
-    
+
     // MARK: - Device Change Handlers
     
     /// Called when the selected output device is missing from available devices.
@@ -938,11 +958,38 @@ final class AudioRoutingCoordinator: ObservableObject {
     @discardableResult
     private func updateDriverName() -> Bool {
         let outputDevice = selectedOutputDeviceID.flatMap { deviceManager.device(forUID: $0) }
-        
+
         return driverNameManager.updateDriverName(
             manualMode: manualModeEnabled,
             selectedOutputUID: selectedOutputDeviceID,
             selectedOutputDevice: outputDevice
         )
+    }
+
+    // MARK: - Volume Drift Detection
+
+    /// Schedules multiple drift checks to catch macOS async volume restorations.
+    /// macOS may restore stored volume multiple times when device becomes default.
+    private func scheduleDriftChecks(outputUID: String) {
+        for delay in Constants.driftCheckDelays {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                self?.checkAndResyncDrift(outputUID: outputUID, delay: delay)
+            }
+        }
+    }
+
+    /// Checks for volume drift and re-syncs driver to output device volume.
+    private func checkAndResyncDrift(outputUID: String, delay: TimeInterval) {
+        guard let outputDeviceID = deviceManager.deviceID(forUID: outputUID),
+              let driverID = driverAccess.deviceID,
+              let expectedVolume = volumeService.getDeviceVolumeScalar(deviceID: outputDeviceID),
+              let actualVolume = volumeService.getDeviceVolumeScalar(deviceID: driverID) else {
+            return
+        }
+
+        if abs(expectedVolume - actualVolume) > Constants.driftThreshold {
+            logger.warning("Driver volume drifted at \(delay)s: expected \(expectedVolume), actual \(actualVolume), re-syncing")
+            _ = volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: expectedVolume)
+        }
     }
 }

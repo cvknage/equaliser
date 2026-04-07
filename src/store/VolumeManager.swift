@@ -31,6 +31,14 @@ final class VolumeManager: ObservableObject {
     /// Prevents glitches from rapid tiny volume fluctuations.
     private let volumeEpsilon: Float = 0.001
 
+    // MARK: - Constants
+
+    private enum Constants {
+        /// Duration to suppress volume forwarding after setup.
+        /// macOS may restore driver volume to 100% during device switches.
+        static let settlingWindowDuration: TimeInterval = 0.5
+    }
+
     // MARK: - Published State
 
     /// Current volume from driver (0.0 - 1.0). Used to calculate boost.
@@ -54,9 +62,9 @@ final class VolumeManager: ObservableObject {
     /// Prevents CoreAudio calls from interfering with UI work and audio callback timing.
     private let volumeForwardQueue = DispatchQueue(label: "net.knage.equaliser.volume-forward")
 
-    /// Last forwarded volume for deduplication.
+    /// Last forwarded volume per device for deduplication.
     /// Accessed only on volumeForwardQueue, marked nonisolated(unsafe) for Swift concurrency.
-    nonisolated(unsafe) var lastForwardedVolume: Float?
+    nonisolated(unsafe) var lastForwardedVolumeByDevice: [AudioDeviceID: Float] = [:]
 
     /// Driver device ID for volume sync.
     private var driverDeviceID: AudioDeviceID?
@@ -66,6 +74,10 @@ final class VolumeManager: ObservableObject {
 
     /// Flag to prevent feedback loops.
     private var isSyncingMute = false
+
+    /// Whether we're in the settling window after setupVolumeSync.
+    /// During settling, volume forwarding is suppressed to avoid macOS-initiated spikes.
+    private var isSettling: Bool = false
 
     // MARK: - Callbacks
 
@@ -108,8 +120,8 @@ final class VolumeManager: ObservableObject {
 
         gain = initialVolume
 
-        // Initialize last forwarded volume to prevent first forward being skipped
-        lastForwardedVolume = initialVolume
+        // Initialize last forwarded volume for this device to prevent first forward being skipped
+        lastForwardedVolumeByDevice[outputID] = initialVolume
 
         // Get initial mute state from output device (source of truth)
         let initialMuted = volumeService.getDeviceMute(deviceID: outputID) ?? false
@@ -123,14 +135,9 @@ final class VolumeManager: ObservableObject {
             logger.warning("Failed to sync driver volume to \(initialVolume)")
         }
 
-        // Forward initial volume to output device
-        // This ensures output device has correct volume immediately, not just when user touches slider
-        // (During device switch, macOS may have synced stale volume to output device)
-        if volumeService.setDeviceVolumeScalar(deviceID: outputID, volume: initialVolume) {
-            logger.debug("Forwarded initial volume to output device: \(initialVolume)")
-        } else {
-            logger.warning("Failed to forward initial volume to output device")
-        }
+        // Note: We do NOT forward volume to output device here.
+        // macOS stores per-device volumes and restores them when a device becomes default.
+        // Forwarding would overwrite the device's correct stored volume.
 
         // Sync mute state to driver (output is source of truth)
         if volumeService.setDeviceMute(deviceID: driverID, muted: initialMuted) {
@@ -165,7 +172,14 @@ final class VolumeManager: ObservableObject {
         let boost = boostGain()
         logger.info("Initial boost: \(boost)x (gain=\(initialVolume), muted=\(initialMuted))")
         onBoostGainChanged?(boost)
-        
+
+        // Start settling window to suppress macOS async volume spikes
+        // macOS may restore driver volume to 100% during device switches
+        isSettling = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + Constants.settlingWindowDuration) { [weak self] in
+            self?.isSettling = false
+        }
+
         logger.info("Volume sync setup complete")
     }
     
@@ -181,7 +195,8 @@ final class VolumeManager: ObservableObject {
 
         driverDeviceID = nil
         outputDeviceID = nil
-        lastForwardedVolume = nil
+        lastForwardedVolumeByDevice = [:]
+        isSettling = false
     }
     
     // MARK: - Volume Change Handlers
@@ -192,12 +207,21 @@ final class VolumeManager: ObservableObject {
         // Update internal state immediately (UI needs this)
         gain = newVolume
 
+        // Skip forwarding during settling window
+        // macOS may set driver to 100% during device switches
+        guard !isSettling else {
+            logger.debug("Skipping volume forward during settling window: \(newVolume)")
+            return
+        }
+
         // Capture values before dispatching to background queue
         guard let outputID = outputDeviceID else { return }
 
         // Dispatch to serial queue for epsilon filtering and output sync
         // This isolates CoreAudio calls from main thread UI work
-        volumeForwardQueue.async { [weak self] in
+        volumeForwardQueue.async { [weak self, outputID] in
+            // Forward volume to the captured output device
+            // Note: We use the captured outputID to avoid race conditions with device switches
             self?.forwardVolumeToOutput(newVolume, outputID: outputID)
         }
 
@@ -209,13 +233,13 @@ final class VolumeManager: ObservableObject {
     /// Forwards volume to output device with epsilon filtering.
     /// Called on volumeForwardQueue, not main thread.
     nonisolated private func forwardVolumeToOutput(_ newVolume: Float, outputID: AudioDeviceID) {
-        // Skip if change is below epsilon threshold
-        if let lastForwardedVolume = lastForwardedVolume,
-           abs(newVolume - lastForwardedVolume) < volumeEpsilon {
+        // Skip if change is below epsilon threshold for this device
+        if let lastVolume = lastForwardedVolumeByDevice[outputID],
+           abs(newVolume - lastVolume) < volumeEpsilon {
             return
         }
 
-        lastForwardedVolume = newVolume
+        lastForwardedVolumeByDevice[outputID] = newVolume
 
         // CoreAudio call on serial queue (isolated from main thread)
         // Note: setDeviceVolumeScalar is nonisolated and thread-safe

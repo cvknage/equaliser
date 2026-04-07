@@ -12,16 +12,27 @@ import OSLog
 final class SystemDefaultObserver: SystemDefaultObserving {
     
     // MARK: - Properties
-    
+
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "SystemDefaultObserver")
     private let deviceManager: DeviceManager
-    
+
     /// Prevents infinite loop when app sets driver as default
     private(set) var isAppSettingSystemDefault = false
-    
+
     /// Callback invoked when system default changes (not caused by app)
     /// Parameter is the new default output device
     var onSystemDefaultChanged: ((AudioDevice) -> Void)?
+
+    // MARK: - Constants
+
+    private enum Constants {
+        /// Standard timeout for suppressing default change notifications (300ms).
+        /// Used for normal device switches where the app sets both output and driver as default.
+        static let standardSuppressTimeout: TimeInterval = 0.3
+        /// Short timeout for immediate same-device restoration (50ms).
+        /// Used when user clicks the same device - just need to restore driver quickly.
+        static let shortSuppressTimeout: TimeInterval = 0.05
+    }
     
     // MARK: - Initialization
     
@@ -132,22 +143,28 @@ final class SystemDefaultObserver: SystemDefaultObserving {
     
     /// Sets driver as system default with loop prevention.
     /// - Parameters:
+    ///   - shortTimeout: If true, use 50ms timeout instead of 300ms.
+    ///       Use true for immediate same-device restoration (user clicked same device).
+    ///       Use false for normal device switches (default).
     ///   - onSuccess: Called when driver is successfully set as default
     ///   - onFailure: Called when setting driver as default fails
-    func setDriverAsDefault(onSuccess: (() -> Void)? = nil, onFailure: (() -> Void)? = nil) {
+    func setDriverAsDefault(shortTimeout: Bool = false, onSuccess: (() -> Void)? = nil, onFailure: (() -> Void)? = nil) {
         isAppSettingSystemDefault = true
-        
+
         guard DriverManager.shared.setAsDefaultOutputDevice() else {
             isAppSettingSystemDefault = false
             onFailure?()
             return
         }
-        
-        // Clear flag after delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+
+        // Use shorter timeout for immediate restoration (50ms vs 300ms)
+        // The notification from setting driver as default typically arrives within a few milliseconds.
+        // 50ms is sufficient to suppress this notification while allowing subsequent user clicks through quickly.
+        let timeout: TimeInterval = shortTimeout ? Constants.shortSuppressTimeout : Constants.standardSuppressTimeout
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
             self?.isAppSettingSystemDefault = false
         }
-        
+
         onSuccess?()
     }
     
@@ -162,24 +179,27 @@ final class SystemDefaultObserver: SystemDefaultObserving {
     // MARK: - Notification Handler
     
     @objc private func handleSystemDefaultOutputChange() {
-        // Ignore if app is setting default
-        guard !isAppSettingSystemDefault else {
-            logger.debug("App is setting system default, ignoring notification")
-            return
-        }
-        
-        // Get the new default
+        // Get the new default device
         guard let newDefault = deviceManager.defaultOutputDevice() else {
             logger.warning("No default output device found")
             return
         }
-        
+
+        // Ignore if app is setting default (prevents feedback loop)
+        // Note: The app generates notifications about BOTH the driver AND the output device
+        // during reconfiguration (via restoreSystemDefaultOutput and setDriverAsDefault).
+        // We must suppress ALL notifications during this window, not just driver notifications.
+        guard !isAppSettingSystemDefault else {
+            logger.debug("App is setting system default, ignoring notification")
+            return
+        }
+
         // Ignore if it's our driver
         guard newDefault.uid != DRIVER_DEVICE_UID else {
             logger.debug("New default is our driver, ignoring")
             return
         }
-        
+
         onSystemDefaultChanged?(newDefault)
     }
 }

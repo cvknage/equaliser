@@ -52,9 +52,11 @@ protocol SystemDefaultObserving: AnyObject {
     
     /// Sets driver as system default with loop prevention.
     /// - Parameters:
+    ///   - shortTimeout: If true, use a shorter timeout (50ms) for immediate same-device restoration.
+    ///                   Default is false (300ms timeout for normal device switches).
     ///   - onSuccess: Called when driver is successfully set as default
     ///   - onFailure: Called when setting driver as default fails
-    func setDriverAsDefault(onSuccess: (() -> Void)?, onFailure: (() -> Void)?)
+    func setDriverAsDefault(shortTimeout: Bool, onSuccess: (() -> Void)?, onFailure: (() -> Void)?)
     
     /// Clears the app-setting-default flag after a delay.
     func clearAppSettingFlagAfterDelay()

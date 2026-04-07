@@ -107,12 +107,13 @@ final class DriverNameManager {
         // - Driver is already default (from automatic mode)
         // - Setting driver as default again is a no-op (no notification)
         // - Toggle to output device and back to trigger CoreAudio notifications
-        
+        // Note: Driver must be set as default for audio routing to work in manual mode
+
         systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
-        
+
         // Schedule UI refresh for 100ms later (fire-and-forget)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.systemDefaultObserver.setDriverAsDefault()
+            self?.systemDefaultObserver.setDriverAsDefault(shortTimeout: true)
             self?.deviceManager.refreshDevices()
             self?.logger.debug("Device list refreshed after driver name reset")
         }
@@ -131,13 +132,14 @@ final class DriverNameManager {
         // Trigger macOS Control Center refresh
         // When switching devices in automatic mode:
         // - Toggle to output device to ensure CoreAudio notifications fire
-        // - Then schedule driver default toggle for UI refresh
-        
+        // Note: setDriverAsDefault() is called by AudioRoutingCoordinator.reconfigureRouting()
+        // synchronously after this method returns, before starting the pipeline.
+        // We only need to refresh the device list here for the updated name.
+
         systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
-        
+
         // Schedule UI refresh for 100ms later (fire-and-forget)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            self?.systemDefaultObserver.setDriverAsDefault()
             self?.deviceManager.refreshDevices()
             self?.logger.debug("Device list refreshed after driver name change to '\(name)'")
         }
