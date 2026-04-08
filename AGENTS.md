@@ -211,16 +211,25 @@ The app supports two capture modes for the Equaliser driver:
 
 **Shared memory architecture:**
 
+In shared memory mode, both poll and render run on the same output thread, so audio goes directly from shared memory to EQ — no intermediate ring buffer:
+
 ```
 [Driver] ─→ WriteMix ─→ [Shared Memory Ring Buffer]
                                     ↓ (mmap, lock-free)
-[App Output Callback] ─→ pollIntoBuffers() ─→ [DriverCapture] ─→ [Ring Buffer] ─→ [EQ] ─→ [Output]
+[App Output Callback] ─→ pollIntoBuffers() ─→ inputBuffers ─→ [EQ] ─→ [Output]
+```
+
+In HAL input mode, the input callback runs on a separate thread, so an AudioRingBuffer bridges producer and consumer:
+
+```
+[Input Callback] ─→ [Ring Buffer] ─→ [Output Callback] ─→ [EQ] ─→ [Output]
 ```
 
 **Real-time safety:**
 - `SharedMemoryCapture.readFramesIntoBuffers()` uses atomic reads, no locks
 - Called synchronously from output audio thread
 - `DriverCapture.pollIntoBuffers()` is `@inline(__always)` for performance
+- Overflow detection resets read position to prevent corrupted audio
 
 ### Custom DSP Implementation
 

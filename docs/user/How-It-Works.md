@@ -144,19 +144,22 @@ An alternative capture method for specific use cases.
 <details>
 <summary>⚙️ Technical Details: How Shared Memory Capture Works</summary>
 
-The shared memory capture uses a **lock-free ring buffer**:
+The shared memory capture reads audio directly from the driver's memory-mapped buffer:
 
 1. The driver writes audio samples to a memory-mapped ring buffer
 2. Equaliser reads from this buffer synchronously during its output callback
-3. Atomic operations ensure thread safety without locks
-4. No memory allocation happens on the audio thread
+3. Audio goes directly to EQ processing — no intermediate buffering needed
+4. Atomic operations ensure thread safety without locks
+5. No memory allocation happens on the audio thread
 
 **Why this matters:**
 - **Real-time safety**: Audio processing must never block or allocate memory
-- **Low latency**: Direct memory access without system calls
+- **Low latency**: Direct memory access without system calls or extra copies
 - **Privacy**: macOS doesn't consider this "microphone access"
 
-The ring buffer also handles **clock drift** between the driver and output device. Since the driver and output device may run at slightly different rates, the buffer absorbs timing differences without artefacts.
+If the driver produces audio faster than Equaliser can process it (e.g. during system load spikes), overflow detection resets the read position to prevent corrupted audio, causing a brief dropout rather than garbled sound.
+
+In HAL input mode (the alternative capture method), the input and output callbacks run on separate threads, so an intermediate ring buffer is needed to bridge them and handle clock drift.
 
 </details>
 

@@ -264,7 +264,8 @@ final class SharedMemoryCapture: @unchecked Sendable {
 
         // Detect overflow: if more than half the ring is unread, the driver has
         // likely lapped us and the data is corrupted. Resync rather than play garbage.
-        // At 192kHz, half the ring (32768 frames) = ~170ms — far beyond normal jitter.
+        // At 768kHz, half the ring (32768 frames) = ~43ms — still beyond normal jitter.
+        // At 48kHz, half the ring = ~682ms.
         if availableFrames > SharedMemoryLayout.ringSize / 2 {
             readIndex = writeIndex
             return (0, sampleRate, channelCount)

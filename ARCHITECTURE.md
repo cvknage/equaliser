@@ -350,13 +350,13 @@ Uses HAL input stream. Triggers macOS microphone indicator.
 ┌──────────────┐     ┌──────────────┐     ┌────────────────────┐
 │ Output Device│ ◀── │  Output HAL  │ ◀── │ Output Callback    │
 └──────────────┘     └──────────────┘     │ + Manual Rendering │
-                                           │ + EQ (64 bands)    │
-                                           └────────────────────┘
+                                          │ + EQ (64 bands)    │
+                                          └────────────────────┘
 ```
 
 ### Shared Memory Capture (Default)
 
-Uses lock-free shared memory. No TCC permission required.
+Uses lock-free shared memory. No TCC permission required. Audio goes directly from shared memory to EQ processing — no intermediate ring buffer needed since both poll and render run on the same output thread.
 
 ```
 ┌──────────────┐     ┌────────────────────────────────────┐
@@ -370,25 +370,20 @@ Uses lock-free shared memory. No TCC permission required.
                            │ pollIntoBuffers()  │
                            └────────────────────┘
                                     │
-                                    ▼
-                           ┌──────────────┐
-                           │  Ring Buffer │
-                           └──────────────┘
-                                    │
-                                    ▼
+                                    ▼ (direct, same thread)
 ┌──────────────┐     ┌──────────────┐     ┌────────────────────┐
 │ Output Device│ ◀── │  Output HAL  │ ◀── │ Output Callback    │
 └──────────────┘     └──────────────┘     │ + EQ (64 bands)    │
-                                           └────────────────────┘
+                                          └────────────────────┘
 ```
 
 | Component | Purpose |
 |-----------|---------|
 | `HALIOManager` | Single HAL unit (input or output mode) |
 | `RenderPipeline` | Orchestrates HAL units + EQ |
-| `AudioRingBuffer` | Lock-free SPSC buffer for clock drift |
+| `AudioRingBuffer` | Lock-free SPSC buffer for clock drift (HAL input mode only) |
 | `DriverCapture` | Polls driver shared memory for audio |
-| `SharedMemoryCapture` | Lock-free ring buffer reader (mmap) |
+| `SharedMemoryCapture` | Lock-free shared memory ring buffer reader (mmap) |
 
 ## Routing Modes
 
@@ -415,8 +410,9 @@ Uses lock-free shared memory. No TCC permission required.
 
 `AudioConstants` provides centralized constants for audio pipeline configuration:
 
-- `maxFrameCount` (4096): Maximum frames per render callback
-- `ringBufferCapacity` (8192): Ring buffer samples per channel
+- `maxFrameCount` (16384): Maximum frames per render callback (supports up to 768kHz)
+- `ringBufferCapacity` (32768): Ring buffer samples per channel (clock drift absorption)
+- `minEQFrequency` / `maxEQFrequency` (1–22000 Hz): EQ frequency range (audible spectrum)
 - `minGain` / `maxGain` (-36...+36 dB): UI slider range
 - `clampGain()`, `clampFrequency()`, `clampBandwidth()`: Validation helpers
 

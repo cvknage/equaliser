@@ -426,28 +426,44 @@ final class RenderCallbackContext: @unchecked Sendable {
     func provideFrames(frameCount: UInt32) -> Int {
         if let capture = driverCapture {
             // Direct capture: poll shared memory → inputBuffers (= processingBuffers)
+            // Read exactly frameCount frames (the output device's requested amount).
+            // The shared memory ring (65536 frames) absorbs clock drift — we consume
+            // at the output device's rate, not the driver's rate. This prevents
+            // over-consumption that causes periodic overflow resets and artefacts.
             guard let (polled, _, channelCount) = capture.pollIntoBuffers(
                 destBuffers: inputBuffers,
-                maxFrames: UInt32(framesPerBuffer)
+                maxFrames: frameCount
             ) else { return 0 }
 
-            guard polled > 0, channelCount == self.channelCount else { return 0 }
+            guard channelCount == self.channelCount else { return 0 }
 
-            let count = Int(polled)
+            let polledCount = Int(polled)
+            let requestedCount = Int(frameCount)
 
-            // Apply input gain before processing (skip in full bypass mode).
+            // Zero-fill the remainder on underrun to prevent stale data from
+            // the previous callback leaking through.
+            if polledCount < requestedCount {
+                for buffer in inputBuffers {
+                    memset(buffer + polledCount, 0,
+                           (requestedCount - polledCount) * MemoryLayout<Float>.size)
+                }
+            }
+
+            // Apply input gain to the full frameCount (skip in full bypass mode).
+            // Using frameCount (not polled) ensures gain ramp state stays correct
+            // across callbacks, even when partial data was read.
             // Note: Boost gain is NOT applied here - in shared memory mode, samples come
             // from the driver at full volume regardless of macOS volume setting.
             if processingMode != 0 {
                 let targetInputGain = getTargetInputGain()
-                applyGain(to: inputBufferMutablePointers, frameCount: polled,
+                applyGain(to: inputBufferMutablePointers, frameCount: frameCount,
                           currentGain: &inputGainLinear, targetGain: targetInputGain)
             }
 
             // Update input meters
             updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage,
-                               with: inputBufferPointers, frameCount: count)
-            return count
+                               with: inputBufferPointers, frameCount: requestedCount)
+            return requestedCount
         } else {
             // Ring buffer mode: read from AudioRingBuffer → outputReadBuffers (= processingBuffers)
             return readFromRingBuffers(frameCount: frameCount)

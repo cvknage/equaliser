@@ -18,24 +18,27 @@ enum AudioConstants {
     /// Setting this too low causes buffer overflows on high sample rates.
     /// Setting too high wastes memory.
     ///
-    /// - 4096 frames = ~85ms at 48kHz, ~43ms at 96kHz
-    static let maxFrameCount: UInt32 = 4096
+    /// - 16384 frames = ~341ms at 48kHz, ~170ms at 96kHz, ~21ms at 768kHz
+    /// - Matches driver's kDevice_RingBufferSize (16384) for 768kHz support
+    static let maxFrameCount: UInt32 = 16384
     
     /// Ring buffer capacity in sample frames per channel.
     ///
     /// Must be a power of 2 for efficient modulo arithmetic.
     /// Larger values provide more resilience against clock drift but increase latency.
     ///
-    /// - 8192 samples = ~170ms at 48kHz, ~85ms at 96kHz
-    /// - Chosen to handle reasonable clock drift between devices
-    static let ringBufferCapacity: Int = 8192
+    /// - 32768 samples = ~682ms at 48kHz, ~341ms at 96kHz, ~43ms at 768kHz
+    /// - Chosen to handle reasonable clock drift between devices at all supported rates
+    static let ringBufferCapacity: Int = 32768
     
     // MARK: - EQ Band Limits
     
     /// Minimum allowed EQ frequency in Hz.
     static let minEQFrequency: Float = 1
 
-    /// Maximum allowed EQ frequency in Hz (safely below Nyquist for 44.1 kHz sample rate).
+    /// Maximum allowed EQ frequency in Hz.
+    /// Fixed at 22000 Hz to cover the audible spectrum and ensure cross-rate preset compatibility.
+    /// Presets saved at high sample rates remain valid on lower-rate devices.
     static let maxEQFrequency: Float = 22000
     
     /// Minimum gain in dB for EQ bands.
