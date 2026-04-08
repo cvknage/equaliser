@@ -237,6 +237,12 @@ final class SharedMemoryCapture: @unchecked Sendable {
         let channelCount = shmAddr.loadUInt32(offset: SharedMemoryLayout.Header.channelCountOffset)
         let sampleRate = shmAddr.loadFloat64(offset: SharedMemoryLayout.Header.sampleRateOffset)
 
+        // Acquire fence: the driver writes sample data then publishes writeIndex/frameCount
+        // with memory_order_release. This barrier ensures we see all sample data the driver
+        // wrote before those release stores, preventing ARM64 load reordering from reading
+        // stale samples at the positions indicated by the indices above.
+        OSMemoryBarrier()
+
         // On first poll, sync read position to write position
         if firstPoll {
             firstPoll = false
@@ -312,7 +318,9 @@ final class SharedMemoryCapture: @unchecked Sendable {
 // MARK: - Unsafe Raw Pointer Extensions
 
 private extension UnsafeMutableRawPointer {
-    /// Load atomic UInt32 from offset
+    /// Load UInt32 from an offset that corresponds to an `_Atomic` field in the driver.
+    /// The caller is responsible for issuing a memory barrier after reading indices
+    /// and before reading sample data (see `readFramesIntoBuffers`).
     func loadAtomicUInt32(offset: Int) -> UInt32 {
         let ptr = self.advanced(by: offset).assumingMemoryBound(to: UInt32.self)
         return ptr.pointee
