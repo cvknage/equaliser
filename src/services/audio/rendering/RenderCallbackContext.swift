@@ -7,13 +7,14 @@ import os.log
 /// Contains ring buffers for inter-callback communication and all state
 /// needed for real-time audio processing without requiring any allocations or locks.
 ///
-/// Data flow:
+/// Data flow (HAL input mode — ring buffers):
 /// 1. Input callback captures audio from device → writes to ring buffers
 /// 2. Output callback reads from ring buffers → processes through EQ → outputs
 ///
-/// For shared memory capture mode:
-/// 1. Output callback polls driver shared memory → writes to ring buffers
-/// 2. Output callback reads from ring buffers → processes through EQ → outputs
+/// Data flow (shared memory capture mode — direct):
+/// 1. Output callback polls driver shared memory → writes directly to inputBuffers
+/// 2. Output callback processes inputBuffers through EQ → outputs
+///    (bypasses intermediate AudioRingBuffer since both steps run on the same thread)
 ///
 /// - Important: This class is `@unchecked Sendable` because it is accessed from
 ///   both the main thread (for setup) and the audio render thread (for processing).
@@ -65,6 +66,14 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Pre-allocated buffers for reading from ring buffers (output callback).
     /// One per channel.
     private let outputReadBuffers: [UnsafeMutablePointer<Float>]
+
+    /// The buffers that EQ and output copy operate on.
+    /// In direct capture mode: inputBuffers (no intermediate ring buffer).
+    /// In ring buffer mode: outputReadBuffers (read from AudioRingBuffer).
+    private nonisolated(unsafe) var processingBuffers: [UnsafeMutablePointer<Float>]!
+
+    /// Immutable pointers to processingBuffers (avoids array allocation in hot paths).
+    private nonisolated(unsafe) var processingBufferPointers: [UnsafePointer<Float>]!
 
     // MARK: - Atomic Target Gains
     // Target gains are written by the main thread and read by the audio thread.
@@ -181,18 +190,31 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Pre-computed output buffer pointers (immutable, avoids array allocation on every callback).
     private let outputBufferPointersPrecomputed: [UnsafePointer<Float>]
 
-    /// Pre-computed input buffer pointers (immutable, avoids array allocation in pollAndWriteToRingBuffers).
+    /// Pre-computed input buffer pointers (immutable, avoids array allocation in provideFrames).
     private let inputBufferPointers: [UnsafePointer<Float>]
 
-    /// Pre-computed input buffer mutable pointers (immutable, avoids array allocation in pollAndWriteToRingBuffers).
+    /// Pre-computed input buffer mutable pointers (immutable, avoids array allocation in provideFrames).
     private let inputBufferMutablePointers: [UnsafeMutablePointer<Float>]
 
     // MARK: - Driver Capture
 
     /// Sets the driver capture instance for polling.
-    /// When set, the output callback will poll the driver before reading from ring buffers.
+    /// When set, the output callback uses direct capture mode: shared memory is polled
+    /// directly into inputBuffers, bypassing the intermediate AudioRingBuffer.
+    /// When cleared, reverts to ring buffer mode for HAL input capture.
     func setDriverCapture(_ capture: DriverCapture?) {
         driverCapture = capture
+        if capture != nil {
+            // Direct capture: EQ and output operate on inputBuffers directly,
+            // avoiding two unnecessary memcpy operations through the ring buffer.
+            processingBuffers = inputBuffers
+            processingBufferPointers = inputBufferPointers
+        } else {
+            // Ring buffer mode: EQ and output operate on outputReadBuffers
+            // (filled from AudioRingBuffer by readFromRingBuffers).
+            processingBuffers = outputReadBuffers
+            processingBufferPointers = outputBufferPointersPrecomputed
+        }
     }
 
     // MARK: - Initialization
@@ -248,9 +270,14 @@ final class RenderCallbackContext: @unchecked Sendable {
         // Pre-compute output buffer pointers (avoid array allocation on every callback)
         self.outputBufferPointersPrecomputed = outputBufs.map { UnsafePointer($0) }
 
-        // Pre-compute input buffer pointer arrays (avoid array allocation in pollAndWriteToRingBuffers)
+        // Pre-compute input buffer pointer arrays (avoid array allocation in provideFrames)
         self.inputBufferPointers = inputBufs.map { UnsafePointer($0) }
         self.inputBufferMutablePointers = inputBufs
+
+        // Default processing buffers to outputReadBuffers (HAL input / ring buffer mode).
+        // Switched to inputBuffers when setDriverCapture() enables direct capture mode.
+        self.processingBuffers = outputReadBuffers
+        self.processingBufferPointers = outputBufferPointersPrecomputed
 
         self.inputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
         self.outputMeterStorage = UnsafeMutablePointer<Float>.allocate(capacity: meterChannelCount)
@@ -347,80 +374,6 @@ final class RenderCallbackContext: @unchecked Sendable {
         updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: inputBufferPointers, frameCount: count)
     }
 
-    /// Writes interleaved audio samples to the ring buffers.
-    /// Called by driver capture (not input HAL callback).
-    /// - Parameters:
-    ///   - interleavedSamples: Interleaved samples (L0, R0, L1, R1, ...)
-    ///   - frameCount: Number of frames
-    ///   - channelCount: Number of channels (must match context's channelCount)
-    @inline(__always)
-    func writeInterleavedToRingBuffers(
-        interleavedSamples: [Float],
-        frameCount: UInt32,
-        channelCount: UInt32
-    ) {
-        guard channelCount == self.channelCount else { return }
-        let count = Int(frameCount)
-        guard count > 0 else { return }
-
-        // Deinterleave into inputBuffers
-        for frame in 0..<count {
-            for channel in 0..<Int(channelCount) {
-                let interleavedIndex = frame * Int(channelCount) + channel
-                inputBuffers[channel][frame] = interleavedSamples[interleavedIndex]
-            }
-        }
-
-        // Write to ring buffers (same as writeToRingBuffers)
-        for (index, ringBuffer) in ringBuffers.enumerated() {
-            _ = ringBuffer.write(inputBuffers[index], count: count)
-        }
-
-        // Update meters using pre-computed pointers
-        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: inputBufferPointers, frameCount: count)
-    }
-
-    /// Polls driver capture and writes to ring buffers.
-    /// Called by the output callback in shared memory mode.
-    /// - Returns: Number of frames polled, or 0 if no data available
-    @inline(__always)
-    func pollAndWriteToRingBuffers() -> UInt32 {
-        guard let capture = driverCapture else { return 0 }
-
-        // Use zero-allocation method that writes directly into inputBuffers
-        guard let (frameCount, _, channelCount) = capture.pollIntoBuffers(
-            destBuffers: inputBuffers,
-            maxFrames: UInt32(framesPerBuffer)
-        ) else {
-            return 0
-        }
-
-        guard frameCount > 0, channelCount == self.channelCount else {
-            return 0
-        }
-
-        let count = Int(frameCount)
-
-        // Apply input gain before writing to ring buffers (skip in full bypass mode)
-        // Note: Boost gain is NOT applied here - in shared memory mode, samples come
-        // from the driver at full volume regardless of macOS volume setting
-        if processingMode != 0 {
-            let targetInputGain = getTargetInputGain()
-            // Use pre-computed input buffer pointers
-            applyGain(to: inputBufferMutablePointers, frameCount: frameCount, currentGain: &inputGainLinear, targetGain: targetInputGain)
-        }
-
-        // Write to ring buffers
-        for (index, ringBuffer) in ringBuffers.enumerated() {
-            _ = ringBuffer.write(inputBuffers[index], count: count)
-        }
-
-        // Update meters using pre-computed pointers
-        updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage, with: inputBufferPointers, frameCount: count)
-
-        return frameCount
-    }
-
     /// Direct access to the input sample buffers (for diagnostics/debugging).
     var inputSampleBuffers: [UnsafeMutablePointer<Float>] {
         inputBuffers
@@ -458,12 +411,55 @@ final class RenderCallbackContext: @unchecked Sendable {
 
     // MARK: - Output Callback Support
 
+    /// Provides frames for processing, handling both direct capture and ring buffer modes.
+    ///
+    /// In direct capture mode (driverCapture set): polls shared memory directly into
+    /// inputBuffers (= processingBuffers), bypassing the intermediate AudioRingBuffer.
+    ///
+    /// In ring buffer mode (driverCapture nil): reads from AudioRingBuffer into
+    /// outputReadBuffers (= processingBuffers). This is used by HAL input capture
+    /// where producer and consumer run on different threads.
+    ///
+    /// - Parameter frameCount: Maximum frames to provide (typically the output callback's frameCount).
+    /// - Returns: Number of frames available in processingBuffers, or 0 if no data.
+    @inline(__always)
+    func provideFrames(frameCount: UInt32) -> Int {
+        if let capture = driverCapture {
+            // Direct capture: poll shared memory → inputBuffers (= processingBuffers)
+            guard let (polled, _, channelCount) = capture.pollIntoBuffers(
+                destBuffers: inputBuffers,
+                maxFrames: UInt32(framesPerBuffer)
+            ) else { return 0 }
+
+            guard polled > 0, channelCount == self.channelCount else { return 0 }
+
+            let count = Int(polled)
+
+            // Apply input gain before processing (skip in full bypass mode).
+            // Note: Boost gain is NOT applied here - in shared memory mode, samples come
+            // from the driver at full volume regardless of macOS volume setting.
+            if processingMode != 0 {
+                let targetInputGain = getTargetInputGain()
+                applyGain(to: inputBufferMutablePointers, frameCount: polled,
+                          currentGain: &inputGainLinear, targetGain: targetInputGain)
+            }
+
+            // Update input meters
+            updateMeterStorage(storage: inputMeterStorage, rmsStorage: inputRmsStorage,
+                               with: inputBufferPointers, frameCount: count)
+            return count
+        } else {
+            // Ring buffer mode: read from AudioRingBuffer → outputReadBuffers (= processingBuffers)
+            return readFromRingBuffers(frameCount: frameCount)
+        }
+    }
+
     /// Reads audio samples from ring buffers into the output read buffers.
-    /// Called by the output callback to get samples for processing.
+    /// Called by provideFrames() in ring buffer mode.
     /// - Parameter frameCount: Number of frames to read.
     /// - Returns: The number of frames actually read (may be less if underrun).
     @inline(__always)
-    func readFromRingBuffers(frameCount: UInt32) -> Int {
+    private func readFromRingBuffers(frameCount: UInt32) -> Int {
         let count = Int(frameCount)
         var minRead = count
 
@@ -475,28 +471,29 @@ final class RenderCallbackContext: @unchecked Sendable {
         return minRead
     }
 
-    /// Returns pointers to the output read buffers (immutable, for passing to render context).
-    /// - Returns: Pre-computed array of immutable pointers to the read buffers.
+    /// Returns pointers to the processing buffers (immutable, for passing to render context).
+    /// Points to either outputReadBuffers (ring buffer mode) or inputBuffers (direct capture).
+    /// - Returns: Pre-computed array of immutable pointers to the active processing buffers.
     var outputBufferPointers: [UnsafePointer<Float>] {
-        outputBufferPointersPrecomputed
+        processingBufferPointers
     }
 
-    /// Processes all EQ layers on output read buffers in-place.
-    /// Called from audio thread after reading from ring buffer.
+    /// Processes all EQ layers on processing buffers in-place.
+    /// Called from audio thread after provideFrames() fills the processing buffers.
     /// - Parameter frameCount: Number of frames to process.
     @inline(__always)
     func processEQ(frameCount: UInt32) {
         // Process L channel through all layers in series
         for chain in leftEQChains {
             chain.applyPendingUpdates()
-            chain.process(buffer: outputReadBuffers[0], frameCount: frameCount)
+            chain.process(buffer: processingBuffers[0], frameCount: frameCount)
         }
 
         // Process R channel through all layers in series (if stereo)
         if channelCount > 1 {
             for chain in rightEQChains {
                 chain.applyPendingUpdates()
-                chain.process(buffer: outputReadBuffers[1], frameCount: frameCount)
+                chain.process(buffer: processingBuffers[1], frameCount: frameCount)
             }
         }
     }
@@ -627,21 +624,6 @@ final class RenderCallbackContext: @unchecked Sendable {
         }
         inputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
         outputMeterStorage.initialize(repeating: Self.silenceDB, count: meterChannelCount)
-    }
-
-    /// Pre-fills ring buffers with silence to prevent startup underruns.
-    /// Should be called before starting audio output in shared memory mode.
-    /// - Parameter frameCount: Number of silent frames to write to each ring buffer.
-    func prefillWithSilence(frameCount: UInt32) {
-        let count = Int(frameCount)
-        // Zero out input buffers
-        for buffer in inputBuffers {
-            buffer.initialize(repeating: 0.0, count: count)
-        }
-        // Write silence to all ring buffers
-        for (index, ringBuffer) in ringBuffers.enumerated() {
-            _ = ringBuffer.write(inputBuffers[index], count: count)
-        }
     }
 
     /// Returns diagnostic information about ring buffer state.

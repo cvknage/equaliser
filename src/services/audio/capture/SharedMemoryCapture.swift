@@ -237,12 +237,6 @@ final class SharedMemoryCapture: @unchecked Sendable {
         let channelCount = shmAddr.loadUInt32(offset: SharedMemoryLayout.Header.channelCountOffset)
         let sampleRate = shmAddr.loadFloat64(offset: SharedMemoryLayout.Header.sampleRateOffset)
 
-        // Acquire fence: the driver writes sample data then publishes writeIndex/frameCount
-        // with memory_order_release. This barrier ensures we see all sample data the driver
-        // wrote before those release stores, preventing ARM64 load reordering from reading
-        // stale samples at the positions indicated by the indices above.
-        OSMemoryBarrier()
-
         // On first poll, sync read position to write position
         if firstPoll {
             firstPoll = false
@@ -250,7 +244,15 @@ final class SharedMemoryCapture: @unchecked Sendable {
             return (0, sampleRate, channelCount)
         }
 
+        // No new data from driver
         guard frameCount > 0 else { return nil }
+
+        // Acquire fence: the driver writes sample data then publishes writeIndex/frameCount
+        // with memory_order_release. This barrier ensures we see all sample data the driver
+        // wrote before those release stores, preventing ARM64 load reordering from reading
+        // stale samples at the positions indicated by the indices above.
+        // Placed after guards so it only runs when we actually read sample data.
+        OSMemoryBarrier()
 
         // Calculate available frames in ring buffer
         let availableFrames: UInt32
@@ -260,8 +262,19 @@ final class SharedMemoryCapture: @unchecked Sendable {
             availableFrames = SharedMemoryLayout.ringSize &- readIndex &+ writeIndex
         }
 
-        // Limit to what we can read and what destBuffers can hold
-        let framesToRead = min(availableFrames, frameCount, maxFrames)
+        // Detect overflow: if more than half the ring is unread, the driver has
+        // likely lapped us and the data is corrupted. Resync rather than play garbage.
+        // At 192kHz, half the ring (32768 frames) = ~170ms — far beyond normal jitter.
+        if availableFrames > SharedMemoryLayout.ringSize / 2 {
+            readIndex = writeIndex
+            return (0, sampleRate, channelCount)
+        }
+
+        // Limit to what we can read and what destBuffers can hold.
+        // Note: frameCount is the driver's last IO buffer size, NOT available frames.
+        // Using it as a clamp prevents catching up when falling behind, causing
+        // steadily growing latency and eventual ring buffer corruption.
+        let framesToRead = min(availableFrames, maxFrames)
         guard framesToRead > 0 else { return nil }
 
         // Verify channel count matches

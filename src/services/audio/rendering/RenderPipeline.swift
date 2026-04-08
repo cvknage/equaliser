@@ -440,11 +440,6 @@ final class RenderPipeline {
                 try capture.initialize(deviceID: deviceID)
                 context.setDriverCapture(capture)
                 driverCapture = capture
-
-                // Pre-fill ring buffer with silence to prevent startup underrun
-                // Driver-side fix now prevents buffer clearing on startup
-                context.prefillWithSilence(frameCount: self.maxFrameCount)
-                logger.debug("Pre-filled ring buffer with \(self.maxFrameCount) frames of silence")
             } catch {
                 logger.error("Failed to initialize driver capture: \(error)")
                 _ = outputManager.stop()
@@ -791,14 +786,10 @@ final class RenderPipeline {
             .fromOpaque(inRefCon)
             .takeUnretainedValue()
 
-        // 0. Poll driver capture (if in shared memory mode)
-        // This is called synchronously from the audio thread, ensuring perfect synchronization
-        _ = context.pollAndWriteToRingBuffers()
+        // 0. Provide frames for processing (handles both direct capture and ring buffer modes)
+        let framesRead = context.provideFrames(frameCount: frameCount)
 
-        // 1. Read audio from ring buffers
-        let framesRead = context.readFromRingBuffers(frameCount: frameCount)
-
-        // If we got no samples, output is already zero-filled by readFromRingBuffers
+        // If we got no samples, zero-fill output
         if framesRead == 0 {
             // DEBUG: To troubleshoot idle state, uncomment:
             // outputCallCount &+= 1

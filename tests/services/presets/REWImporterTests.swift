@@ -137,15 +137,15 @@ final class REWImporterTests: XCTestCase {
     func testImport_frequencyClamping() throws {
         let text = """
         Filter Settings file
-        Filter 1: ON  PK   Fc   10Hz   Gain  0.0dB  Q  1.0
+        Filter 1: ON  PK   Fc   0.5Hz   Gain  0.0dB  Q  1.0
         Filter 2: ON  PK   Fc   50000Hz   Gain  0.0dB  Q  1.0
         """
 
         let result = try REWImporter.importBands(from: createTempFile(text))
 
         XCTAssertEqual(result.bands.count, 2)
-        XCTAssertEqual(result.bands[0].frequency, 20.0)  // Clamped to minimum
-        XCTAssertEqual(result.bands[1].frequency, 20000.0)  // Clamped to maximum
+        XCTAssertEqual(result.bands[0].frequency, 1.0)  // Clamped to AudioConstants.minEQFrequency
+        XCTAssertEqual(result.bands[1].frequency, 22000.0)  // Clamped to AudioConstants.maxEQFrequency
 
         // Should have warnings about clamping
         XCTAssertTrue(result.warnings.contains { $0.contains("frequency clamped") })
