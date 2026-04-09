@@ -6,8 +6,8 @@
     <title>How It Works - Equaliser Documentation</title>
     <meta name="description" content="A detailed explanation of how Equaliser processes audio on your Mac, including the virtual audio driver, capture methods, parametric EQ engine, and privacy considerations.">
     <link rel="canonical" href="https://equaliser.knage.net/docs/how-it-works.html">
-    <link rel="stylesheet" href="../style.css?2652b23">
-    <link rel="icon" href="../assets/AppIcon.svg?2652b23" type="image/svg+xml">
+    <link rel="stylesheet" href="../style.css?9052eb2">
+    <link rel="icon" href="../assets/AppIcon.svg?9052eb2" type="image/svg+xml">
 </head>
 <body>
     <nav class="site-nav">
@@ -239,16 +239,20 @@
 <li>Advanced audio routing setups</li>
 </ul>
 <details>
-<summary>⚙️ Technical Details: How Shared Memory Capture Works</summary>
-<p>The shared memory capture uses a <strong>lock-free ring buffer</strong>:</p>
+<summary>
+⚙️ Technical Details: How Shared Memory Capture Works
+</summary>
+<p>The shared memory capture reads audio directly from the driver's memory-mapped buffer:</p>
 <ol type="1">
 <li>The driver writes audio samples to a memory-mapped ring buffer</li>
 <li>Equaliser reads from this buffer synchronously during its output callback</li>
+<li>Audio goes directly to EQ processing — no intermediate buffering needed</li>
 <li>Atomic operations ensure thread safety without locks</li>
 <li>No memory allocation happens on the audio thread</li>
 </ol>
-<p><strong>Why this matters:</strong> - <strong>Real-time safety</strong>: Audio processing must never block or allocate memory - <strong>Low latency</strong>: Direct memory access without system calls - <strong>Privacy</strong>: macOS doesn't consider this "microphone access"</p>
-<p>The ring buffer also handles <strong>clock drift</strong> between the driver and output device. Since the driver and output device may run at slightly different rates, the buffer absorbs timing differences without artefacts.</p>
+<p><strong>Why this matters:</strong> - <strong>Real-time safety</strong>: Audio processing must never block or allocate memory - <strong>Low latency</strong>: Direct memory access without system calls or extra copies - <strong>Privacy</strong>: macOS doesn't consider this "microphone access"</p>
+<p>If the driver produces audio faster than Equaliser can process it (e.g. during system load spikes), overflow detection resets the read position to prevent corrupted audio, causing a brief dropout rather than garbled sound.</p>
+<p>In HAL input mode (the alternative capture method), the input and output callbacks run on separate threads, so an intermediate ring buffer is needed to bridge them and handle clock drift.</p>
 </details>
 <details>
 <summary>⚙️ Technical Details: HAL Input Capture</summary>
@@ -592,40 +596,41 @@
 </table>
 <p>All audio processing happens <strong>locally on your Mac</strong>. Equaliser has no network capability.</p>
 <h3 id="microphone-permission">Microphone Permission</h3>
-<p>macOS may request microphone permission when Equaliser launches. Here's why:</p>
+<p>macOS requests microphone permission when Equaliser launches for audio routing.</p>
+<p><strong>Why the permission dialog appears:</strong></p>
+<p>Equaliser uses macOS's HAL (Hardware Abstraction Layer) audio system to route audio between devices. The audio component required for device routing (<code>HALOutput</code>) can be used for both input capture and output playback. macOS treats it as a potential microphone access point and requires permission — even when Equaliser is only using it for audio output.</p>
 <table>
-<colgroup>
-<col style="width: 35%" />
-<col style="width: 12%" />
-<col style="width: 53%" />
-</colgroup>
 <thead>
 <tr>
-<th>Capture Mode</th>
-<th>Permission Required?</th>
-<th>Why</th>
+<th>Mode</th>
+<th>Permission Dialog?</th>
+<th>Can Deny?</th>
+<th>Effect if Denied</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Shared Memory (default)</strong></td>
-<td>No</td>
-<td>Audio read from memory, not microphone API</td>
+<td><strong>Automatic + Shared Memory</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>App works correctly</td>
 </tr>
 <tr>
-<td><strong>HAL Input</strong></td>
+<td><strong>Automatic + HAL Input</strong></td>
 <td>Yes</td>
-<td>Uses macOS audio input APIs</td>
+<td>No</td>
+<td>Audio routing fails</td>
 </tr>
 <tr>
 <td><strong>Manual Mode</strong></td>
 <td>Yes</td>
-<td>Always requires HAL input</td>
+<td>No</td>
+<td>Audio routing fails</td>
 </tr>
 </tbody>
 </table>
-<p><strong>The permission prompt appears at launch</strong> because macOS detects the audio-input entitlement in the app, even though the default mode doesn't need it. This is macOS behaviour and cannot be controlled.</p>
-<p>If you only use <strong>Automatic Mode with Shared Memory capture</strong>, you can deny the permission — the app will work correctly.</p>
+<p><strong>Technical explanation:</strong> The audio pipeline creates a <code>HALOutput</code> AudioUnit for routing audio to your speakers or headphones. Because this component can also be used for input capture, macOS checks microphone permission when it's created — before knowing whether input will actually be used.</p>
+<p><strong>Best practice:</strong> Grant permission for full functionality, or deny if you only use Automatic mode with Shared Memory capture.</p>
 <hr />
 <h2 id="troubleshooting">Troubleshooting</h2>
 <h3 id="no-sound-after-enabling">No Sound After Enabling</h3>
