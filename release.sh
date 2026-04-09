@@ -102,7 +102,7 @@ if [[ "$DRY_RUN" == true ]]; then
   echo "      CFBundleShortVersionString: $CURRENT_VERSION → $VERSION"
   echo "      CFBundleVersion: $CURRENT_BUILD → <new commit SHA>"
   echo ""
-  dry "Would commit: \"chore: bump version to $VERSION\""
+  dry "Would commit: \"Bump version to $VERSION\""
   dry "Would run: ./bundle.sh"
   dry "Would create: $APP_NAME-$VERSION.dmg"
   dry "Would create GitHub draft release: v$VERSION"
@@ -126,7 +126,7 @@ if [[ "$DRY_RUN" != true ]]; then
   # Commit the plist change
   info "Committing version bump..."
   git add "$PLIST_PATH"
-  git commit -m "chore: bump version to $VERSION"
+  git commit -m "Bump version to $VERSION"
 
   # Get new SHA after commit (this is what will be in the release)
   GIT_SHA_NEW=$(git rev-parse --short HEAD)
