@@ -11,11 +11,11 @@ Implement the following: $ARGUMENTS
 
 Determine which knowledge files are relevant based on the task:
 
-- Audio/DSP work: read `.claude/knowledge/coreaudio.md` and `.claude/knowledge/realtime-safety.md`
-- Device/routing work: read `.claude/knowledge/coreaudio.md` and `.claude/knowledge/known-issues.md`
-- Concurrency work: read `.claude/knowledge/swift-concurrency.md` and `.claude/knowledge/memory-safety.md`
-- Refactoring work: read `.claude/knowledge/project-patterns.md`
-- Any task: read `.claude/knowledge/known-issues.md` if you encounter unexpected behaviour
+- Audio/DSP work: read `docs/dev/coreaudio.md` and `docs/dev/realtime-safety.md`
+- Device/routing work: read `docs/dev/coreaudio.md` and `docs/dev/known-issues.md`
+- Concurrency work: read `docs/dev/swift-concurrency.md` and `docs/dev/memory-safety.md`
+- Refactoring work: read `docs/dev/project-patterns.md`
+- Any task: read `docs/dev/known-issues.md` if you encounter unexpected behaviour
 
 Read the relevant files using the Read tool before starting implementation.
 

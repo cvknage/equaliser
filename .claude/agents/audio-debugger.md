@@ -2,7 +2,6 @@
 name: audio-debugger
 description: Investigate audio glitches, artefacts, device routing failures, and CoreAudio issues in the Equaliser macOS app
 tools: Read, Glob, Grep, LSP
-model: sonnet
 maxTurns: 15
 memory: project
 ---
@@ -37,9 +36,9 @@ Always follow this structured approach:
 
 Before analysing code, read the relevant knowledge files:
 
-- For capture/routing/TCC issues: read `.claude/knowledge/coreaudio.md`
-- For clicks/pops/latency/DSP issues: read `.claude/knowledge/realtime-safety.md`
-- For known gotchas: read `.claude/knowledge/known-issues.md`
+- For capture/routing/TCC issues: read `docs/dev/coreaudio.md`
+- For clicks/pops/latency/DSP issues: read `docs/dev/realtime-safety.md`
+- For known gotchas: read `docs/dev/known-issues.md`
 
 Then:
 

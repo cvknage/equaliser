@@ -21,12 +21,12 @@ Use Glob and Bash to get the current file structure of:
 
 Read each knowledge file and verify its claims against the current code:
 
-- `.claude/knowledge/coreaudio.md` — are the architecture diagrams still accurate?
-- `.claude/knowledge/realtime-safety.md` — are the patterns still used?
-- `.claude/knowledge/swift-concurrency.md` — are the concurrency patterns current?
-- `.claude/knowledge/memory-safety.md` — are the memory patterns still followed?
-- `.claude/knowledge/project-patterns.md` — do the patterns still match the code?
-- `.claude/knowledge/known-issues.md` — are the known issues still relevant?
+- `docs/dev/coreaudio.md` — are the architecture diagrams still accurate?
+- `docs/dev/realtime-safety.md` — are the patterns still used?
+- `docs/dev/swift-concurrency.md` — are the concurrency patterns current?
+- `docs/dev/memory-safety.md` — are the memory patterns still followed?
+- `docs/dev/project-patterns.md` — do the patterns still match the code?
+- `docs/dev/known-issues.md` — are the known issues still relevant?
 
 ## Step 3: Check ARCHITECTURE.md
 

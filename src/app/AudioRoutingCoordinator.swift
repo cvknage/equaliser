@@ -31,6 +31,16 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// In automatic mode with the Equaliser driver, this determines how audio is captured.
     /// Manual mode always uses HAL input capture.
     @Published var captureMode: CaptureMode = .sharedMemory
+
+    /// The capture mode currently in use (may differ from preference when driver doesn't support shared memory).
+    /// Returns `halInput` when driver doesn't support shared memory or in manual mode.
+    var effectiveCaptureMode: CaptureMode {
+        if manualModeEnabled { return .halInput }
+        if driverAccess.isReady && !driverAccess.hasSharedMemoryCapability() {
+            return .halInput
+        }
+        return captureMode
+    }
     
     // MARK: - Dependencies
 
@@ -50,8 +60,19 @@ final class AudioRoutingCoordinator: ObservableObject {
     }
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
-    private let driverAccess: DriverAccessing
+    let driverAccess: DriverAccessing
     private let driverNameManager: DriverNameManager
+
+    // MARK: - Private Types
+
+    /// Holds resolved device information from device resolution and ID lookup.
+    private struct ResolvedDevices {
+        let inputUID: String
+        let outputUID: String
+        let inputDeviceID: AudioDeviceID
+        let outputDeviceID: AudioDeviceID
+        let outputDevice: AudioDevice
+    }
 
     // MARK: - Private Properties
 
@@ -151,77 +172,26 @@ final class AudioRoutingCoordinator: ObservableObject {
         isReconfiguring = true
         defer { isReconfiguring = false }
 
-        // In manual mode, verify microphone permission before starting
-        // (HAL input capture requires TCC permission)
-        // Also check for automatic mode with HAL input capture preference
-        let needsPermission = routingMode.needsMicPermission || (!routingMode.isManual && self.captureMode == .halInput)
-        if needsPermission {
-            guard permissionService.isMicPermissionGranted else {
-                requestPermissionAndRetryRouting()
-                return
-            }
-
-            // Permission is granted, but input devices may not be enumerated yet
-            // (permission persists across sessions, but device enumeration doesn't)
-            if routingMode.isManual && deviceProvider.inputDevices.isEmpty {
-                logger.info("Permission granted but input devices not enumerated - enumerating now")
-                deviceProvider.enumerateInputDevices()
-            }
-        }
+        // Step 1: Verify permissions (HAL input requires microphone permission)
+        guard validatePermissions() else { return }
 
         // Stop existing pipeline if running
         stopPipeline()
 
-        // For automatic mode, check driver prerequisites before device resolution
-        if routingMode.requiresDriverVisibility {
-            guard driverAccess.isReady else {
-                routingStatus = .driverNotInstalled
-                logger.warning("Routing cannot start: driver not installed")
-                showDriverPrompt = true
-                return
-            }
+        // Step 2: Verify driver is ready (automatic mode)
+        guard ensureDriverReady() else { return }
 
-            // If driver is not visible, retry asynchronously then reconfigure
-            guard driverAccess.isDriverVisible() else {
-                ensureDriverVisible { [weak self] in
-                    self?.reconfigureRouting()
-                }
-                return
-            }
-        }
-
-        // Resolve devices using the routing mode strategy
-        let resolution = routingMode.resolveDevices(
-            selectedInputDeviceID: selectedInputDeviceID,
-            selectedOutputDeviceID: selectedOutputDeviceID,
-            deviceProvider: deviceProvider,
-            systemDefaultObserver: systemDefaultObserver,
-            driverAccess: driverAccess,
-            captureMode: captureMode
-        )
-
-        let inputUID: String
-        let outputUID: String
-
-        switch resolution {
-        case .resolved(let resolvedInput, let resolvedOutput):
-            inputUID = resolvedInput
-            outputUID = resolvedOutput
-        case .failed(let message):
-            routingStatus = .error(message)
-            logger.error("Device resolution failed: \(message)")
-            return
-        }
+        // Step 3: Resolve and validate devices
+        guard let devices = resolveAndValidateDevices() else { return }
 
         // Automatic mode: update selected devices and pre-sync volume
         if !routingMode.isManual {
-            // Update selected devices to reflect current state
-            selectedInputDeviceID = inputUID
-            selectedOutputDeviceID = outputUID
+            selectedInputDeviceID = devices.inputUID
+            selectedOutputDeviceID = devices.outputUID
 
             // Pre-sync driver volume BEFORE updateDriverName() to prevent macOS volume sync
             // from overwriting the new output device's volume.
-            if let outputDeviceID = deviceProvider.deviceID(forUID: outputUID),
+            if let outputDeviceID = deviceProvider.deviceID(forUID: devices.outputUID),
                let driverID = driverAccess.deviceID,
                let volume = volumeService.getDeviceVolumeScalar(deviceID: outputDeviceID) {
                 _ = volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: volume)
@@ -244,49 +214,13 @@ final class AudioRoutingCoordinator: ObservableObject {
             )
         }
 
-        // Get device IDs and names
-        // For automatic mode, ensure driver is still visible before proceeding
-        if routingMode.requiresDriverVisibility && inputUID == DRIVER_DEVICE_UID {
-            if !driverAccess.isDriverVisible() {
-                ensureDriverVisible { [weak self] in
-                    self?.reconfigureRouting()
-                }
-                return
-            }
-        }
-
-        // Resolve device IDs with diagnostic logging
-        let inputDeviceID = deviceProvider.deviceID(forUID: inputUID)
-        let outputDeviceID = deviceProvider.deviceID(forUID: outputUID)
-        let outputDevice = deviceProvider.device(forUID: outputUID)
-
-        if inputDeviceID == nil {
-            logger.error("Failed to resolve input device ID for UID: \(inputUID)")
-        }
-        if outputDeviceID == nil {
-            logger.error("Failed to resolve output device ID for UID: \(outputUID)")
-        }
-        if outputDevice == nil {
-            logger.error("Failed to resolve output device for UID: \(outputUID)")
-        }
-
-        guard let inputDeviceID = inputDeviceID,
-              let outputDeviceID = outputDeviceID,
-              let outputDevice = outputDevice else {
-            routingStatus = .error("Failed to resolve device IDs")
-            logger.error("Failed to resolve device IDs")
-            return
-        }
-        
-        logger.debug("Device IDs resolved: input=\(inputDeviceID), output=\(outputDeviceID)")
-
         // Sync driver sample rate to match output device (automatic mode only)
         if routingMode.requiresSampleRateSync {
-            syncDriverSampleRate(to: outputDeviceID)
+            syncDriverSampleRate(to: devices.outputDeviceID)
         }
 
         // Set up listener for output device sample rate changes
-        setupSampleRateListener(for: outputDeviceID)
+        setupSampleRateListener(for: devices.outputDeviceID)
 
         // Determine capture mode early - needed to decide if we need rate sync delay
         let capturePreference: CaptureMode = routingMode.isManual ? .halInput : self.captureMode
@@ -314,26 +248,141 @@ final class AudioRoutingCoordinator: ObservableObject {
             logger.debug("Waiting for driver sample rate propagation before HAL input configuration")
             DispatchQueue.main.asyncAfter(deadline: .now() + Constants.sampleRatePropagationDelay) { [weak self] in
                 self?.continueRoutingConfiguration(
-                    inputDeviceID: inputDeviceID,
-                    outputDeviceID: outputDeviceID,
-                    outputDevice: outputDevice,
-                    inputUID: inputUID,
-                    outputUID: outputUID,
+                    inputDeviceID: devices.inputDeviceID,
+                    outputDeviceID: devices.outputDeviceID,
+                    outputDevice: devices.outputDevice,
+                    inputUID: devices.inputUID,
+                    outputUID: devices.outputUID,
                     resolvedCaptureMode: resolvedCaptureMode,
                     captureDecision: captureDecision
                 )
             }
         } else {
             continueRoutingConfiguration(
-                inputDeviceID: inputDeviceID,
-                outputDeviceID: outputDeviceID,
-                outputDevice: outputDevice,
-                inputUID: inputUID,
-                outputUID: outputUID,
+                inputDeviceID: devices.inputDeviceID,
+                outputDeviceID: devices.outputDeviceID,
+                outputDevice: devices.outputDevice,
+                inputUID: devices.inputUID,
+                outputUID: devices.outputUID,
                 resolvedCaptureMode: resolvedCaptureMode,
                 captureDecision: captureDecision
             )
         }
+    }
+
+    // MARK: - Routing Step Methods
+
+    /// Validates that microphone permission is granted when HAL input capture is required.
+    /// Returns true if routing should proceed, false if blocked (permission request issued).
+    private func validatePermissions() -> Bool {
+        let needsPermission = routingMode.needsMicPermission || (!routingMode.isManual && captureMode == .halInput)
+        guard needsPermission else { return true }
+
+        guard permissionService.isMicPermissionGranted else {
+            requestPermissionAndRetryRouting()
+            return false
+        }
+
+        // Permission is granted, but input devices may not be enumerated yet
+        // (permission persists across sessions, but device enumeration doesn't)
+        if routingMode.isManual && deviceProvider.inputDevices.isEmpty {
+            logger.info("Permission granted but input devices not enumerated - enumerating now")
+            deviceProvider.enumerateInputDevices()
+        }
+
+        return true
+    }
+
+    /// Ensures the driver is installed and visible (automatic mode prerequisite).
+    /// Returns true if routing should proceed, false if blocked (driver not ready or retry issued).
+    private func ensureDriverReady() -> Bool {
+        guard routingMode.requiresDriverVisibility else { return true }
+
+        guard driverAccess.isReady else {
+            routingStatus = .driverNotInstalled
+            logger.warning("Routing cannot start: driver not installed")
+            showDriverPrompt = true
+            return false
+        }
+
+        guard driverAccess.isDriverVisible() else {
+            ensureDriverVisible { [weak self] in
+                self?.reconfigureRouting()
+            }
+            return false
+        }
+
+        return true
+    }
+
+    /// Resolves devices using the routing mode strategy and validates device IDs.
+    /// Returns resolved devices on success, nil on failure (routingStatus already set).
+    private func resolveAndValidateDevices() -> ResolvedDevices? {
+        // Resolve devices using the routing mode strategy
+        let resolution = routingMode.resolveDevices(
+            selectedInputDeviceID: selectedInputDeviceID,
+            selectedOutputDeviceID: selectedOutputDeviceID,
+            deviceProvider: deviceProvider,
+            systemDefaultObserver: systemDefaultObserver,
+            driverAccess: driverAccess,
+            captureMode: captureMode
+        )
+
+        let inputUID: String
+        let outputUID: String
+
+        switch resolution {
+        case .resolved(let resolvedInput, let resolvedOutput):
+            inputUID = resolvedInput
+            outputUID = resolvedOutput
+        case .failed(let message):
+            routingStatus = .error(message)
+            logger.error("Device resolution failed: \(message)")
+            return nil
+        }
+
+        // For automatic mode, ensure driver is still visible before proceeding
+        if routingMode.requiresDriverVisibility && inputUID == DRIVER_DEVICE_UID {
+            if !driverAccess.isDriverVisible() {
+                ensureDriverVisible { [weak self] in
+                    self?.reconfigureRouting()
+                }
+                return nil
+            }
+        }
+
+        // Resolve device IDs with diagnostic logging
+        let inputDeviceID = deviceProvider.deviceID(forUID: inputUID)
+        let outputDeviceID = deviceProvider.deviceID(forUID: outputUID)
+        let outputDevice = deviceProvider.device(forUID: outputUID)
+
+        if inputDeviceID == nil {
+            logger.error("Failed to resolve input device ID for UID: \(inputUID)")
+        }
+        if outputDeviceID == nil {
+            logger.error("Failed to resolve output device ID for UID: \(outputUID)")
+        }
+        if outputDevice == nil {
+            logger.error("Failed to resolve output device for UID: \(outputUID)")
+        }
+
+        guard let inputDeviceID = inputDeviceID,
+              let outputDeviceID = outputDeviceID,
+              let outputDevice = outputDevice else {
+            routingStatus = .error("Failed to resolve device IDs")
+            logger.error("Failed to resolve device IDs")
+            return nil
+        }
+
+        logger.debug("Device IDs resolved: input=\(inputDeviceID), output=\(outputDeviceID)")
+
+        return ResolvedDevices(
+            inputUID: inputUID,
+            outputUID: outputUID,
+            inputDeviceID: inputDeviceID,
+            outputDeviceID: outputDeviceID,
+            outputDevice: outputDevice
+        )
     }
 
     /// Continues routing configuration after optional rate sync delay.
@@ -516,6 +565,41 @@ final class AudioRoutingCoordinator: ObservableObject {
         reconfigureRouting()
     }
     
+    /// Requests microphone permission and switches to HAL capture mode.
+    /// Returns true if permission was granted, false otherwise.
+    @discardableResult
+    func requestMicPermissionAndSwitchToHALCapture() async -> Bool {
+        let granted = await permissionService.requestMicPermission()
+
+        if granted {
+            deviceProvider.enumerateInputDevices()
+            captureMode = .halInput
+            logger.info("Microphone permission granted, switched to HAL capture")
+        } else {
+            logger.warning("Microphone permission denied, staying with shared memory capture")
+        }
+
+        return granted
+    }
+
+    /// Requests microphone permission and switches to manual mode.
+    /// Manual mode uses HAL input capture, which requires microphone permission.
+    /// Returns true if permission was granted and mode switched, false otherwise.
+    @discardableResult
+    func requestMicPermissionAndSwitchToManualMode() async -> Bool {
+        let granted = await permissionService.requestMicPermission()
+
+        if granted {
+            deviceProvider.enumerateInputDevices()
+            switchToManualMode()
+            logger.info("Microphone permission granted, switched to manual mode")
+        } else {
+            logger.warning("Microphone permission denied, manual mode requires microphone access")
+        }
+
+        return granted
+    }
+
     /// Switches to manual mode when user declines to install driver.
     func switchToManualMode() {
         showDriverPrompt = false

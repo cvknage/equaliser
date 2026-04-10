@@ -2,7 +2,6 @@
 name: solid-analyst
 description: Analyse code for SOLID and DRY violations and produce concrete refactoring plans for the Equaliser app
 tools: Read, Glob, Grep, LSP
-model: sonnet
 maxTurns: 20
 memory: project
 ---
@@ -24,10 +23,10 @@ Your role is to **analyse code and produce refactoring plans**. You do not imple
 
 Read the relevant knowledge files:
 
-- For architecture and pattern reference: read `.claude/knowledge/project-patterns.md`
-- For concurrency concerns: read `.claude/knowledge/swift-concurrency.md`
-- For memory safety concerns: read `.claude/knowledge/memory-safety.md`
-- For known gotchas: read `.claude/knowledge/known-issues.md`
+- For architecture and pattern reference: read `docs/dev/project-patterns.md`
+- For concurrency concerns: read `docs/dev/swift-concurrency.md`
+- For memory safety concerns: read `docs/dev/memory-safety.md`
+- For known gotchas: read `docs/dev/known-issues.md`
 
 Then read the code being analysed using Read, Glob, and Grep.
 

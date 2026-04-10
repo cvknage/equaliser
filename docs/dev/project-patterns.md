@@ -116,10 +116,10 @@ XCTAssertTrue(HeadphoneSwitchPolicy.shouldSwitch(...))
 ```swift
 EqualiserStore (app/)
 ├── AudioRoutingCoordinator (app/) — routing orchestration
-│   ├── PipelineManager (app/) — render pipeline lifecycle
+│   ├── PipelineManager (pipeline/) — render pipeline lifecycle
 │   │   └── RenderPipeline (pipeline/)
 │   ├── EQCoefficientStager (dsp/) — EQ coefficient calculation and staging
-│   ├── RoutingMode (app/) — strategy: AutomaticRoutingMode or ManualRoutingMode
+│   ├── RoutingMode (device/routing/) — strategy: AutomaticRoutingMode or ManualRoutingMode
 │   ├── DeviceChangeCoordinator (device/change/) — device events, headphone detection
 │   │   └── OutputDeviceHistory (device/change/)
 │   ├── VolumeManager (device/volume/) — volume sync and drift detection
@@ -136,7 +136,7 @@ EqualiserStore (app/)
 Key coordinators:
 - `DeviceChangeCoordinator` (device/change/): Subscribes to `DeviceEnumerationService.$changeEvent`, manages `OutputDeviceHistory`, emits callbacks for headphone detection and missing devices
 - `AudioRoutingCoordinator` (app/): Routes device resolution to `RoutingMode` strategy, delegates pipeline lifecycle to `PipelineManager`, EQ staging to `EQCoefficientStager`, creates `VolumeManager` when routing starts
-- `PipelineManager` (app/): Creates, configures, starts, and stops `RenderPipeline`. Sets up `VolumeManager` and `EQCoefficientStager` when pipeline starts
+- `PipelineManager` (pipeline/): Creates, configures, starts, and stops `RenderPipeline`. Sets up `VolumeManager` and `EQCoefficientStager` when pipeline starts
 - `EQCoefficientStager` (dsp/): Calculates biquad coefficients via `BiquadMath` and stages them to `RenderPipeline`. Owns `currentSampleRate` and all `updateBand*` methods
 - `VolumeManager` (device/volume/): Owns volume sync state (gain, muted, device IDs), syncs volume between driver and output device, performs drift detection
 

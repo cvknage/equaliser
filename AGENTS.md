@@ -154,9 +154,9 @@ Detailed technical knowledge is split into focused files for contextual loading.
 
 | File | When to Load |
 |------|-------------|
-| `.claude/knowledge/coreaudio.md` | Debugging audio issues, device routing, TCC permissions |
-| `.claude/knowledge/realtime-safety.md` | Working on DSP, audio pipeline, render callbacks |
-| `.claude/knowledge/swift-concurrency.md` | Concurrency issues, @MainActor, Sendable, actor isolation |
-| `.claude/knowledge/memory-safety.md` | Retain cycles, weak/unowned, ARC, lifetime management |
-| `.claude/knowledge/project-patterns.md` | Refactoring, SOLID/DRY analysis, architecture changes |
-| `.claude/knowledge/known-issues.md` | Debugging known gotchas, NSApp timing, boost gain, driver refresh |
+| `docs/dev/coreaudio.md` | Debugging audio issues, device routing, TCC permissions |
+| `docs/dev/realtime-safety.md` | Working on DSP, audio pipeline, render callbacks |
+| `docs/dev/swift-concurrency.md` | Concurrency issues, @MainActor, Sendable, actor isolation |
+| `docs/dev/memory-safety.md` | Retain cycles, weak/unowned, ARC, lifetime management |
+| `docs/dev/project-patterns.md` | Refactoring, SOLID/DRY analysis, architecture changes |
+| `docs/dev/known-issues.md` | Debugging known gotchas, NSApp timing, boost gain, driver refresh |

@@ -13,8 +13,8 @@ Analyse the following for SOLID and DRY violations: $ARGUMENTS
 
 Read these knowledge files for context:
 
-- .claude/knowledge/project-patterns.md
-- .claude/knowledge/swift-concurrency.md
+- docs/dev/project-patterns.md
+- docs/dev/swift-concurrency.md
 
 ## Analysis Framework
 

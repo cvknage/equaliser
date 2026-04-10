@@ -1,7 +1,6 @@
 // EqualiserStore.swift
 // Thin coordinator for EQ application state
 
-import AVFoundation
 import Combine
 import Foundation
 import OSLog
@@ -132,38 +131,14 @@ final class EqualiserStore: ObservableObject {
     /// The capture mode currently in use (may differ from preference when driver doesn't support shared memory).
     /// Returns `halInput` when driver doesn't support shared memory or in fallback mode.
     var effectiveCaptureMode: CaptureMode {
-        // In manual mode, always HAL input
-        if routingCoordinator.manualModeEnabled {
-            return .halInput
-        }
-        // Check if driver supports shared memory capability
-        if DriverManager.shared.isReady && !DriverManager.shared.hasSharedMemoryCapability() {
-            return .halInput
-        }
-        // Otherwise show the preference
-        return routingCoordinator.captureMode
+        routingCoordinator.effectiveCaptureMode
     }
 
     /// Requests microphone permission and switches to HAL capture mode.
     /// Returns true if permission was granted, false otherwise.
     @MainActor
     func requestMicPermissionAndSwitchToHALCapture() async -> Bool {
-        let granted = await withCheckedContinuation { continuation in
-            AVAudioApplication.requestRecordPermission { granted in
-                continuation.resume(returning: granted)
-            }
-        }
-
-        if granted {
-            // Enumerate input devices now that we have permission
-            deviceManager.enumerateInputDevices()
-            captureMode = .halInput
-            logger.info("Microphone permission granted, switched to HAL capture")
-        } else {
-            logger.warning("Microphone permission denied, staying with shared memory capture")
-        }
-
-        return granted
+        await routingCoordinator.requestMicPermissionAndSwitchToHALCapture()
     }
 
     var showDriverPrompt: Bool {
@@ -325,71 +300,13 @@ final class EqualiserStore: ObservableObject {
             } else {
                 // Automatic mode: use unified selection logic
                 routingCoordinator.manualModeEnabled = false
-                
-                let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID()
-                let selection = OutputDeviceSelection.determine(
-                    currentSelected: snapshot.outputDeviceID,
-                    macDefault: macDefault,
-                    availableDevices: deviceManager.outputDevices
-                )
-                
-                switch selection {
-                case .preserveCurrent(let uid):
-                    routingCoordinator.selectedOutputDeviceID = uid
-                    logger.debug("Startup: preserving saved output device")
-                    
-                case .useMacDefault(let uid):
-                    routingCoordinator.selectedOutputDeviceID = uid
-                    if let device = deviceManager.device(forUID: uid) {
-                        logger.debug("Startup: using macOS default '\(device.name)'")
-                    }
-                    
-                case .useFallback:
-                    if let fallback = deviceManager.selectFallbackOutputDevice() {
-                        routingCoordinator.selectedOutputDeviceID = fallback.uid
-                        logger.info("Startup: using fallback output '\(fallback.name)'")
-                    } else {
-                        logger.error("Startup: no output device available")
-                    }
-                }
-                
-                // Input is always driver in automatic mode
-                routingCoordinator.selectedInputDeviceID = DRIVER_DEVICE_UID
+                restoreAutomaticOutputDevice(currentSelected: snapshot.outputDeviceID)
             }
         } else {
             // First launch: automatic mode, use unified selection logic
             logger.info("First launch, no snapshot")
             routingCoordinator.manualModeEnabled = false
-            
-            let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID()
-            let selection = OutputDeviceSelection.determine(
-                currentSelected: nil,
-                macDefault: macDefault,
-                availableDevices: deviceManager.outputDevices
-            )
-            
-            switch selection {
-            case .preserveCurrent:
-                // Not possible with nil currentSelected
-                break
-                
-            case .useMacDefault(let uid):
-                routingCoordinator.selectedOutputDeviceID = uid
-                if let device = deviceManager.device(forUID: uid) {
-                    logger.debug("Startup: using macOS default '\(device.name)'")
-                }
-                
-            case .useFallback:
-                if let fallback = deviceManager.selectFallbackOutputDevice() {
-                    routingCoordinator.selectedOutputDeviceID = fallback.uid
-                    logger.info("Startup: using fallback output '\(fallback.name)'")
-                } else {
-                    logger.error("Startup: no output device available")
-                }
-            }
-            
-            // Input is always driver in automatic mode
-            routingCoordinator.selectedInputDeviceID = DRIVER_DEVICE_UID
+            restoreAutomaticOutputDevice(currentSelected: nil)
         }
         
         // Start observing system default changes
@@ -405,13 +322,13 @@ final class EqualiserStore: ObservableObject {
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] showPrompt in
                     guard let self else { return }
-                    if showPrompt && !self.routingCoordinator.manualModeEnabled && !DriverManager.shared.isReady {
+                    if showPrompt && !self.routingCoordinator.manualModeEnabled && !self.routingCoordinator.driverAccess.isReady {
                         self.logger.info("Automatic mode but driver not installed - showing prompt")
                     }
                 }
                 .store(in: &self.cancellables)
             
-            if !routingCoordinator.manualModeEnabled && !DriverManager.shared.isReady {
+            if !routingCoordinator.manualModeEnabled && !routingCoordinator.driverAccess.isReady {
                 self.logger.info("Automatic mode but driver not installed - showing prompt")
                 self.routingCoordinator.showDriverPrompt = true
                 self.routingCoordinator.routingStatus = .driverNotInstalled
@@ -509,22 +426,7 @@ final class EqualiserStore: ObservableObject {
     @discardableResult
     @MainActor
     func switchToManualMode() async -> Bool {
-        let granted = await withCheckedContinuation { continuation in
-            AVAudioApplication.requestRecordPermission { granted in
-                continuation.resume(returning: granted)
-            }
-        }
-
-        if granted {
-            // Enumerate input devices now that we have permission
-            deviceManager.enumerateInputDevices()
-            routingCoordinator.switchToManualMode()
-            logger.info("Microphone permission granted, switched to manual mode")
-        } else {
-            logger.warning("Microphone permission denied, manual mode requires microphone access")
-        }
-
-        return granted
+        await routingCoordinator.requestMicPermissionAndSwitchToManualMode()
     }
     
     /// Switches to manual mode synchronously (for compatibility).
@@ -686,7 +588,41 @@ final class EqualiserStore: ObservableObject {
     }
     
     // MARK: - Helpers
-    
+
+    /// Determines the automatic-mode output device at startup using unified selection logic.
+    /// Handles both snapshot restoration (currentSelected from saved state) and first launch (nil).
+    private func restoreAutomaticOutputDevice(currentSelected: String?) {
+        let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID()
+        let selection = OutputDeviceSelection.determine(
+            currentSelected: currentSelected,
+            macDefault: macDefault,
+            availableDevices: deviceManager.outputDevices
+        )
+
+        switch selection {
+        case .preserveCurrent(let uid):
+            routingCoordinator.selectedOutputDeviceID = uid
+            logger.debug("Startup: preserving saved output device")
+
+        case .useMacDefault(let uid):
+            routingCoordinator.selectedOutputDeviceID = uid
+            if let device = deviceManager.device(forUID: uid) {
+                logger.debug("Startup: using macOS default '\(device.name)'")
+            }
+
+        case .useFallback:
+            if let fallback = deviceManager.selectFallbackOutputDevice() {
+                routingCoordinator.selectedOutputDeviceID = fallback.uid
+                logger.info("Startup: using fallback output '\(fallback.name)'")
+            } else {
+                logger.error("Startup: no output device available")
+            }
+        }
+
+        // Input is always driver in automatic mode
+        routingCoordinator.selectedInputDeviceID = DRIVER_DEVICE_UID
+    }
+
     static func clampGain(_ gain: Float) -> Float {
         AudioConstants.clampGain(gain)
     }

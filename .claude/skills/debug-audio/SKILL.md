@@ -13,9 +13,9 @@ Investigate the audio issue described in: $ARGUMENTS
 
 Read these knowledge files for context:
 
-- .claude/knowledge/coreaudio.md
-- .claude/knowledge/realtime-safety.md
-- .claude/knowledge/known-issues.md
+- docs/dev/coreaudio.md
+- docs/dev/realtime-safety.md
+- docs/dev/known-issues.md
 
 ## Investigation Steps
 
