@@ -99,7 +99,7 @@ pendingCoefficients[i]     ▼                     ▼
 | `BiquadFilter.swift` | vDSP biquad wrapper, owns delay elements and setup |
 | `EQChain.swift` | Per-channel-per-layer chain of 64 biquads, lock-free coefficient updates |
 | `EQChannelTarget.swift` | `.left` / `.right` / `.both` for stereo routing |
-| `FilterType.swift` | 11 filter types with raw values matching AVAudioUnitEQFilterType |
+| `FilterType.swift` | Filter types (parametric, shelves, band-pass, notch) with legacy migration |
 
 ### Real-Time Safety Guarantees
 
@@ -174,11 +174,11 @@ func updateDriverName() async -> Bool {
 
 ## nonisolated(unsafe) for Audio Thread Access
 
-Properties accessed from the audio render thread must use `nonisolated(unsafe)` to bypass Swift 6 concurrency checking:
+Properties accessed from the audio render thread use `nonisolated(unsafe)` to bypass Swift 6 concurrency checking:
 
 ```swift
-nonisolated(unsafe) var renderPipeline: RenderPipeline?
-nonisolated(unsafe) var eqChain: EQChain
+nonisolated(unsafe) var callbackContext: RenderCallbackContext?
+nonisolated(unsafe) var isRunning: Bool = false
 ```
 
 This is safe when:

@@ -126,7 +126,7 @@ Permission requirements depend on routing mode and capture mode:
 | Automatic | HAL Input | Yes, on mode switch |
 | Manual | Any | Yes, on mode switch |
 
-The `RoutingMode.needsMicPermission` property determines whether permission is checked. `ManualRoutingMode` always requires mic permission (uses HAL input). `AutomaticRoutingMode` only requires it for HAL input capture mode.
+The `RoutingMode.needsMicPermission` property determines whether permission is checked. `ManualRoutingMode` always returns `true` (uses HAL input). `AutomaticRoutingMode` returns `false` — the HAL input permission check is performed separately in `AudioRoutingCoordinator` based on `captureMode`.
 
 ## Preset Backward Compatibility
 

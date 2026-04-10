@@ -40,18 +40,18 @@ Delegate properties must be `weak` to prevent parent-child cycles:
 
 ```swift
 // Protocol conformance
-protocol DeviceChangeObserving: AnyObject {
-    func deviceDidChange(_ event: DeviceChangeEvent)
+protocol SomeDelegateing: AnyObject {
+    func didReceiveUpdate(_ value: Float)
 }
 
 // Weak delegate reference
-weak var delegate: DeviceChangeObserving?
+weak var delegate: SomeDelegateing?
 ```
 
 Rules:
 - Delegate protocols should conform to `AnyObject` (enables `weak`)
 - Always declare delegate properties as `weak`
-- This codebase uses protocols with `-ing` suffix for delegates
+- This codebase uses protocols with `-ing` suffix for service protocols (`Enumerating`, `VolumeControlling`, `SampleRateObserving`)
 
 ### Coordinator Pattern
 
@@ -152,7 +152,7 @@ The audio render thread has additional constraints:
 
 ```swift
 // SAFE: Pre-allocated at init, only read during render
-nonisolated(unsafe) var eqChain: EQChain
+nonisolated(unsafe) var callbackContext: RenderCallbackContext?
 
 // UNSAFE: Could allocate during render
 var processedSamples: [Float] = []  // Array might reallocate!

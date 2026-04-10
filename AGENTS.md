@@ -39,7 +39,7 @@ This codebase follows SOLID and DRY principles. Key patterns:
 - Each feature group is self-contained: owns its types, services, protocols, and coordination logic
 - Services do one thing: `DeviceEnumerationService`, `DeviceVolumeService`
 - Coordinators delegate to focused types: `EQCoefficientStager` (DSP staging), `PipelineManager` (pipeline lifecycle), `RoutingMode` (device resolution strategy)
-- `app/` is the orchestration layer — `EqualiserStore` and `AudioRoutingCoordinator` tie features together
+- `app/` is the state layer — `EqualiserStore` delegates to feature modules; `routing/` orchestrates audio routing
 
 ### Protocol Segregation
 - Service protocols use `-ing` suffix: `Enumerating`, `VolumeControlling`, `SampleRateObserving`, `DeviceProviding`, `PermissionRequesting`

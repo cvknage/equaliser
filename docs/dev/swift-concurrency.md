@@ -18,7 +18,8 @@ UI-bound classes and coordinators are `@MainActor`:
 ```swift
 @MainActor final class EqualiserStore: ObservableObject { ... }
 @MainActor final class AudioRoutingCoordinator { ... }
-@MainActor final class RoutingViewModel { ... }
+@MainActor final class AudioRoutingCoordinator { ... }
+@MainActor @Observable final class RoutingViewModel { ... }
 ```
 
 Rules:
@@ -28,26 +29,27 @@ Rules:
 
 ## Actor Isolation
 
-`ParameterSmoother` uses actor isolation for thread-safe meter state:
+`MeterStore` uses `@MainActor` isolation for thread-safe meter state updates at 30 FPS:
 
 ```swift
-actor MeterStore {
-    // Thread-safe by default — all access serialized through actor
+@MainActor final class MeterStore: ObservableObject {
+    // All access serialized on main actor
+    // Meter observers receive callbacks on main thread
 }
 ```
 
 Rules:
-- Use `actor` when you need serialized access from multiple threads
-- Don't use `actor` for audio thread state — actors use locks internally
-- For audio thread communication, use `ManagedAtomic` or lock-free patterns instead
+- `MeterStore` is `@MainActor` — all mutations happen on main thread
+- Meter observers (`PeakMeterLayer`, `RMSMeterLayer`) receive updates via `MeterObserver` protocol
+- Audio thread writes to meter data via `nonisolated(unsafe)` properties, main thread reads for display
 
 ## nonisolated(unsafe)
 
 Audio thread access uses `nonisolated(unsafe)` to bypass Swift 6 checking:
 
 ```swift
-nonisolated(unsafe) var renderPipeline: RenderPipeline?
-nonisolated(unsafe) var eqChain: EQChain
+nonisolated(unsafe) var callbackContext: RenderCallbackContext?
+nonisolated(unsafe) var isRunning: Bool = false
 ```
 
 This is correct when:
@@ -135,7 +137,7 @@ Closures passed across actor boundaries must be `@Sendable`. This means:
 ### @MainActor and View Models
 View models hold `unowned` store references (not `weak`) because their lifecycle is bounded by the view:
 ```swift
-@Observable final class RoutingViewModel {
+@MainActor @Observable final class RoutingViewModel {
     private unowned let store: EqualiserStore
 }
 ```

@@ -8,11 +8,12 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 
 | Directory | Purpose |
 |-----------|---------|
-| `src/app/` | App entry point, lifecycle, and top-level coordination |
+| `src/app/` | App entry point, state coordinator, and persistence |
+| `src/routing/` | Audio routing orchestration, mode strategy, and driver naming |
 | `src/dsp/` | EQ signal processing (biquad filters, chains, configuration, coefficient staging) |
 | `src/dsp/biquad/` | Core biquad filter math and DSP |
 | `src/dsp/chain/` | EQ chain processing and state |
-| `src/dsp/config/` | EQ configuration (bands, channels, filter types) |
+| `src/dsp/config/` | EQ configuration (bands, channels, filter types, bandwidth conversion) |
 | `src/pipeline/` | Audio capture, rendering, and shared infrastructure |
 | `src/pipeline/capture/` | Audio capture from driver (shared memory, HAL input) |
 | `src/pipeline/hal/` | CoreAudio HAL I/O |
@@ -34,19 +35,22 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | File | Purpose |
 |------|---------|
 | `src/app/EqualiserStore.swift` | App state coordinator (delegates to feature modules) |
-| `src/app/AudioRoutingCoordinator.swift` | Routing orchestration (delegates to PipelineManager, EQCoefficientStager, RoutingMode) |
-| `src/app/PipelineManager.swift` | Render pipeline lifecycle (create, configure, start, stop) |
-| `src/app/RoutingMode.swift` | Strategy protocol for mode-specific device resolution |
-| `src/app/AutomaticRoutingMode.swift` | Automatic routing: driver + macOS default |
-| `src/app/ManualRoutingMode.swift` | Manual routing: user-selected devices |
-| `src/app/DeviceProviding.swift` | Protocol composing device lookup, enumeration, and fallback |
-| `src/app/PermissionRequesting.swift` | Protocol for microphone permission checking |
-| `src/app/AudioPermissionService.swift` | Concrete permission service using AVAudioApplication |
-| `src/dsp/EQCoefficientStager.swift` | EQ coefficient calculation and staging to RenderPipeline |
 | `src/app/AppStateSnapshot.swift` | App state persistence |
 | `src/app/EqualiserApp.swift` | App entry point |
+| `src/routing/AudioRoutingCoordinator.swift` | Routing orchestration (delegates to PipelineManager, EQCoefficientStager, RoutingMode) |
+| `src/routing/RoutingMode.swift` | Strategy protocol for mode-specific device resolution |
+| `src/routing/AutomaticRoutingMode.swift` | Automatic routing: driver + macOS default |
+| `src/routing/ManualRoutingMode.swift` | Manual routing: user-selected devices |
+| `src/routing/RoutingStatus.swift` | Routing state enum (idle, starting, active, error) |
+| `src/routing/DriverNameManager.swift` | Driver naming with CoreAudio refresh workaround |
+| `src/pipeline/PipelineManager.swift` | Render pipeline lifecycle (create, configure, start, stop) |
 | `src/dsp/config/EQConfiguration.swift` | EQ band data (storage-free) |
-| `src/dsp/config/FilterType.swift` | 11 filter types (parametric, shelves, etc.) |
+| `src/dsp/config/FilterType.swift` | Filter types (parametric, shelves, etc.) |
+| `src/dsp/config/CompareMode.swift` | EQ vs Flat comparison mode enum |
+| `src/dsp/config/CompareModeTimer.swift` | Auto-revert timer for compare mode |
+| `src/dsp/config/CompareModeTimerControlling.swift` | Protocol for compare mode timer |
+| `src/dsp/config/EQLayerConstants.swift` | EQ layer count and indexing constants |
+| `src/dsp/config/BandwidthConverter.swift` | Q factor ↔ bandwidth (octaves) conversion and display |
 | `src/dsp/biquad/BiquadCoefficients.swift` | Biquad coefficient value type (Equatable, Sendable) |
 | `src/dsp/biquad/BiquadMath.swift` | RBJ Cookbook coefficient calculation (pure functions) |
 | `src/dsp/chain/ChannelEQState.swift` | Per-channel EQ state (layers, bands) |
@@ -63,9 +67,6 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | `src/pipeline/AudioConstants.swift` | Centralized audio/EQ constants and validation |
 | `src/pipeline/AudioMath.swift` | Pure audio math utilities (dB/linear conversion) |
 | `src/pipeline/AudioRingBuffer.swift` | Lock-free SPSC ring buffer for audio callbacks |
-| `src/pipeline/EQLayerConstants.swift` | EQ layer count and indexing constants |
-| `src/pipeline/RoutingStatus.swift` | Routing state enum (idle, starting, active, error) |
-| `src/pipeline/DriverNameManager.swift` | Driver naming with CoreAudio refresh workaround |
 | `src/pipeline/RenderPipeline.swift` | Dual HAL + EQ processing |
 | `src/dsp/biquad/BiquadFilter.swift` | vDSP biquad wrapper with delay elements |
 | `src/dsp/chain/EQChain.swift` | Per-channel filter chain with lock-free updates |
@@ -114,16 +115,16 @@ RenderPipeline.configure()
 
 | Directory | Purpose |
 |-----------|---------|
-| `tests/app/` | App state and coordinator tests |
+| `tests/app/` | App state tests |
 | `tests/dsp/biquad/` | Biquad math and filter tests |
 | `tests/dsp/chain/` | EQ chain tests |
-| `tests/dsp/config/` | EQ configuration and filter type tests |
+| `tests/dsp/config/` | EQ configuration, filter type, and bandwidth conversion tests |
 | `tests/pipeline/` | Audio math, ring buffer, and render pipeline tests |
 | `tests/pipeline/capture/` | Capture mode policy tests |
 | `tests/device/change/` | Device change, history, and headphone switch policy tests |
 | `tests/device/enumeration/` | Device manager tests |
 | `tests/meters/` | Meter calculation and store tests |
-| `tests/presets/` | Preset import/export, codable, migration tests |
+| `tests/presets/` | Preset import/export, codable, and migration tests |
 | `tests/ui/` | View model tests |
 
 ### Other Directories
@@ -142,20 +143,19 @@ Each feature group is self-contained — it owns its domain types, services, pro
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  App Layer (Coordination)                                   │
+│  App Layer (State + UX)                                     │
 │  - EqualiserStore: app state, delegates to features         │
-│  - AudioRoutingCoordinator: pipeline + device orchestration  │
 └─────────────────────────────────────────────────────────────┘
               │               │               │
               ▼               ▼               ▼
 ┌───────────────┐ ┌───────────────┐ ┌───────────────┐
-│  dsp/         │ │  pipeline/    │ │  device/      │
-│  Biquad DSP   │ │  HAL, capture │ │  Enum, volume │
-│  EQ chains    │ │  rendering    │ │  change detect│
+│  routing/     │ │  dsp/         │ │  pipeline/    │
+│  Mode strategy│ │  Biquad DSP   │ │  HAL, capture │
+│  Device naming│ │  EQ chains    │ │  rendering    │
 ├───────────────┤ ├───────────────┤ ├───────────────┤
-│  driver/      │ │  meters/      │ │  presets/     │
-│  Lifecycle    │ │  Level meters │ │  File I/O     │
-│  Properties   │ │               │ │               │
+│  driver/      │ │  meters/      │ │  device/      │
+│  Lifecycle    │ │  Level meters │ │  Enum, volume │
+│  Properties   │ │               │ │  change detect│
 └───────────────┘ └───────────────┘ └───────────────┘
                               │
                               ▼
@@ -181,17 +181,17 @@ Each feature group is self-contained — it owns its domain types, services, pro
 
 ```swift
 EqualiserStore (app/)
-├── AudioRoutingCoordinator (app/) — routing orchestration
-│   ├── PipelineManager (app/) — render pipeline lifecycle
+├── AudioRoutingCoordinator (routing/) — routing orchestration
+│   ├── PipelineManager (pipeline/) — render pipeline lifecycle
 │   │   └── RenderPipeline (pipeline/)
 │   ├── EQCoefficientStager (dsp/) — EQ coefficient calculation and staging
-│   ├── RoutingMode (app/) — strategy: AutomaticRoutingMode or ManualRoutingMode
+│   ├── RoutingMode (routing/) — strategy: AutomaticRoutingMode or ManualRoutingMode
 │   ├── DeviceChangeCoordinator (device/change/) — device events, headphone detection
 │   │   └── OutputDeviceHistory (device/change/)
 │   ├── VolumeManager (device/volume/) — volume sync and drift detection
 │   ├── SystemDefaultObserver (device/) — macOS default changes
-│   └── DriverNameManager (pipeline/) — driver naming
-├── CompareModeTimer (dsp/) — auto-revert
+│   └── DriverNameManager (routing/) — driver naming
+├── CompareModeTimer (dsp/config/) — auto-revert
 ├── DeviceManager (device/enumeration/) — device enumeration, selection logic
 │   └── DeviceEnumerationService (device/enumeration/)
 ├── EQConfiguration (dsp/config/) — band data
@@ -202,8 +202,8 @@ EqualiserStore (app/)
 **Key coordinators and managers:**
 
 - `DeviceChangeCoordinator` (device/change/): Subscribes to `DeviceEnumerationService.$changeEvent`, manages `OutputDeviceHistory`, emits callbacks for headphone detection and missing devices
-- `AudioRoutingCoordinator` (app/): Routes device resolution to `RoutingMode` strategy, delegates pipeline lifecycle to `PipelineManager`, EQ staging to `EQCoefficientStager`, creates `VolumeManager` when routing starts
-- `PipelineManager` (app/): Creates, configures, starts, and stops `RenderPipeline`. Sets up `VolumeManager` and `EQCoefficientStager` when pipeline starts
+- `AudioRoutingCoordinator` (routing/): Routes device resolution to `RoutingMode` strategy, delegates pipeline lifecycle to `PipelineManager`, EQ staging to `EQCoefficientStager`, creates `VolumeManager` when routing starts
+- `PipelineManager` (pipeline/): Creates, configures, starts, and stops `RenderPipeline`. Sets up `VolumeManager` and `EQCoefficientStager` when pipeline starts
 - `EQCoefficientStager` (dsp/): Calculates biquad coefficients via `BiquadMath` and stages them to `RenderPipeline`. Owns `currentSampleRate` and all `updateBand*` methods
 - `VolumeManager` (device/volume/): Owns volume sync state (gain, muted, device IDs), syncs volume between driver and output device, performs drift detection
 

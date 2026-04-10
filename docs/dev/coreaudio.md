@@ -160,13 +160,14 @@ The app does **NOT** request microphone permission on launch. Permission is only
 | Automatic + HAL Input | When user switches capture mode in Settings |
 | Manual | When user switches to manual mode |
 
-Permission logic is checked via `RoutingMode.needsMicPermission`:
-- `AutomaticRoutingMode.needsMicPermission` returns `true` only for HAL input capture mode
+Permission logic is checked via `RoutingMode.needsMicPermission` and capture mode:
+- `AutomaticRoutingMode.needsMicPermission` returns `false` — HAL input permission is checked separately in `AudioRoutingCoordinator` based on `captureMode`
 - `ManualRoutingMode.needsMicPermission` returns `true` (manual mode always uses HAL input)
 
 ```swift
-// Permission check via RoutingMode protocol
-if routingMode.needsMicPermission {
+// Permission check via RoutingMode protocol AND capture mode
+let needsPermission = routingMode.needsMicPermission || (!routingMode.isManual && captureMode == .halInput)
+if needsPermission {
     guard permissionService.isMicPermissionGranted else {
         // Show permission prompt or error
         return
