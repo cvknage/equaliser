@@ -4,6 +4,7 @@ import SwiftUI
 enum SettingsTab: String {
     case display = "display"
     case driver = "driver"
+    case about = "about"
 }
 
 struct SettingsView: View {
@@ -31,6 +32,12 @@ struct SettingsView: View {
                     Label("Driver", systemImage: "speaker.wave.3")
                 }
                 .tag(SettingsTab.driver)
+
+            AboutTab()
+                .tabItem {
+                    Label("About", systemImage: "info.circle")
+                }
+                .tag(SettingsTab.about)
         }
         .frame(width: 450, height: 400)
         .onAppear {
@@ -478,5 +485,61 @@ struct DriverSettingsTab: View {
             }
             .buttonStyle(.borderedProminent)
         }
+    }
+}
+
+struct AboutTab: View {
+    @EnvironmentObject var store: EqualiserStore
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+    }
+
+    private var buildVersion: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                HStack {
+                    Image(systemName: "slider.vertical.3")
+                        .font(.title)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Equaliser")
+                            .font(.headline)
+                        Text("v\(appVersion) (\(buildVersion))")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                if store.updateService.updateAvailable {
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .foregroundStyle(.orange)
+                        if let version = store.updateService.latestVersion {
+                            Text("v\(version) is available")
+                                .font(.callout)
+                        } else {
+                            Text("Update available")
+                                .font(.callout)
+                        }
+                        Spacer()
+                        Button("Download") {
+                            if let url = URL(string: UPDATE_DOWNLOAD_URL) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            } header: {
+                Text("Version")
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
     }
 }

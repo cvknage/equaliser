@@ -139,7 +139,15 @@ final class EqualiserStore: ObservableObject {
         get { routingCoordinator.showDriverPrompt }
         set { routingCoordinator.showDriverPrompt = newValue }
     }
-    
+
+    /// Binding for the update alert visibility.
+    var showUpdateAlert: Binding<Bool> {
+        Binding(
+            get: { self.updateService.showUpdateAlert },
+            set: { self.updateService.showUpdateAlert = $0 }
+        )
+    }
+
     /// Whether the driver needs updating (missing shared memory support).
     var showDriverUpdateRequired: Bool {
         routingCoordinator.showDriverUpdateRequired
@@ -179,13 +187,14 @@ final class EqualiserStore: ObservableObject {
     }
 
     // MARK: - Components
-    
+
     let deviceManager = DeviceManager()
     let volumeService: VolumeControlling
     let sampleRateService: SampleRateObserving
     let eqConfiguration: EQConfiguration
     let presetManager: PresetManager
     let meterStore: MeterStore
+    let updateService = UpdateCheckService()
 
     // MARK: - Coordinators
     
@@ -333,6 +342,9 @@ final class EqualiserStore: ObservableObject {
                     self.routingCoordinator.reconfigureRouting()
                 }
             }
+
+            // Check for app updates
+            self.updateService.checkForUpdates()
         }
         
         // Wire up EQ configuration changes
@@ -360,6 +372,14 @@ final class EqualiserStore: ObservableObject {
 
         // Forward device manager changes (device list updates)
         deviceManager.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        // Forward update service changes
+        updateService.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()

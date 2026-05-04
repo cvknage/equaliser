@@ -274,6 +274,20 @@ struct EQWindowView: View {
                 openSettings()
             }
         }
+        .alert("Update Available", isPresented: store.showUpdateAlert) {
+            Button("Download") {
+                if let url = URL(string: UPDATE_DOWNLOAD_URL) {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            Button("Dismiss", role: .cancel) { }
+        } message: {
+            if let version = store.updateService.latestVersion {
+                Text("Equaliser v\(version) is available.\nVisit equaliser.knage.net to download the latest version.")
+            } else {
+                Text("A new version of Equaliser is available.")
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .savePresetShortcut)) { _ in
             showSaveSheet = true
         }
