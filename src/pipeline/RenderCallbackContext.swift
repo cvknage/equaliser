@@ -94,6 +94,13 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Written by main thread, read by audio thread.
     private let targetBoostGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(1065353216) // Float 1.0 as Int32 bits (0x3F800000)
 
+    /// Stopping flag (stored as Int32 for atomic access).
+    /// Set to 1 by main thread before stopping HAL units. Read by audio thread.
+    /// When true, callbacks zero-fill output and return immediately — prevents
+    /// use-after-free if HAL calls the callback between AudioOutputUnitStop and
+    /// callbackContext deallocation.
+    private let isStoppingAtomic: ManagedAtomic<Int32> = ManagedAtomic(0) // false
+
     /// Meters enabled flag (stored as Int32 for atomic access).
     /// Written by main thread, read by audio thread.
     /// When false, meter calculations are skipped entirely.
@@ -142,6 +149,18 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// When disabled, meter calculations are skipped on the audio thread.
     func setMetersEnabled(_ enabled: Bool) {
         metersEnabledAtomic.store(enabled ? 1 : 0, ordering: .relaxed)
+    }
+
+    /// Sets the stopping flag (called from main thread before HAL stop).
+    /// When true, render callbacks output silence and return early.
+    func setIsStopping(_ stopping: Bool) {
+        isStoppingAtomic.store(stopping ? 1 : 0, ordering: .relaxed)
+    }
+
+    /// Checks if the pipeline is stopping (called from audio thread).
+    /// Returns true if callbacks should output silence and return early.
+    var isStopping: Bool {
+        isStoppingAtomic.load(ordering: .relaxed) != 0
     }
 
     // MARK: - Gain Read API (Audio Thread or Diagnostics)

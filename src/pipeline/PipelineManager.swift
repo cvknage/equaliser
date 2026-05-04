@@ -122,6 +122,12 @@ final class PipelineManager {
         volumeManager = nil
     }
 
+    /// Prepares the pipeline for a graceful stop by fading output to silence.
+    /// Call ~50ms before stopPipeline() to allow the fade to complete.
+    func prepareForStop() {
+        renderPipeline?.prepareForStop()
+    }
+
     // MARK: - Pipeline Pass-throughs
 
     /// Updates the processing mode on the render pipeline.

@@ -57,6 +57,11 @@ final class AudioRoutingCoordinator: ObservableObject {
         /// Delay after syncing driver sample rate before creating HAL input unit.
         /// Allows CoreAudio to propagate the rate change.
         static let sampleRatePropagationDelay: TimeInterval = 0.1
+
+        /// Delay between fade-out and pipeline stop.
+        /// Allows the audio thread's per-callback gain ramping to fade output
+        /// to silence (~10ms per callback) before the HAL unit is stopped.
+        static let fadeOutDuration: TimeInterval = 0.05
     }
     private let systemDefaultObserver: SystemDefaultObserver
     private let sampleRateService: SampleRateObserving
@@ -170,19 +175,42 @@ final class AudioRoutingCoordinator: ObservableObject {
         }
 
         isReconfiguring = true
-        defer { isReconfiguring = false }
 
+        // If pipeline is running, fade out before stopping to prevent audio pop.
+        // The fade ramps gains to zero over ~10ms; we wait 50ms for it to complete.
+        if pipelineManager.renderPipeline != nil {
+            pipelineManager.prepareForStop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + Constants.fadeOutDuration) { [weak self] in
+                self?.continueReconfigureRouting()
+            }
+        } else {
+            continueReconfigureRouting()
+        }
+    }
+
+    /// Continues routing configuration after the fade-out delay.
+    /// Separated from reconfigureRouting() to allow the fade-out to complete.
+    private func continueReconfigureRouting() {
         // Step 1: Verify permissions (HAL input requires microphone permission)
-        guard validatePermissions() else { return }
+        guard validatePermissions() else {
+            isReconfiguring = false
+            return
+        }
 
-        // Stop existing pipeline if running
+        // Stop existing pipeline if running (after fade-out completes)
         stopPipeline()
 
         // Step 2: Verify driver is ready (automatic mode)
-        guard ensureDriverReady() else { return }
+        guard ensureDriverReady() else {
+            isReconfiguring = false
+            return
+        }
 
         // Step 3: Resolve and validate devices
-        guard let devices = resolveAndValidateDevices() else { return }
+        guard let devices = resolveAndValidateDevices() else {
+            isReconfiguring = false
+            return
+        }
 
         // Automatic mode: update selected devices and pre-sync volume
         if !routingMode.isManual {
@@ -247,6 +275,7 @@ final class AudioRoutingCoordinator: ObservableObject {
             // Delay to allow CoreAudio to propagate sample rate change
             logger.debug("Waiting for driver sample rate propagation before HAL input configuration")
             DispatchQueue.main.asyncAfter(deadline: .now() + Constants.sampleRatePropagationDelay) { [weak self] in
+                self?.isReconfiguring = false
                 self?.continueRoutingConfiguration(
                     inputDeviceID: devices.inputDeviceID,
                     outputDeviceID: devices.outputDeviceID,
@@ -258,6 +287,7 @@ final class AudioRoutingCoordinator: ObservableObject {
                 )
             }
         } else {
+            isReconfiguring = false
             continueRoutingConfiguration(
                 inputDeviceID: devices.inputDeviceID,
                 outputDeviceID: devices.outputDeviceID,
@@ -517,16 +547,29 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// Stops the current audio routing and restores system defaults (automatic mode only).
     func stopRouting() {
         logger.info("stopRouting called, manualMode=\(self.manualModeEnabled)")
-        
+
+        // Fade out before stopping to prevent audio pop
+        if pipelineManager.renderPipeline != nil {
+            pipelineManager.prepareForStop()
+            DispatchQueue.main.asyncAfter(deadline: .now() + Constants.fadeOutDuration) { [weak self] in
+                self?.continueStopRouting()
+            }
+        } else {
+            continueStopRouting()
+        }
+    }
+
+    /// Continues stopping after the fade-out delay.
+    private func continueStopRouting() {
         // Stop the pipeline
         stopPipeline()
-        
+
         // In automatic mode, restore macOS default
         if !routingMode.isManual {
             // Restore to selected output device
             if let outputUID = selectedOutputDeviceID,
                outputUID != DRIVER_DEVICE_UID {
-                
+
                 let restored = systemDefaultObserver.restoreSystemDefaultOutput(to: outputUID)
                 if !restored {
                     logger.warning("Failed to restore output device, using fallback")
@@ -544,15 +587,15 @@ final class AudioRoutingCoordinator: ObservableObject {
                     driverAccess.restoreToBuiltInSpeakers()
                 }
             }
-            
+
             // Rename driver back to "Equaliser"
             _ = updateDriverName()
         }
         // In manual mode, don't modify macOS default
-        
+
         // Clear loop prevention flag
         systemDefaultObserver.clearAppSettingFlagAfterDelay()
-        
+
         routingStatus = .idle
         logger.info("Routing stopped")
     }

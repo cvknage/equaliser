@@ -303,9 +303,11 @@ final class RenderPipeline {
         let outputGainLinear = AudioMath.dbToLinear(eqConfiguration.outputGain)
         context.setTargetInputGain(inputGainLinear)
         context.setTargetOutputGain(outputGainLinear)
-        // Initialize current gains (audio thread uses these as starting point)
-        context.inputGainLinear = inputGainLinear
-        context.outputGainLinear = outputGainLinear
+        // Start with zero gain to fade in smoothly — prevents startup pop.
+        // The audio thread's applyGain() will ramp from 0 to target over
+        // the first callback cycle (~10ms at 48kHz/512 frames).
+        context.inputGainLinear = 0
+        context.outputGainLinear = 0
 
         callbackContext = context
         latestMeters = .silent
@@ -472,6 +474,11 @@ final class RenderPipeline {
 
         var lastError: HALIOError?
 
+        // Signal callbacks to output silence — prevents use-after-free
+        // if HAL calls the callback between AudioOutputUnitStop and
+        // callbackContext deallocation.
+        callbackContext?.setIsStopping(true)
+
         // Stop driver capture if active
         driverCapture?.stop()
         driverCapture = nil
@@ -554,6 +561,17 @@ final class RenderPipeline {
     /// When disabled, meter calculations are skipped entirely for performance.
     func setMetersEnabled(_ enabled: Bool) {
         callbackContext?.setMetersEnabled(enabled)
+    }
+
+    /// Prepares the pipeline for a graceful stop by fading output to silence.
+    /// Sets target gains to zero/unity so the audio thread's applyGain() ramps
+    /// smoothly over the next callback cycle (~10ms at 48kHz). Call this
+    /// ~50ms before stop() to allow the fade to complete.
+    func prepareForStop() {
+        guard isRunning else { return }
+        callbackContext?.setTargetOutputGain(0)
+        callbackContext?.setTargetInputGain(0)
+        callbackContext?.setTargetBoostGain(1.0) // Unity — no boost on silence
     }
 
     // MARK: - EQ Coefficient Staging
@@ -708,6 +726,16 @@ final class RenderPipeline {
             .fromOpaque(inRefCon)
             .takeUnretainedValue()
 
+        // If pipeline is stopping, output silence and return early.
+        // This prevents use-after-free if the HAL calls the callback
+        // between AudioOutputUnitStop and callbackContext deallocation.
+        if context.isStopping {
+            if let ioData = ioData {
+                RenderCallbackContext.zeroFill(ioData, frameCount: frameCount)
+            }
+            return noErr
+        }
+
         guard let inputHALUnit = context.inputHALUnit else {
             // No input HAL unit - nothing to do
             return noErr
@@ -785,6 +813,14 @@ final class RenderPipeline {
         let context = Unmanaged<RenderCallbackContext>
             .fromOpaque(inRefCon)
             .takeUnretainedValue()
+
+        // If pipeline is stopping, output silence and return early.
+        // This prevents use-after-free if the HAL calls the callback
+        // between AudioOutputUnitStop and callbackContext deallocation.
+        if context.isStopping {
+            RenderCallbackContext.zeroFill(ioData, frameCount: frameCount)
+            return noErr
+        }
 
         // 0. Provide frames for processing (handles both direct capture and ring buffer modes)
         let framesRead = context.provideFrames(frameCount: frameCount)

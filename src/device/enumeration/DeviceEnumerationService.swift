@@ -329,6 +329,10 @@ final class DeviceEnumerationService: ObservableObject, Enumerating {
         // Handle built-in devices removed (headphones unplugged)
         if !removedBuiltInUIDs.isEmpty {
             logger.info("Built-in device(s) removed: \(removedBuiltInUIDs.count)")
+            // Clear missing tracking immediately so checkForMissingSelectedDevice()
+            // can properly detect the missing device. This also ensures tracking is
+            // cleared even if the Combine pipeline doesn't deliver the event.
+            clearMissingTracking()
             changeEvent = .builtInDevicesRemoved
         }
         
