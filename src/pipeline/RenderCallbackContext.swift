@@ -94,6 +94,11 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Written by main thread, read by audio thread.
     private let targetBoostGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(1065353216) // Float 1.0 as Int32 bits (0x3F800000)
 
+    /// Target volume gain for shared memory mode (stored as Int32 bit pattern of Float).
+    /// 0.0 when muted or volume at 0%, 1.0 at normal volumes.
+    /// Written by main thread, read by audio thread.
+    private let targetVolumeGainAtomic: ManagedAtomic<Int32> = ManagedAtomic(0) // Float 0.0 — silent until VolumeManager sets correct value
+
     /// Stopping flag (stored as Int32 for atomic access).
     /// Set to 1 by main thread before stopping HAL units. Read by audio thread.
     /// When true, callbacks zero-fill output and return immediately — prevents
@@ -119,6 +124,10 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Current boost gain (audio thread only).
     nonisolated(unsafe) var boostGainLinear: Float = 1.0
 
+    /// Current volume gain for shared memory mode (audio thread only).
+    /// Ensures digital silence at 0% volume when using shared memory capture.
+    nonisolated(unsafe) var volumeGainLinear: Float = 0.0
+
     // MARK: - Gain Update API (Main Thread)
 
     /// Updates the target input gain (called from main thread).
@@ -143,6 +152,14 @@ final class RenderCallbackContext: @unchecked Sendable {
         let clamped = max(1, linear)
         let bits = Int32(bitPattern: clamped.bitPattern)
         targetBoostGainAtomic.store(bits, ordering: .relaxed)
+    }
+
+    /// Updates the target volume gain for shared memory mode (called from main thread).
+    /// - Parameter linear: Linear gain value (0.0 = silence, 1.0 = pass-through, clamped to 0-1).
+    func setTargetVolumeGain(_ linear: Float) {
+        let clamped = max(0, min(1, linear))
+        let bits = Int32(bitPattern: clamped.bitPattern)
+        targetVolumeGainAtomic.store(bits, ordering: .relaxed)
     }
 
     /// Updates the meters enabled state (called from main thread).
@@ -178,6 +195,11 @@ final class RenderCallbackContext: @unchecked Sendable {
     /// Returns the current target boost gain.
     func getTargetBoostGain() -> Float {
         Float(bitPattern: UInt32(bitPattern: targetBoostGainAtomic.load(ordering: .relaxed)))
+    }
+
+    /// Returns the current target volume gain for shared memory mode.
+    func getTargetVolumeGain() -> Float {
+        Float(bitPattern: UInt32(bitPattern: targetVolumeGainAtomic.load(ordering: .relaxed)))
     }
 
     /// Processing mode for audio thread:
@@ -468,11 +490,17 @@ final class RenderCallbackContext: @unchecked Sendable {
                 }
             }
 
+            // Apply volume gain to ensure digital silence at 0% volume (shared memory mode).
+            // The driver's WriteMix path writes pre-volume audio to shared memory, bypassing
+            // the driver's volume attenuation (applied only in ReadInput for HAL input mode).
+            // This gain is unconditional — even in bypass mode, 0% volume should produce silence.
+            let targetVolumeGain = getTargetVolumeGain()
+            applyGain(to: inputBufferMutablePointers, frameCount: frameCount,
+                      currentGain: &volumeGainLinear, targetGain: targetVolumeGain)
+
             // Apply input gain to the full frameCount (skip in full bypass mode).
             // Using frameCount (not polled) ensures gain ramp state stays correct
             // across callbacks, even when partial data was read.
-            // Note: Boost gain is NOT applied here - in shared memory mode, samples come
-            // from the driver at full volume regardless of macOS volume setting.
             if processingMode != 0 {
                 let targetInputGain = getTargetInputGain()
                 applyGain(to: inputBufferMutablePointers, frameCount: frameCount,

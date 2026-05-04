@@ -90,6 +90,10 @@ final class PipelineManager {
                     volumeManager?.onBoostGainChanged = { [weak self] boostGain in
                         self?.renderPipeline?.updateBoostGain(linear: boostGain)
                     }
+                } else {
+                    volumeManager?.onVolumeGainChanged = { [weak self] volumeGain in
+                        self?.renderPipeline?.updateVolumeGain(linear: volumeGain)
+                    }
                 }
                 volumeManager?.setupVolumeSync(driverID: driverID, outputID: driverOutputDeviceID)
 
@@ -118,6 +122,7 @@ final class PipelineManager {
 
         // Clear callbacks and tear down volume sync
         volumeManager?.onBoostGainChanged = nil
+        volumeManager?.onVolumeGainChanged = nil
         volumeManager?.tearDown()
         volumeManager = nil
     }

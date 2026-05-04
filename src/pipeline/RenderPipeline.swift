@@ -542,6 +542,15 @@ final class RenderPipeline {
         context?.setTargetBoostGain(linear)
     }
 
+    /// Updates the volume gain for shared memory capture mode.
+    /// Ensures digital silence at 0% volume when reading from shared memory.
+    /// Linear scale: 0.0 = silence, 1.0 = pass-through.
+    func updateVolumeGain(linear: Float) {
+        let context = callbackContext
+        logger.debug("updateVolumeGain: linear=\(linear), callbackContext=\(context != nil ? "exists" : "nil")")
+        context?.setTargetVolumeGain(linear)
+    }
+
     // MARK: - EQ Control
 
     /// Updates the processing mode on the audio thread.

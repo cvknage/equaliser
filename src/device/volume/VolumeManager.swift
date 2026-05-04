@@ -86,6 +86,11 @@ final class VolumeManager: ObservableObject {
 
     /// Called when boost gain changes (for render pipeline to apply).
     var onBoostGainChanged: ((Float) -> Void)?
+
+    /// Called when volume gain for shared memory mode changes.
+    /// Provides a linear gain (0.0 = silence, 1.0 = pass-through) that ensures
+    /// digital silence at 0% volume or when muted.
+    var onVolumeGainChanged: ((Float) -> Void)?
     
     // MARK: - Initialization
     
@@ -175,6 +180,7 @@ final class VolumeManager: ObservableObject {
         let boost = boostGain()
         logger.info("Initial boost: \(boost)x (gain=\(initialVolume), muted=\(initialMuted))")
         onBoostGainChanged?(boost)
+        onVolumeGainChanged?(volumeGainForSharedMemory())
 
         // Start settling window to suppress macOS async volume spikes
         // macOS may restore driver volume to 100% during device switches
@@ -231,6 +237,7 @@ final class VolumeManager: ObservableObject {
         // Update boost (brings signal back to unity)
         let boost = boostGain()
         onBoostGainChanged?(boost)
+        onVolumeGainChanged?(volumeGainForSharedMemory())
     }
 
     /// Forwards volume to output device with epsilon filtering.
@@ -274,8 +281,9 @@ final class VolumeManager: ObservableObject {
         // Update boost (no boost when muted)
         let boost = boostGain()
         onBoostGainChanged?(boost)
+        onVolumeGainChanged?(volumeGainForSharedMemory())
     }
-    
+
     /// Handles mute changes from the output device.
     /// Syncs back to driver since mute should be unified.
     private func handleOutputMuteChanged(_ newMuted: Bool) {
@@ -300,8 +308,9 @@ final class VolumeManager: ObservableObject {
         // Update boost
         let boost = boostGain()
         onBoostGainChanged?(boost)
+        onVolumeGainChanged?(volumeGainForSharedMemory())
     }
-    
+
     // MARK: - Programmatic Changes
     
     /// Sets the volume from UI (not currently used - volume is controlled by macOS).
@@ -323,8 +332,9 @@ final class VolumeManager: ObservableObject {
         // Update boost
         let boost = boostGain()
         onBoostGainChanged?(boost)
+        onVolumeGainChanged?(volumeGainForSharedMemory())
     }
-    
+
     /// Sets mute state from UI.
     func setMuted(_ newMuted: Bool) {
         guard newMuted != muted else { return }
@@ -347,8 +357,9 @@ final class VolumeManager: ObservableObject {
         // Update boost
         let boost = boostGain()
         onBoostGainChanged?(boost)
+        onVolumeGainChanged?(volumeGainForSharedMemory())
     }
-    
+
     /// Sets whether boost is enabled.
     func setBoostEnabled(_ enabled: Bool) {
         guard enabled != boostEnabled else { return }
@@ -401,6 +412,18 @@ final class VolumeManager: ObservableObject {
     /// Returns the current output volume (same as gain, 0.0 - 1.0).
     func outputVolume() -> Float {
         return gain
+    }
+
+    // MARK: - Volume Gain for Shared Memory Mode
+
+    /// Computes the volume gain for shared memory capture mode.
+    /// Returns 0.0 when muted or at 0% volume (ensuring digital silence),
+    /// 1.0 otherwise (pass-through — output device handles volume).
+    /// Mirrors how HAL mode produces silence via gVolume_Master_Value = 0.0.
+    func volumeGainForSharedMemory() -> Float {
+        if muted { return 0.0 }
+        if gain <= 0.0 { return 0.0 }
+        return 1.0
     }
 
     // MARK: - Volume Drift Detection
