@@ -91,6 +91,8 @@ final class AudioRoutingCoordinator: ObservableObject {
     /// Provides faster, more reliable disconnect detection than the full device list diff.
     private var inputDeviceAliveMonitor: DeviceAliveMonitor?
     private var outputDeviceAliveMonitor: DeviceAliveMonitor?
+    
+    private var idleSleepManager: IdleSleepManager?
 
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "AudioRoutingCoordinator")
     
@@ -127,12 +129,13 @@ final class AudioRoutingCoordinator: ObservableObject {
         let resolvedDriverAccess = driverAccess ?? DriverManager.shared
         self.driverAccess = resolvedDriverAccess
         
-        // Create driver name manager for CoreAudio refresh workaround
         self.driverNameManager = DriverNameManager(
             driverAccess: resolvedDriverAccess,
             systemDefaultObserver: systemDefaultObserver,
             deviceProvider: deviceProvider
         )
+        
+        self.idleSleepManager = IdleSleepManager(coordinator: self, meterStore: meterStore)
         
         // Wire up system default callback
         systemDefaultObserver.onSystemDefaultChanged = { [weak self] device in
@@ -520,6 +523,9 @@ final class AudioRoutingCoordinator: ObservableObject {
 
             // Start device alive monitors for immediate disconnect detection
             startDeviceAliveMonitors(inputDeviceID: inputDeviceID, outputDeviceID: outputDeviceID)
+            
+            // Start monitoring for sleep transitions
+            idleSleepManager?.startMonitoring()
 
         case .configurationFailed(let error):
             routingStatus = .error("Configuration failed: \(error)")
@@ -786,6 +792,9 @@ final class AudioRoutingCoordinator: ObservableObject {
 
         // Stop device alive monitors
         stopDeviceAliveMonitors()
+        
+        // Stop sleep monitoring
+        idleSleepManager?.stopMonitoring()
 
         // Clean up jack connection listener (Intel Macs)
         deviceChangeCoordinator.cleanupJackConnectionListener()

@@ -157,4 +157,11 @@ final class DriverCapture: @unchecked Sendable {
         guard let capture = sharedMemoryCapture else { return nil }
         return capture.getDriftDiagnostics()
     }
+
+    /// Checks if the driver has written new data to the shared memory since the last check.
+    /// This is used to detect audio activity when the CoreAudio output graph is paused.
+    /// - Returns: True if the write index has advanced.
+    func hasNewActivity() -> Bool {
+        return sharedMemoryCapture?.hasNewActivity() ?? false
+    }
 }

@@ -497,6 +497,53 @@ final class RenderPipeline {
         return .success(())
     }
 
+    // MARK: - Sleep Management
+
+    /// Stops the HAL IO units to release the macOS power assertion (PreventUserIdleSystemSleep),
+    /// but leaves the pipeline and shared memory initialized so we can poll for activity.
+    func pauseForSleep() {
+        guard isRunning else { return }
+        logger.info("Pausing pipeline for sleep (releasing power assertion)")
+
+        // Stop the output HAL unit first
+        if let outputManager = outputHALManager {
+            _ = outputManager.stop()
+        }
+
+        // Stop the input HAL unit (if active)
+        if let inputManager = inputHALManager {
+            _ = inputManager.stop()
+        }
+
+        // Note: we do NOT set isRunning = false, because the pipeline configuration 
+        // and callbacks are still valid. We just stopped the IO units.
+    }
+
+    /// Resumes the HAL IO units after a sleep pause.
+    func resumeFromSleep() {
+        guard isRunning else { return }
+        logger.info("Resuming pipeline from sleep")
+
+        // Start input HAL unit (standard mode)
+        if captureMode == .halInput, let inputManager = inputHALManager {
+            if case .failure(let error) = inputManager.start() {
+                logger.error("Failed to resume input HAL unit: \(error.localizedDescription)")
+            }
+        }
+
+        // Start output HAL unit
+        if let outputManager = outputHALManager {
+            if case .failure(let error) = outputManager.start() {
+                logger.error("Failed to resume output HAL unit: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Checks if the driver has new activity (for polling during sleep).
+    func isDriverActive() -> Bool {
+        return driverCapture?.hasNewActivity() ?? false
+    }
+
     // MARK: - Gain Control
 
     /// Updates the input gain applied before EQ processing.

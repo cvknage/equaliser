@@ -95,6 +95,9 @@ final class SharedMemoryCapture: @unchecked Sendable {
     /// First poll after connection - skip accumulated data
     private nonisolated(unsafe) var firstPoll: Bool = true
 
+    /// Last seen write index for activity detection
+    private nonisolated(unsafe) var lastCheckedWriteIndex: UInt32 = 0
+
     // MARK: - Drift Monitoring
 
     /// Countdown to next log interval check (avoids 64-bit modulo every callback)
@@ -233,8 +236,76 @@ final class SharedMemoryCapture: @unchecked Sendable {
         isConnected = false
         firstPoll = true
         readIndex = 0
+        lastCheckedWriteIndex = 0
         totalOverflowCount = 0
         lastOverflowCount = 0
+    }
+
+    /// Checks if the driver has written actual audio (non-zero samples) to the shared memory since the last check.
+    /// This can be called from any thread without acquiring locks.
+    /// - Returns: True if audio above the silence threshold was detected.
+    func hasNewActivity() -> Bool {
+        guard isConnected, let shmAddr = shmAddr else { return false }
+        
+        let currentWriteIndex = shmAddr.loadAtomicUInt32(offset: SharedMemoryLayout.Header.writeIndexOffset)
+        
+        // No new frames written
+        if currentWriteIndex == lastCheckedWriteIndex {
+            return false
+        }
+        
+        // We have new frames. We must scan them for actual audio (non-silence).
+        // CoreAudio might keep calling the driver's WriteMix with zeroes even when silent.
+        let framesWritten: UInt32
+        if currentWriteIndex > lastCheckedWriteIndex {
+            framesWritten = currentWriteIndex - lastCheckedWriteIndex
+        } else {
+            framesWritten = SharedMemoryLayout.ringSize - lastCheckedWriteIndex + currentWriteIndex
+        }
+        
+        let channelCount = shmAddr.loadUInt32(offset: SharedMemoryLayout.Header.channelCountOffset)
+        let samplesPtr = shmAddr.advanced(by: SharedMemoryLayout.Header.samplesOffset).assumingMemoryBound(to: Float.self)
+        
+        let totalSamples = Int(framesWritten * channelCount)
+        let startIndex = Int(lastCheckedWriteIndex * channelCount)
+        let ringMax = Int(SharedMemoryLayout.ringSize * channelCount)
+        
+        var hasAudio = false
+        
+        // Scan the newly written samples. Threshold is equivalent to ~-80dB.
+        let silenceThreshold: Float = 0.0001
+        
+        // Optimized scan loop
+        if startIndex + totalSamples <= ringMax {
+            // No wrap
+            for i in 0..<totalSamples {
+                if abs(samplesPtr[startIndex + i]) > silenceThreshold {
+                    hasAudio = true
+                    break
+                }
+            }
+        } else {
+            // Wrap
+            let firstPart = ringMax - startIndex
+            for i in 0..<firstPart {
+                if abs(samplesPtr[startIndex + i]) > silenceThreshold {
+                    hasAudio = true
+                    break
+                }
+            }
+            if !hasAudio {
+                let secondPart = totalSamples - firstPart
+                for i in 0..<secondPart {
+                    if abs(samplesPtr[i]) > silenceThreshold {
+                        hasAudio = true
+                        break
+                    }
+                }
+            }
+        }
+        
+        lastCheckedWriteIndex = currentWriteIndex
+        return hasAudio
     }
 
     // MARK: - Audio Thread Method
