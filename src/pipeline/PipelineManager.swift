@@ -133,6 +133,23 @@ final class PipelineManager {
         renderPipeline?.prepareForStop()
     }
 
+    // MARK: - Sleep Management
+
+    /// Pauses the render pipeline for sleep.
+    func pauseForSleep() {
+        renderPipeline?.pauseForSleep()
+    }
+
+    /// Resumes the render pipeline from sleep.
+    func resumeFromSleep() {
+        renderPipeline?.resumeFromSleep()
+    }
+
+    /// Checks if the driver has new activity (for polling during sleep).
+    func isDriverActive() -> Bool {
+        return renderPipeline?.isDriverActive() ?? false
+    }
+
     // MARK: - Pipeline Pass-throughs
 
     /// Updates the processing mode on the render pipeline.
