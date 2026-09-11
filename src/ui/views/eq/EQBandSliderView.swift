@@ -15,6 +15,7 @@ struct EQBandSliderView: View {
 
     @State private var isShowingDetail = false
     @State private var dragStartGain: Float? = nil
+    @State private var gainScrollAdjustment = GainScrollAdjustment()
 
     var body: some View {
         VStack(spacing: 8) {
@@ -145,6 +146,13 @@ struct EQBandSliderView: View {
                     }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onVerticalScrollWheel { event in
+                gain = gainScrollAdjustment.adjustedGain(
+                    from: gain,
+                    scrollingDeltaY: event.scrollingDeltaY,
+                    hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas
+                )
+            }
         }
     }
 
