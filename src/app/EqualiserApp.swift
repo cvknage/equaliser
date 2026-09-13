@@ -1,13 +1,38 @@
 import SwiftUI
 
-// MARK: - Cleanup Delegate
+// MARK: - Application Delegate
 
 @MainActor
-final class AppCleanupDelegate: NSObject, NSApplicationDelegate {
+final class EqualiserAppDelegate: NSObject, NSApplicationDelegate {
     private weak var store: EqualiserStore?
+    private var rightClickMonitor: Any?
 
     func setStore(_ store: EqualiserStore) {
         self.store = store
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        rightClickMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: .rightMouseDown, handler: Self.handleRightClick
+        )
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let rightClickMonitor {
+            NSEvent.removeMonitor(rightClickMonitor)
+        }
+    }
+
+    static func handleRightClick(_ event: NSEvent) -> NSEvent? {
+        var view = event.window?.contentView?.hitTest(event.locationInWindow)
+        while let currentView = view {
+            if let button = currentView as? NSStatusBarButton {
+                button.performClick(nil)
+                return nil
+            }
+            view = currentView.superview
+        }
+        return event
     }
 }
 
@@ -17,7 +42,7 @@ final class AppCleanupDelegate: NSObject, NSApplicationDelegate {
 struct EqualiserMain: App {
     @StateObject private var store = EqualiserStore()
     @StateObject private var windowActivation = WindowActivationController()
-    @NSApplicationDelegateAdaptor(AppCleanupDelegate.self) var appDelegate
+    @NSApplicationDelegateAdaptor(EqualiserAppDelegate.self) var appDelegate
 
     init() {
         // IMPORTANT: Do NOT access @StateObject (self.store) here.
