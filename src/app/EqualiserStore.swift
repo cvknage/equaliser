@@ -78,6 +78,9 @@ final class EqualiserStore: ObservableObject {
     /// User preference for displaying bandwidth as octaves or Q factor.
     @Published var bandwidthDisplayMode: BandwidthDisplayMode = .qFactor
 
+    /// Whether to automatically apply the mapped EQ preset when the output device changes.
+    @Published var autoApplyDevicePresets: Bool = true
+
     // MARK: - Forwarded Properties from RoutingCoordinator
     
     var routingStatus: RoutingStatus { routingCoordinator.routingStatus }
@@ -200,6 +203,7 @@ final class EqualiserStore: ObservableObject {
     
     private(set) var deviceChangeCoordinator: DeviceChangeCoordinator
     private(set) var routingCoordinator: AudioRoutingCoordinator
+    private let devicePresetSwitchCoordinator: DevicePresetSwitchCoordinator
     private let systemDefaultObserver: SystemDefaultObserver
     private let compareModeTimer = CompareModeTimer()
     
@@ -225,6 +229,7 @@ final class EqualiserStore: ObservableObject {
             bandwidthDisplayMode: bandwidthDisplayMode.rawValue,
             manualModeEnabled: manualModeEnabled,
             captureMode: routingCoordinator.captureMode.rawValue,
+            autoApplyDevicePresets: autoApplyDevicePresets,
             metersEnabled: meterStore.metersEnabled
         )
     }
@@ -267,6 +272,19 @@ final class EqualiserStore: ObservableObject {
             systemDefaultObserver: systemDefaultObserver,
             sampleRateService: sampleRateService
         )
+        self.devicePresetSwitchCoordinator = DevicePresetSwitchCoordinator(
+            routingCoordinator: routingCoordinator,
+            presetManager: presetManager,
+            mappingService: DevicePresetMappingService()
+        )
+        
+        // Wire preset application after full initialisation
+        devicePresetSwitchCoordinator.onApplyPreset = { [weak self] name in
+            self?.loadPreset(named: name)
+        }
+        devicePresetSwitchCoordinator.autoApplyEnabledProvider = { [weak self] in
+            self?.autoApplyDevicePresets ?? true
+        }
         
         // Log macOS system default output
         if let macDefault = systemDefaultObserver.getCurrentSystemDefaultOutputUID() {
@@ -290,6 +308,7 @@ final class EqualiserStore: ObservableObject {
         if let snapshot = snapshot {
             logger.debug("Loading from snapshot: outputDeviceID=\(snapshot.outputDeviceID ?? "nil"), manualMode=\(snapshot.manualModeEnabled)")
             _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .qFactor)
+            _autoApplyDevicePresets = Published(initialValue: snapshot.autoApplyDevicePresets)
 
             // Restore capture mode preference
             routingCoordinator.captureMode = CaptureMode(rawValue: snapshot.captureMode) ?? .sharedMemory

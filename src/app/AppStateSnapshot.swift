@@ -30,6 +30,9 @@ struct AppStateSnapshot: Sendable {
     var manualModeEnabled: Bool
     var captureMode: Int  // CaptureMode.rawValue
 
+    /// Whether to automatically apply the mapped EQ preset when the output device changes.
+    var autoApplyDevicePresets: Bool = true
+
     // MARK: - Meter State
 
     var metersEnabled: Bool
@@ -50,6 +53,7 @@ struct AppStateSnapshot: Sendable {
             bandwidthDisplayMode: BandwidthDisplayMode.qFactor.rawValue,
             manualModeEnabled: false,
             captureMode: CaptureMode.sharedMemory.rawValue,
+            autoApplyDevicePresets: true,
             metersEnabled: true
         )
     }
@@ -72,6 +76,7 @@ extension AppStateSnapshot: Codable {
         case manualModeEnabled
         case captureMode
         case metersEnabled
+        case autoApplyDevicePresets
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +100,7 @@ extension AppStateSnapshot: Codable {
         captureMode = try container.decodeIfPresent(Int.self, forKey: .captureMode)
             ?? CaptureMode.sharedMemory.rawValue
         metersEnabled = try container.decodeIfPresent(Bool.self, forKey: .metersEnabled) ?? true
+        autoApplyDevicePresets = try container.decodeIfPresent(Bool.self, forKey: .autoApplyDevicePresets) ?? true
     }
 
     func encode(to encoder: Encoder) throws {
@@ -116,6 +122,7 @@ extension AppStateSnapshot: Codable {
         try container.encode(manualModeEnabled, forKey: .manualModeEnabled)
         try container.encode(captureMode, forKey: .captureMode)
         try container.encode(metersEnabled, forKey: .metersEnabled)
+        try container.encodeIfPresent(autoApplyDevicePresets, forKey: .autoApplyDevicePresets)
     }
 }
 

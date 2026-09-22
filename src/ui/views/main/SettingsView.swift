@@ -130,6 +130,24 @@ struct DisplaySettingsTab: View {
             }
 
             Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    ToggleWithHelp(
+                        label: "Apply per-device presets",
+                        isOn: Binding(
+                            get: { store.autoApplyDevicePresets },
+                            set: { store.autoApplyDevicePresets = $0 }
+                        ),
+                        helpText: "When the output device changes, automatically apply the EQ preset last used on that device."
+                    )
+                    Text("Remembered automatically when you select a preset on a device.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Device Presets")
+            }
+
+            Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Spacer()
