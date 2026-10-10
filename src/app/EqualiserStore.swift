@@ -78,6 +78,9 @@ final class EqualiserStore: ObservableObject {
     /// User preference for displaying bandwidth as octaves or Q factor.
     @Published var bandwidthDisplayMode: BandwidthDisplayMode = .qFactor
 
+    /// Automatic-mode output preference, applied on the next app launch.
+    @Published var preferMacDefaultOnStartup = false
+
     // MARK: - Forwarded Properties from RoutingCoordinator
     
     var routingStatus: RoutingStatus { routingCoordinator.routingStatus }
@@ -224,6 +227,7 @@ final class EqualiserStore: ObservableObject {
             outputDeviceID: routingCoordinator.selectedOutputDeviceID,
             bandwidthDisplayMode: bandwidthDisplayMode.rawValue,
             manualModeEnabled: manualModeEnabled,
+            preferMacDefaultOnStartup: preferMacDefaultOnStartup,
             captureMode: routingCoordinator.captureMode.rawValue,
             metersEnabled: meterStore.metersEnabled
         )
@@ -290,6 +294,7 @@ final class EqualiserStore: ObservableObject {
         if let snapshot = snapshot {
             logger.debug("Loading from snapshot: outputDeviceID=\(snapshot.outputDeviceID ?? "nil"), manualMode=\(snapshot.manualModeEnabled)")
             _bandwidthDisplayMode = Published(initialValue: BandwidthDisplayMode(rawValue: snapshot.bandwidthDisplayMode) ?? .qFactor)
+            _preferMacDefaultOnStartup = Published(initialValue: snapshot.preferMacDefaultOnStartup)
 
             // Restore capture mode preference
             routingCoordinator.captureMode = CaptureMode(rawValue: snapshot.captureMode) ?? .sharedMemory
@@ -610,7 +615,8 @@ final class EqualiserStore: ObservableObject {
         let selection = OutputDeviceSelection.determine(
             currentSelected: currentSelected,
             macDefault: macDefault,
-            availableDevices: deviceManager.outputDevices
+            availableDevices: deviceManager.outputDevices,
+            preferMacDefault: preferMacDefaultOnStartup
         )
 
         switch selection {

@@ -21,27 +21,31 @@ enum OutputDeviceSelection: Equatable {
     ///   - currentSelected: Currently selected output device UID (if any)
     ///   - macDefault: Current macOS default output device UID (if any)
     ///   - availableDevices: List of available output devices
+    ///   - preferMacDefault: Prefer the macOS default over a valid current selection
     /// - Returns: Selection decision indicating which device to use
     static func determine(
         currentSelected: String?,
         macDefault: String?,
-        availableDevices: [AudioDevice]
+        availableDevices: [AudioDevice],
+        preferMacDefault: Bool = false
     ) -> OutputDeviceSelection {
-        // If current selection exists and isn't the driver, preserve it
-        if let current = currentSelected,
-           let device = availableDevices.first(where: { $0.uid == current }),
-           device.isValidForSelection {
-            return .preserveCurrent(current)
+        let currentSelection = availableDevices.first {
+            $0.uid == currentSelected && $0.isValidForSelection
+        }.map {
+            OutputDeviceSelection.preserveCurrent($0.uid)
+        }
+        let defaultSelection = availableDevices.first {
+            $0.uid == macDefault && $0.isValidForSelection
+        }.map {
+            OutputDeviceSelection.useMacDefault($0.uid)
         }
 
-        // If macOS default exists and isn't the driver, use it
-        if let defaultUID = macDefault,
-           let device = availableDevices.first(where: { $0.uid == defaultUID }),
-           device.isValidForSelection {
-            return .useMacDefault(defaultUID)
+        // If macOS still points to the Equaliser driver after a crash,
+        // ignore it as an output destination and restore the saved output
+        // if available, regardless of the startup preference.
+        if preferMacDefault {
+            return defaultSelection ?? currentSelection ?? .useFallback
         }
-
-        // Otherwise need fallback
-        return .useFallback
+        return currentSelection ?? defaultSelection ?? .useFallback
     }
 }

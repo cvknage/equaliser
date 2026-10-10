@@ -130,6 +130,15 @@ struct DisplaySettingsTab: View {
             }
 
             Section {
+                Toggle("Use macOS output on startup", isOn: $store.preferMacDefaultOnStartup)
+                    .disabled(store.manualModeEnabled)
+            } header: {
+                Text("Startup Output")
+            } footer: {
+                Text("Applies on the next launch in automatic mode. When off, restore Equaliser’s last output. If macOS already uses Equaliser as its output, restore the last output in either case.")
+            }
+
+            Section {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Spacer()

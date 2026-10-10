@@ -28,6 +28,7 @@ struct AppStateSnapshot: Sendable {
     var outputDeviceID: String?
     var bandwidthDisplayMode: String
     var manualModeEnabled: Bool
+    var preferMacDefaultOnStartup: Bool = false
     var captureMode: Int  // CaptureMode.rawValue
 
     // MARK: - Meter State
@@ -70,6 +71,7 @@ extension AppStateSnapshot: Codable {
         case outputDeviceID
         case bandwidthDisplayMode
         case manualModeEnabled
+        case preferMacDefaultOnStartup
         case captureMode
         case metersEnabled
     }
@@ -92,6 +94,7 @@ extension AppStateSnapshot: Codable {
         bandwidthDisplayMode = try container.decodeIfPresent(String.self, forKey: .bandwidthDisplayMode)
             ?? BandwidthDisplayMode.qFactor.rawValue
         manualModeEnabled = try container.decodeIfPresent(Bool.self, forKey: .manualModeEnabled) ?? false
+        preferMacDefaultOnStartup = try container.decodeIfPresent(Bool.self, forKey: .preferMacDefaultOnStartup) ?? false
         captureMode = try container.decodeIfPresent(Int.self, forKey: .captureMode)
             ?? CaptureMode.sharedMemory.rawValue
         metersEnabled = try container.decodeIfPresent(Bool.self, forKey: .metersEnabled) ?? true
@@ -114,6 +117,7 @@ extension AppStateSnapshot: Codable {
         try container.encodeIfPresent(outputDeviceID, forKey: .outputDeviceID)
         try container.encode(bandwidthDisplayMode, forKey: .bandwidthDisplayMode)
         try container.encode(manualModeEnabled, forKey: .manualModeEnabled)
+        try container.encode(preferMacDefaultOnStartup, forKey: .preferMacDefaultOnStartup)
         try container.encode(captureMode, forKey: .captureMode)
         try container.encode(metersEnabled, forKey: .metersEnabled)
     }
