@@ -61,6 +61,7 @@ Detailed architecture documentation for the Equaliser app. See [AGENTS.md](AGENT
 | `src/device/change/OutputDeviceHistory.swift` | Output device history for reconnection |
 | `src/device/change/DeviceChangeCoordinator.swift` | Device change event coordination and headphone detection |
 | `src/device/OutputDeviceSelection.swift` | Pure output device selection logic (preserve/default/fallback) |
+| `src/presets/OutputPresetKey.swift` | Port-independent output device keys for preset assignments (pure) |
 | `src/device/volume/DeviceVolumeService.swift` | CoreAudio volume control |
 | `src/device/volume/VolumeManager.swift` | Volume sync between driver and output device |
 | `src/device/SystemDefaultObserver.swift` | macOS default output device observer |

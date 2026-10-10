@@ -66,20 +66,33 @@ final class PresetManager: ObservableObject {
     /// Whether the current EQ settings have been modified from the loaded preset.
     @Published var isModified: Bool = false
 
+    /// Output preset key (see `OutputPresetKey`) to preset-name assignments. One preset can serve several outputs.
+    @Published private(set) var outputPresets: [String: String] {
+        didSet { storage.set(outputPresets, forKey: Keys.outputPresets) }
+    }
+
+    @Published private(set) var outputDeviceNames: [String: String] {
+        didSet { storage.set(outputDeviceNames, forKey: Keys.outputDeviceNames) }
+    }
+
     // MARK: - Private Properties
 
     private let fileManager = FileManager.default
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
     private let logger = Logger(subsystem: "net.knage.equaliser", category: "PresetManager")
-    private let storage: UserDefaults
+    let storage: UserDefaults
+    private let directory: URL?
 
     private enum Keys {
         static let selectedPreset = "equalizer.selectedPreset"
+        static let outputPresets = "equaliser.outputPresets"
+        static let outputDeviceNames = "equaliser.outputDeviceNames"
     }
 
     /// The directory where presets are stored.
     private var presetsDirectory: URL {
+        if let directory { return directory }
         guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             // Fallback to Documents directory if Application Support is unavailable
             logger.warning("Application Support directory not found, falling back to Documents")
@@ -92,8 +105,11 @@ final class PresetManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init(storage: UserDefaults = .standard) {
+    init(storage: UserDefaults = .standard, directory: URL? = nil) {
         self.storage = storage
+        self.directory = directory
+        self.outputPresets = Self.loadOutputMap(forKey: Keys.outputPresets, from: storage)
+        self.outputDeviceNames = Self.loadOutputMap(forKey: Keys.outputDeviceNames, from: storage)
         self.encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
@@ -113,6 +129,12 @@ final class PresetManager: ObservableObject {
             selectPreset(named: "Flat")
             logger.debug("Auto-selected Flat preset as default")
         }
+    }
+
+    /// Re-keys entries saved before `OutputPresetKey` existed, merging duplicates deterministically.
+    private static func loadOutputMap(forKey key: String, from storage: UserDefaults) -> [String: String] {
+        let saved = storage.dictionary(forKey: key) as? [String: String] ?? [:]
+        return Dictionary(saved.map { (OutputPresetKey.make(for: $0.key), $0.value) }, uniquingKeysWith: min)
     }
 
     // MARK: - Directory Management
@@ -230,6 +252,7 @@ final class PresetManager: ObservableObject {
         }
 
         // Clear selection if the deleted preset was selected
+        outputPresets = outputPresets.filter { $0.value != name }
         if selectedPresetName == name {
             selectedPresetName = nil
             storage.removeObject(forKey: Keys.selectedPreset)
@@ -271,6 +294,7 @@ final class PresetManager: ObservableObject {
         }
 
         // Update selection if the renamed preset was selected
+        outputPresets = outputPresets.mapValues { $0 == oldName ? newName : $0 }
         if selectedPresetName == oldName {
             selectedPresetName = newName
             storage.set(newName, forKey: Keys.selectedPreset)
@@ -287,6 +311,28 @@ final class PresetManager: ObservableObject {
     /// Checks if a preset with the given name exists.
     func presetExists(named name: String) -> Bool {
         presets.contains { $0.metadata.name == name }
+    }
+
+    /// Returns the assigned preset, without falling back if it is missing.
+    func preset(forOutputDevice uid: String) -> Preset? {
+        guard let name = outputPresets[OutputPresetKey.make(for: uid)] else { return nil }
+        return preset(named: name)
+    }
+
+    /// Keep names so assignments remain editable when an output disappears from CoreAudio.
+    func rememberOutputDevices(_ devices: [AudioDevice]) {
+        var names = outputDeviceNames
+        for device in devices where device.isValidForSelection {
+            names[OutputPresetKey.make(for: device.uid)] = device.name
+        }
+        if names != outputDeviceNames { outputDeviceNames = names }
+    }
+
+    /// Replaces or clears an output's assignment without changing the active EQ.
+    func updateOutputPreset(named name: String?, for uid: String) {
+        guard !uid.isEmpty else { return }
+        if let name, !presetExists(named: name) { return }
+        outputPresets[OutputPresetKey.make(for: uid)] = name
     }
 
     /// Loads a preset by name with graceful fallback.

@@ -16,7 +16,15 @@ final class AudioRoutingCoordinator: ObservableObject {
     
     @Published var routingStatus: RoutingStatus = .idle
     @Published var selectedInputDeviceID: String?
-    @Published var selectedOutputDeviceID: String?
+    @Published var selectedOutputDeviceID: String? {
+        didSet {
+            guard selectedOutputDeviceID != oldValue else { return }
+            onOutputDeviceChanged?(selectedOutputDeviceID)
+        }
+    }
+
+    /// Called synchronously so output-specific settings are ready before routing starts.
+    var onOutputDeviceChanged: ((String?) -> Void)?
     @Published var manualModeEnabled: Bool = false {
         didSet { routingMode = manualModeEnabled ? ManualRoutingMode() as RoutingMode : AutomaticRoutingMode() as RoutingMode }
     }

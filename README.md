@@ -36,6 +36,7 @@ Level meters allow you to monitor both **input and output signals** in real time
 - **Compare Mode** — quickly A/B your EQ curve against a flat response.  
 - **Independent L/R EQ** — separate left/right channel curves for channel-specific adjustments.  
 - **Presets** — 11 carefully crafted presets for music, movies, and more.  
+- **Per-output presets** — automatically load a saved preset when switching speakers or headphones.
 - **Native light and dark mode** — adapts automatically to your macOS system appearance.  
 - **Real-time level meters** — monitor input/output and avoid distortion.  
 - **Automatic Audio Routing** — automatically captures macOS selected output device.  

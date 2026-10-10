@@ -96,46 +96,30 @@ struct PresetMenuLabelView: View {
 
 struct PresetMenuContentView: View {
     @EnvironmentObject var store: EqualiserStore
-    
-    private var viewModel: PresetViewModel {
-        PresetViewModel(store: store)
-    }
 
     var body: some View {
-        if !viewModel.hasPresets {
-            Text("No presets")
-                .foregroundStyle(.secondary)
-        } else {
-            if !store.presetManager.builtInPresets.isEmpty {
-                presetSection(title: "Built-in Presets", presets: store.presetManager.builtInPresets)
+        Picker("Preset", selection: Binding(
+            get: { store.presetManager.selectedPresetName },
+            set: { name in
+                if let name { store.loadPreset(named: name) }
             }
-
-            if !store.presetManager.userPresets.isEmpty {
-                presetSection(title: "Custom Presets", presets: store.presetManager.userPresets)
+        )) {
+            if store.presetManager.selectedPresetName == nil {
+                Text("Custom").tag(String?.none)
             }
+            presetSection(title: "Built-in Presets", presets: store.presetManager.builtInPresets)
+            presetSection(title: "Custom Presets", presets: store.presetManager.userPresets)
         }
-
-        Divider()
+        .pickerStyle(.inline)
+        .labelsHidden()
     }
 
     @ViewBuilder
     private func presetSection(title: String, presets: [Preset]) -> some View {
-        Section(title) {
-            ForEach(presets) { preset in
-                presetRow(for: preset)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func presetRow(for preset: Preset) -> some View {
-        Button {
-            store.loadPreset(preset)
-        } label: {
-            HStack {
-                Text(preset.metadata.name)
-                if preset.metadata.name == viewModel.selectedPresetName {
-                    Image(systemName: "checkmark")
+        if !presets.isEmpty {
+            Section(title) {
+                ForEach(presets) { preset in
+                    Text(preset.metadata.name).tag(Optional(preset.metadata.name))
                 }
             }
         }
@@ -500,6 +484,7 @@ struct PresetToolbar: View {
             
             HStack(spacing: 8) {
                 PresetPicker()
+                DevicePresetsButton()
 
                 // New preset button
                 Button {

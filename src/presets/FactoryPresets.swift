@@ -320,7 +320,7 @@ extension PresetManager {
 
     /// Installs factory presets if they don't exist or version changed.
     func installFactoryPresetsIfNeeded() {
-        let currentVersion = UserDefaults.standard.integer(forKey: Self.factoryVersionKey)
+        let currentVersion = storage.integer(forKey: Self.factoryVersionKey)
         let needsReinstall = currentVersion < Self.factoryPresetVersion
 
         for factoryPreset in FactoryPresets.all {
@@ -343,7 +343,7 @@ extension PresetManager {
         }
 
         if needsReinstall {
-            UserDefaults.standard.set(Self.factoryPresetVersion, forKey: Self.factoryVersionKey)
+            storage.set(Self.factoryPresetVersion, forKey: Self.factoryVersionKey)
         }
 
         // Reload once after all factory presets are saved
