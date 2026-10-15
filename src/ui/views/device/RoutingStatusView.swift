@@ -4,9 +4,11 @@ import SwiftUI
 /// Uses RoutingViewModel for all presentation logic (text, colors, icons).
 struct RoutingStatusView: View {
     let viewModel: RoutingViewModel
+    let showsOutputMenu: Bool
 
-    init(viewModel: RoutingViewModel) {
+    init(viewModel: RoutingViewModel, showsOutputMenu: Bool = false) {
         self.viewModel = viewModel
+        self.showsOutputMenu = showsOutputMenu
     }
 
     var body: some View {
@@ -14,6 +16,9 @@ struct RoutingStatusView: View {
             statusIcon
             statusText
             Spacer()
+            if showsOutputMenu {
+                OutputDeviceMenu(viewModel: viewModel)
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

@@ -58,7 +58,7 @@ struct EQWindowView: View {
                         DevicePickerView()
                     }
 
-                    RoutingStatusView(viewModel: routingViewModel)
+                    RoutingStatusView(viewModel: routingViewModel, showsOutputMenu: !routingViewModel.manualModeEnabled)
                         .frame(width: 376)
 
                     // Routing controls

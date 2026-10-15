@@ -39,6 +39,9 @@ struct MenuBarContentView: View {
             Text("Equaliser")
                 .font(.headline)
             Spacer()
+            if !routingViewModel.manualModeEnabled {
+                OutputDeviceMenu(viewModel: routingViewModel)
+            }
         }
     }
 
