@@ -53,6 +53,8 @@ struct SettingsView: View {
         }
         .onDisappear {
             windowActivation.windowBecameHidden(.settings)
+            // Show an edited device name in Control Center too (briefly toggles output).
+            store.commitDriverNameFormat()
         }
     }
 }
@@ -170,6 +172,12 @@ struct DisplaySettingsTab: View {
             } header: {
                 Text("Bandwidth Display")
             }
+
+            Section {
+                DriverNameFormatSection()
+            } header: {
+                Text("Device Name")
+            }
         }
         .formStyle(.grouped)
         .padding()
@@ -187,6 +195,73 @@ struct DisplaySettingsTab: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("Manual mode requires microphone permission.\n\nOpen System Settings to enable it.")
+        }
+    }
+}
+
+/// Edits the name macOS shows for Equaliser's virtual device in automatic mode.
+private struct DriverNameFormatSection: View {
+    @EnvironmentObject var store: EqualiserStore
+    @StateObject private var field = DriverNameFormatFieldController()
+
+    /// Inserts at the field's cursor, or appends if the field is unavailable.
+    private func insert(_ segment: DriverNameFormat.Segment) {
+        if !field.insert(segment) {
+            store.driverNameFormat = DriverNameFormat(segments: store.driverNameFormat.segments + [segment])
+        }
+    }
+
+    private var previewValues: DriverNameFormat.Values {
+        let device = store.selectedOutputDeviceID.flatMap { uid in
+            store.outputDevices.first { $0.uid == uid }?.name
+        } ?? "Speakers"
+        return DriverNameFormat.Values(
+            device: device,
+            preset: store.presetManager.selectedPresetName,
+            eqEnabled: !store.isBypassed
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            DriverNameFormatField(format: $store.driverNameFormat, controller: field)
+
+            HStack(spacing: 6) {
+                ForEach(DriverNameFormat.Token.allCases, id: \.self) { token in
+                    Button(token.displayName) {
+                        insert(.token(token))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("Insert \(token.displayName) at the cursor")
+                }
+                Button("→") {
+                    insert(.text(" → "))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Insert an arrow at the cursor")
+                Spacer()
+                Button("Reset") {
+                    store.driverNameFormat = .default
+                }
+                .controlSize(.small)
+                .disabled(store.driverNameFormat == .default)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Preview: \(store.driverNameFormat.render(previewValues))")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                Text("Shown in macOS Sound settings in automatic mode")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if store.driverNameFormat.usesEQTokens {
+                    Text("Preset and EQ State update in Control Center on the next output switch")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }

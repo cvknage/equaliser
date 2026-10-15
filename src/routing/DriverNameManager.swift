@@ -7,7 +7,7 @@ import OSLog
 /// Manages the Equaliser driver's display name.
 ///
 /// The driver name is updated to reflect the current output device:
-/// - Automatic mode: "{OutputDeviceName} (Equaliser)"
+/// - Automatic mode: rendered from the user's `DriverNameFormat`, e.g. "Speakers (Equaliser)"
 /// - Manual mode: "Equaliser"
 ///
 /// ## CoreAudio Refresh Workaround
@@ -40,6 +40,20 @@ final class DriverNameManager {
         subsystem: "net.knage.equaliser",
         category: "DriverNameManager"
     )
+
+    /// Last name successfully set, to skip redundant renames.
+    private var lastName: String?
+
+    /// Last name set with the Control Center refresh toggle.
+    private(set) var lastRefreshedName: String?
+
+    /// Template for the automatic-mode name.
+    var format: DriverNameFormat = .default
+
+    /// Supplies the current preset name and EQ state for the format's tokens.
+    var currentValues: (_ device: String) -> DriverNameFormat.Values = {
+        DriverNameFormat.Values(device: $0, preset: nil, eqEnabled: true)
+    }
 
     // MARK: - Initialization
 
@@ -88,15 +102,32 @@ final class DriverNameManager {
             return false
         }
         
-        let driverName = "\(outputDevice.name) (Equaliser)"
+        let driverName = format.render(currentValues(outputDevice.name))
         return setDriverName(driverName, outputUID: outputUID)
     }
-    
+
+    /// Re-renders the name after a preset, EQ state or format change, without the
+    /// default-output toggle so audio is not interrupted. System Settings shows the new
+    /// name right away; Control Center keeps its cached name until the next output change.
+    @discardableResult
+    func refreshDriverName(selectedOutputDevice: AudioDevice?) -> Bool {
+        guard let outputDevice = selectedOutputDevice, driverAccess.isDriverVisible() else { return false }
+        let driverName = format.render(currentValues(outputDevice.name))
+        guard driverName != lastName else { return true }
+        let success = driverAccess.setDeviceName(driverName)
+        if success {
+            lastName = driverName
+            deviceProvider.refreshDevices()
+        }
+        return success
+    }
+
     // MARK: - Private Implementation
     
     /// Resets driver name to "Equaliser" (manual mode).
     private func resetDriverName(outputUID: String?) -> Bool {
         let success = driverAccess.setDeviceName("Equaliser")
+        if success { lastName = "Equaliser" }
         
         guard success, let outputUID = outputUID else {
             return success
@@ -122,8 +153,17 @@ final class DriverNameManager {
     }
     
     /// Sets driver name to reflect output device (automatic mode).
+    /// The automatic-mode name for an output device with the current format and values.
+    func renderedName(for outputDevice: AudioDevice) -> String {
+        format.render(currentValues(outputDevice.name))
+    }
+
     private func setDriverName(_ name: String, outputUID: String) -> Bool {
         let success = driverAccess.setDeviceName(name)
+        if success {
+            lastName = name
+            lastRefreshedName = name
+        }
         
         guard success, driverAccess.deviceID != nil else {
             return success

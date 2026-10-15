@@ -78,7 +78,7 @@ The simplest way to use Equaliser. Set it once and forget about it.
 | Feature | Behaviour |
 |---------|-----------|
 | **Output Selection** | Follows your macOS Sound settings automatically |
-| **Driver Naming** | Shows the output device name (e.g., "Speakers (Equaliser)") |
+| **Driver Naming** | Shows the output device name (e.g., "Speakers (Equaliser)"); the format is configurable in Settings → Display → Device Name, with Device, Preset and EQ State tokens |
 | **Device Changes** | Instantly follows when you change macOS default output |
 | **Headphones** | Auto-switches to headphones when plugged in |
 

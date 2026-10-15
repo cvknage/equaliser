@@ -34,6 +34,11 @@ struct AppStateSnapshot: Sendable {
 
     var metersEnabled: Bool
 
+    // MARK: - Driver Name
+
+    /// Stored `DriverNameFormat` for the virtual device name.
+    var driverNameFormat: String = DriverNameFormat.default.string
+
     // MARK: - Defaults
 
     static var `default`: AppStateSnapshot {
@@ -72,6 +77,7 @@ extension AppStateSnapshot: Codable {
         case manualModeEnabled
         case captureMode
         case metersEnabled
+        case driverNameFormat
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +101,8 @@ extension AppStateSnapshot: Codable {
         captureMode = try container.decodeIfPresent(Int.self, forKey: .captureMode)
             ?? CaptureMode.sharedMemory.rawValue
         metersEnabled = try container.decodeIfPresent(Bool.self, forKey: .metersEnabled) ?? true
+        driverNameFormat = try container.decodeIfPresent(String.self, forKey: .driverNameFormat)
+            ?? DriverNameFormat.default.string
     }
 
     func encode(to encoder: Encoder) throws {
@@ -116,6 +124,7 @@ extension AppStateSnapshot: Codable {
         try container.encode(manualModeEnabled, forKey: .manualModeEnabled)
         try container.encode(captureMode, forKey: .captureMode)
         try container.encode(metersEnabled, forKey: .metersEnabled)
+        try container.encode(driverNameFormat, forKey: .driverNameFormat)
     }
 }
 

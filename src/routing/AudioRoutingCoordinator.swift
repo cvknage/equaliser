@@ -224,12 +224,7 @@ final class AudioRoutingCoordinator: ObservableObject {
 
             // Pre-sync driver volume BEFORE updateDriverName() to prevent macOS volume sync
             // from overwriting the new output device's volume.
-            if let outputDeviceID = deviceProvider.deviceID(forUID: devices.outputUID),
-               let driverID = driverAccess.deviceID,
-               let volume = volumeService.getDeviceVolumeScalar(deviceID: outputDeviceID) {
-                _ = volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: volume)
-                logger.info("Pre-synced driver volume to: \(volume)")
-            }
+            preSyncDriverVolume(outputUID: devices.outputUID)
 
             // Rename driver to match output device
             _ = updateDriverName()
@@ -459,7 +454,8 @@ final class AudioRoutingCoordinator: ObservableObject {
                 inputName = inputDevice.name
             }
         } else {
-            inputName = "\(outputDevice.name) (Equaliser)"
+            // The status already names the output, so the driver is just "Equaliser"
+            inputName = "Equaliser"
         }
 
         routingStatus = .starting
@@ -1045,6 +1041,47 @@ final class AudioRoutingCoordinator: ObservableObject {
     // MARK: - Init-time Configuration
 
     // MARK: - Driver Name Management
+
+    /// Template for the virtual device name in automatic mode.
+    var driverNameFormat: DriverNameFormat {
+        get { driverNameManager.format }
+        set { driverNameManager.format = newValue }
+    }
+
+    /// Supplies preset and EQ state for the driver name tokens.
+    var driverNameValues: (_ device: String) -> DriverNameFormat.Values {
+        get { driverNameManager.currentValues }
+        set { driverNameManager.currentValues = newValue }
+    }
+
+    /// Renames the driver and runs the default-output toggle so Control Center shows the
+    /// new name too. Briefly switches output, so use it for deliberate edits only.
+    func applyDriverNameWithRefresh() {
+        guard !manualModeEnabled, routingStatus.isActive,
+              let outputUID = selectedOutputDeviceID,
+              let outputDevice = deviceProvider.device(forUID: outputUID),
+              driverNameManager.renderedName(for: outputDevice) != driverNameManager.lastRefreshedName else { return }
+
+        preSyncDriverVolume(outputUID: outputUID)
+        _ = updateDriverName()
+        systemDefaultObserver.setDriverAsDefault(shortTimeout: true)
+    }
+
+    private func preSyncDriverVolume(outputUID: String) {
+        if let outputDeviceID = deviceProvider.deviceID(forUID: outputUID),
+           let driverID = driverAccess.deviceID,
+           let volume = volumeService.getDeviceVolumeScalar(deviceID: outputDeviceID) {
+            _ = volumeService.setDeviceVolumeScalar(deviceID: driverID, volume: volume)
+            logger.info("Pre-synced driver volume to: \(volume)")
+        }
+    }
+
+    /// Re-renders the driver name in place (automatic mode, routing active).
+    func refreshDriverName() {
+        guard !manualModeEnabled, routingStatus.isActive else { return }
+        let outputDevice = selectedOutputDeviceID.flatMap { deviceProvider.device(forUID: $0) }
+        driverNameManager.refreshDriverName(selectedOutputDevice: outputDevice)
+    }
 
     /// Updates the driver name based on current routing state.
     /// Delegates to DriverNameManager for the CoreAudio refresh workaround.

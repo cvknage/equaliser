@@ -18,6 +18,7 @@ final class EqualiserStore: ObservableObject {
         set {
             eqConfiguration.globalBypass = newValue
             routingCoordinator.updateProcessingMode(systemEQOff: newValue, compareMode: compareMode)
+            routingCoordinator.refreshDriverName()
         }
     }
     
@@ -77,6 +78,20 @@ final class EqualiserStore: ObservableObject {
     
     /// User preference for displaying bandwidth as octaves or Q factor.
     @Published var bandwidthDisplayMode: BandwidthDisplayMode = .qFactor
+
+    /// Name template for the virtual device in automatic mode.
+    @Published var driverNameFormat: DriverNameFormat = .default {
+        didSet {
+            routingCoordinator.driverNameFormat = driverNameFormat
+            routingCoordinator.refreshDriverName()
+        }
+    }
+
+    /// Call when the user is done editing the name format (Settings closed), so
+    /// Control Center shows the new name as well.
+    func commitDriverNameFormat() {
+        routingCoordinator.applyDriverNameWithRefresh()
+    }
 
     // MARK: - Forwarded Properties from RoutingCoordinator
     
@@ -225,7 +240,8 @@ final class EqualiserStore: ObservableObject {
             bandwidthDisplayMode: bandwidthDisplayMode.rawValue,
             manualModeEnabled: manualModeEnabled,
             captureMode: routingCoordinator.captureMode.rawValue,
-            metersEnabled: meterStore.metersEnabled
+            metersEnabled: meterStore.metersEnabled,
+            driverNameFormat: driverNameFormat.string
         )
     }
     
@@ -285,6 +301,18 @@ final class EqualiserStore: ObservableObject {
         }
         
         persistence.setStore(self)
+
+        // Driver name template and the values for its tokens
+        let nameFormat = snapshot.map { DriverNameFormat(string: $0.driverNameFormat) } ?? .default
+        _driverNameFormat = Published(initialValue: nameFormat)
+        routingCoordinator.driverNameFormat = nameFormat
+        routingCoordinator.driverNameValues = { [weak self] device in
+            DriverNameFormat.Values(
+                device: device,
+                preset: self?.presetManager.selectedPresetName,
+                eqEnabled: !(self?.isBypassed ?? false)
+            )
+        }
         
         // Restore app-level state
         if let snapshot = snapshot {
@@ -359,6 +387,15 @@ final class EqualiserStore: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        // Keep a {preset} token in the driver name current
+        presetManager.$selectedPresetName
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.routingCoordinator.refreshDriverName()
             }
             .store(in: &cancellables)
         
